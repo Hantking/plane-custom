@@ -5,6 +5,7 @@
  */
 
 import { useState } from "react";
+import { CustomFieldsForm } from "@/components/custom-fields/task-fields";
 import { observer } from "mobx-react";
 import type { Control } from "react-hook-form";
 import { Controller } from "react-hook-form";
@@ -85,6 +86,9 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {!isDraft && projectId && (
+        <CustomFieldsForm control={control} workspace={workspaceSlug} project={projectId} issue={id} />
+      )}
       <Controller
         control={control}
         name="state_id"

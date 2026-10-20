@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { CustomTableHeaders } from "@/components/custom-fields/table-columns";
 import { useParams } from "next/navigation";
 // constants
 import { SPREADSHEET_SELECT_GROUP } from "@plane/constants";
@@ -87,6 +88,7 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
             isEpic={isEpic}
           />
         ))}
+        <CustomTableHeaders />
       </tr>
     </thead>
   );

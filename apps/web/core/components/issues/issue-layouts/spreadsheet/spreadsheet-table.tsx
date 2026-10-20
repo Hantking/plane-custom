@@ -7,6 +7,7 @@
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
+import { CustomTableProvider } from "@/components/custom-fields/table-columns";
 // plane imports
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties, TIssue } from "@plane/types";
 // components
@@ -111,44 +112,46 @@ export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props)
   const displayPropertiesCount = getDisplayPropertiesCount(displayProperties, ignoreFieldsForCounting);
 
   return (
-    <table className="w-full overflow-y-auto bg-surface-1" onKeyDown={handleKeyBoardNavigation}>
-      <SpreadsheetHeader
-        displayProperties={displayProperties}
-        displayFilters={displayFilters}
-        handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-        canEditProperties={canEditProperties}
-        isEstimateEnabled={isEstimateEnabled}
-        spreadsheetColumnsList={spreadsheetColumnsList}
-        selectionHelpers={selectionHelpers}
-        isEpic={isEpic}
-      />
-      <tbody>
-        {issueIds.map((id) => (
-          <SpreadsheetIssueRow
-            key={id}
-            issueId={id}
-            displayProperties={displayProperties}
-            quickActions={quickActions}
-            canEditProperties={canEditProperties}
-            nestingLevel={0}
-            isEstimateEnabled={isEstimateEnabled}
-            updateIssue={updateIssue}
-            portalElement={portalElement}
-            containerRef={containerRef}
-            isScrolled={isScrolled}
-            spreadsheetColumnsList={spreadsheetColumnsList}
-            selectionHelpers={selectionHelpers}
-            isEpic={isEpic}
-          />
-        ))}
-      </tbody>
-      {canLoadMoreIssues && (
-        <tfoot ref={setIntersectionElement}>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <SpreadsheetIssueRowLoader key={index} columnCount={displayPropertiesCount} />
+    <CustomTableProvider issueIds={issueIds}>
+      <table className="w-full overflow-y-auto bg-surface-1" onKeyDown={handleKeyBoardNavigation}>
+        <SpreadsheetHeader
+          displayProperties={displayProperties}
+          displayFilters={displayFilters}
+          handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+          canEditProperties={canEditProperties}
+          isEstimateEnabled={isEstimateEnabled}
+          spreadsheetColumnsList={spreadsheetColumnsList}
+          selectionHelpers={selectionHelpers}
+          isEpic={isEpic}
+        />
+        <tbody>
+          {issueIds.map((id) => (
+            <SpreadsheetIssueRow
+              key={id}
+              issueId={id}
+              displayProperties={displayProperties}
+              quickActions={quickActions}
+              canEditProperties={canEditProperties}
+              nestingLevel={0}
+              isEstimateEnabled={isEstimateEnabled}
+              updateIssue={updateIssue}
+              portalElement={portalElement}
+              containerRef={containerRef}
+              isScrolled={isScrolled}
+              spreadsheetColumnsList={spreadsheetColumnsList}
+              selectionHelpers={selectionHelpers}
+              isEpic={isEpic}
+            />
           ))}
-        </tfoot>
-      )}
-    </table>
+        </tbody>
+        {canLoadMoreIssues && (
+          <tfoot ref={setIntersectionElement}>
+            {["loading-1", "loading-2", "loading-3"].map((key) => (
+              <SpreadsheetIssueRowLoader key={key} columnCount={displayPropertiesCount} />
+            ))}
+          </tfoot>
+        )}
+      </table>
+    </CustomTableProvider>
   );
 });

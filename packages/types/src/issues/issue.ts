@@ -43,6 +43,7 @@ export enum EIssuesStoreType {
 }
 
 export type TBaseIssue = {
+  custom_fields?: Record<string, string | boolean | null>;
   id: string;
   sequence_id: number;
   name: string;

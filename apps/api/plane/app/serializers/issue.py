@@ -10,6 +10,7 @@ from django.db import IntegrityError
 
 # Third Party imports
 from rest_framework import serializers
+from plane.custom_fields.serializers import CustomFieldsSerializerMixin
 
 # Module imports
 from .base import BaseSerializer, DynamicBaseSerializer
@@ -79,7 +80,8 @@ class IssueProjectLiteSerializer(BaseSerializer):
 
 ##TODO: Find a better way to write this serializer
 ## Find a better approach to save manytomany?
-class IssueCreateSerializer(BaseSerializer):
+class IssueCreateSerializer(CustomFieldsSerializerMixin, BaseSerializer):
+    custom_fields = serializers.JSONField(required=False, write_only=True)
     # ids
     state_id = serializers.PrimaryKeyRelatedField(
         source="state", queryset=State.all_state_objects.all(), required=False, allow_null=True

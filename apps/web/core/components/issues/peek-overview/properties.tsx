@@ -5,6 +5,7 @@
  */
 
 import { observer } from "mobx-react";
+import { TaskCustomFields } from "@/components/custom-fields/task-fields";
 // i18n
 import { useTranslation } from "@plane/i18n";
 // ui icons
@@ -243,6 +244,7 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
         <SidebarPropertyListItem icon={LabelPropertyIcon} label={t("common.labels")}>
           <IssueLabel workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
         </SidebarPropertyListItem>
+        <TaskCustomFields workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={disabled} />
       </div>
     </div>
   );

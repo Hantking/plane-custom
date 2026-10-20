@@ -110,6 +110,12 @@ export const IssuesHeader = observer(function IssuesHeader() {
         )}
       </Header.LeftItem>
       <Header.RightItem>
+        <a
+          className="rounded border border-subtle px-2 py-1 text-13 text-primary"
+          href={`/${workspaceSlug}/projects/${projectId}/custom-fields/`}
+        >
+          Campos e visualizações
+        </a>
         <div className="hidden gap-2 md:flex">
           <HeaderFilters
             projectId={projectId}

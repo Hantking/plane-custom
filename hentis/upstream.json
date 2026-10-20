@@ -1,0 +1,5 @@
+{
+  "tag": "v1.4.2",
+  "commit": "5f7d92784c403f76284f0f16718f320221dc7fec",
+  "backend_image": "makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef"
+}
