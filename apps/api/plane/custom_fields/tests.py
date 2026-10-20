@@ -176,6 +176,38 @@ class CustomFieldsIntegrationTests(TestCase):
         self.assertEqual([str(v["id"]) for v in response.data], [str(public.id)])
         self.assertEqual(self.client.delete(self.base + f"views/{public.id}/").status_code, 403)
 
+    def test_option_background_color_round_trips_without_changing_task_values(self):
+        selected = self.select.options[0]["id"]
+        self.assertEqual(self.save(self.issue, {str(self.select.id): selected}).status_code, 200)
+        options = [{**option, "color": "#F59E0B"} for option in self.select.options]
+        response = self.client.patch(self.base + f"definitions/{self.select.id}/", {"options": options}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["options"][0]["color"], "#f59e0b")
+        self.assertEqual(Value.objects.get(issue=self.issue).option_value, selected)
+        self.assertEqual(Change.objects.filter(issue=self.issue).count(), 1)
+        metadata = self.client.get(self.base)
+        saved = next(field for field in metadata.data["fields"] if field["id"] == str(self.select.id))
+        self.assertEqual(saved["options"][0]["color"], "#f59e0b")
+
+    def test_invalid_option_colors_are_rejected_without_overwriting_definition(self):
+        for color in ("red", "#fff", "#12345678", "url(example)", None, 123456):
+            with self.subTest(color=color):
+                options = [{**option, "color": color} for option in self.select.options]
+                response = self.client.patch(
+                    self.base + f"definitions/{self.select.id}/", {"options": options}, format="json"
+                )
+                self.assertEqual(response.status_code, 400)
+        self.select.refresh_from_db()
+        self.assertNotIn("color", self.select.options[0])
+
+    def test_old_options_without_colors_remain_valid(self):
+        options = [{"id": str(uuid4()), "label": "Legacy option"}]
+        response = self.client.post(
+            self.base, {"name": "Legacy selection", "kind": "select", "options": options}, format="json"
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["options"], options)
+
     def test_moving_issue_does_not_expose_old_project_custom_data(self):
         self.save(self.issue, {str(self.numeric.id): "33"})
         self.issue.project = self.other

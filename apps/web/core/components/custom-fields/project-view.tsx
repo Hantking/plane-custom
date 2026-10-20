@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import useSWR from "swr";
-import { FieldInput, displayValue } from "./inputs";
+import { FieldDisplay, FieldInput, OptionBadge } from "./inputs";
 import { FieldManager } from "./manager";
 import { fieldError, fieldInputClass, fieldsService } from "./service";
 import type { Condition, CustomField, CustomItem, FieldValue, Group, ViewConfig } from "./service";
@@ -104,6 +104,7 @@ function GroupColumn({
   refresh: () => Promise<unknown>;
 }) {
   const [rows, setRows] = useState(group.results);
+  const groupOption = field.kind === "select" ? field.options.find((option) => option.id === group.key) : undefined;
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(group.has_more);
   const [error, setError] = useState("");
@@ -157,7 +158,8 @@ function GroupColumn({
       }}
     >
       <h3 className="mb-3 font-medium">
-        {group.label} <span className="text-secondary">({group.count})</span>
+        {groupOption ? <OptionBadge option={groupOption} /> : group.label}{" "}
+        <span className="text-secondary">({group.count})</span>
       </h3>
       <div className="space-y-2">
         {rows.map((item) => (
@@ -175,7 +177,7 @@ function GroupColumn({
             </p>
             {fields.map((f) => (
               <p key={f.id} className="mt-1 text-13">
-                {f.name}: {displayValue(f, item.custom_fields[f.id])}
+                {f.name}: <FieldDisplay field={f} value={item.custom_fields[f.id]} />
               </p>
             ))}
             {canEdit && (

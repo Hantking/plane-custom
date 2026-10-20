@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { CustomField } from "./service";
 import { fieldError, fieldInputClass, fieldsService } from "./service";
+import { OptionBadge } from "./inputs";
+import { optionBackground, OPTION_PALETTE } from "./option-colors";
 
 const blank = (): Partial<CustomField> => ({
   name: "",
@@ -125,8 +127,12 @@ export function FieldManager({
         {form.kind === "select" && (
           <div className="space-y-2">
             <h4 className="text-13">Opções (máximo 50)</h4>
+            <p className="text-13 text-secondary">
+              Escolha a cor de fundo da caixa de cada opção. A cor do texto é ajustada automaticamente para manter a
+              leitura.
+            </p>
             {form.options?.map((option) => (
-              <div className="flex gap-2" key={option.id}>
+              <div className="flex flex-wrap items-center gap-2" key={option.id}>
                 <input
                   aria-label="Nome da opção"
                   className={fieldInputClass}
@@ -140,6 +146,24 @@ export function FieldManager({
                     })
                   }
                 />
+                <label className="flex items-center gap-2 text-13">
+                  Cor de fundo
+                  <input
+                    type="color"
+                    className="h-8 w-10 cursor-pointer rounded border border-subtle"
+                    aria-label={`Cor de fundo de ${option.label || "nova opção"}`}
+                    value={optionBackground(option)}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        options: form.options?.map((item) =>
+                          item.id === option.id ? { ...item, color: e.target.value } : item
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <OptionBadge option={{ ...option, label: option.label || "Prévia" }} />
                 <button
                   type="button"
                   onClick={() => setForm({ ...form, options: form.options?.filter((o) => o.id !== option.id) })}
@@ -152,7 +176,17 @@ export function FieldManager({
               type="button"
               disabled={(form.options?.length ?? 0) >= 50}
               onClick={() =>
-                setForm({ ...form, options: [...(form.options ?? []), { id: crypto.randomUUID(), label: "" }] })
+                setForm({
+                  ...form,
+                  options: [
+                    ...(form.options ?? []),
+                    {
+                      id: crypto.randomUUID(),
+                      label: "",
+                      color: OPTION_PALETTE[(form.options?.length ?? 0) % OPTION_PALETTE.length],
+                    },
+                  ],
+                })
               }
             >
               + Adicionar opção

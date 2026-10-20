@@ -1,4 +1,5 @@
 from uuid import UUID
+import re
 
 from django.db import transaction
 from rest_framework import serializers
@@ -31,8 +32,17 @@ class FieldSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Máximo de 50 opções.")
         ids, names = set(), set()
         for option in options:
-            if not isinstance(option, dict) or set(option) != {"id", "label"}:
-                raise serializers.ValidationError("Cada opção precisa de id UUID e label.")
+            if (
+                not isinstance(option, dict)
+                or not {"id", "label"}.issubset(option)
+                or set(option) - {"id", "label", "color"}
+            ):
+                raise serializers.ValidationError("Cada opção precisa de id UUID, label e uma cor opcional.")
+            if "color" in option:
+                color = option["color"]
+                if not isinstance(color, str) or re.fullmatch(r"#[0-9a-fA-F]{6}", color) is None:
+                    raise serializers.ValidationError("Cor inválida. Use o formato hexadecimal #RRGGBB.")
+                option["color"] = color.lower()
             try:
                 key = str(UUID(str(option["id"])))
             except (ValueError, TypeError):

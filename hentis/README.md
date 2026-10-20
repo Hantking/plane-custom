@@ -14,6 +14,12 @@ Campos obrigatórios são validados na criação nativa da tarefa e ao limpar um
 
 ## Arquitetura
 
+### Cores das opções de seleção única
+
+Em **Gerenciar campos do projeto**, cada opção de seleção tem um seletor **Cor de fundo** e uma prévia da caixa colorida. A mesma caixa é usada nos formulários, detalhes, tabelas, filtros, cartões e cabeçalhos de grupos. O texto recebe contraste automático; o administrador configura apenas o fundo.
+
+A cor é metadado opcional `color: "#RRGGBB"` na opção. Opções antigas sem cor recebem fundo neutro na interface, mantendo IDs, valores preenchidos e filtros. Não há alteração de esquema ou migração de dados para essa melhoria.
+
 - Django app isolado `plane.custom_fields` (label `hentis_fields`) com migrações próprias.
 - Tabelas `hentis_custom_*` sem colunas extras na tabela oficial de tarefas.
 - Sessão/permissões do Plane, incluindo limitação de convidados às próprias tarefas.

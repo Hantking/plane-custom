@@ -3,6 +3,7 @@ import { APIService } from "@/services/api.service";
 
 export type FieldValue = string | boolean | null;
 export type FieldValues = Record<string, FieldValue>;
+export type SelectOption = { id: string; label: string; color?: string };
 export type CustomField = {
   id: string;
   name: string;
@@ -11,7 +12,7 @@ export type CustomField = {
   required: boolean;
   active: boolean;
   position: number;
-  options: { id: string; label: string }[];
+  options: SelectOption[];
 };
 export type FieldMeta = { fields: CustomField[]; can_manage: boolean; can_edit: boolean };
 export type Condition = { id: string; field: string; operator: string; value?: FieldValue };
