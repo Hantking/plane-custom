@@ -1,7 +1,7 @@
 import json
 
 from django.db import transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -11,9 +11,10 @@ from plane.app.permissions import ROLE, allow_permission
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import Issue, Project, ProjectMember, WorkspaceMember
 
-from .models import Change, Field, SavedView
+from .models import Change, Field, SavedView, Value
 from .serializers import FieldSerializer, SavedViewSerializer
-from .services import field_annotation, filter_items, save_values, validate_values, values_for
+from .services import field_annotation, filter_items, move_selection, save_values, validate_values, values_for
+from .conversions import rewrite_views
 
 READ = [ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST]
 WRITE = [ROLE.ADMIN, ROLE.MEMBER]
@@ -81,6 +82,14 @@ class FieldEndpoint(ProjectEndpoint):
             serializer.save()
         return Response(serializer.data)
 
+    @allow_permission([ROLE.ADMIN])
+    def delete(self, request, slug, project_id, field_id):
+        with transaction.atomic():
+            field = get_object_or_404(Field.objects.select_for_update(), pk=field_id, project=self.project())
+            rewrite_views(field, deleting=True)
+            field.delete()
+        return Response(status=204)
+
 
 class ValuesEndpoint(ProjectEndpoint):
     @allow_permission(READ)
@@ -113,8 +122,13 @@ class ValuesEndpoint(ProjectEndpoint):
             issue = get_object_or_404(self.items(include_archived=True).select_for_update(), pk=issue_id)
             if issue.archived_at or issue.project.archived_at:
                 raise ValidationError("Não é possível editar uma tarefa arquivada.")
-            prepared = validate_values(project_id, request.data.get("values"))
-            save_values(issue, prepared, request.user.id)
+            if "selection_move" in request.data:
+                if "values" in request.data:
+                    raise ValidationError("Informe valores ou movimento, não ambos.")
+                move_selection(issue, request.data["selection_move"], request.user.id)
+            else:
+                prepared = validate_values(project_id, request.data.get("values"))
+                save_values(issue, prepared, request.user.id)
         return Response({"values": values_for([issue])[str(issue.id)]})
 
 
@@ -154,11 +168,17 @@ def view_config(project_id, config):
         raise ValidationError("Colunas inválidas.")
     config = {**config, "columns": [key for key in dict.fromkeys(config.get("columns", [])) if key in fields]}
     group = config.get("group_by")
-    if group and (not isinstance(group, str) or group not in fields or fields[group].kind not in ("select", "boolean")):
-        raise ValidationError("Agrupamento disponível para seleção e sim/não.")
+    if group and (
+        not isinstance(group, str)
+        or group not in fields
+        or fields[group].kind not in ("select", "multiselect", "boolean")
+    ):
+        raise ValidationError("Agrupamento disponível para seleção única/múltipla e sim/não.")
     order = config.get("order_by", "-created_at")
     if not isinstance(order, str) or order.lstrip("-") not in {"created_at", "name", *fields}:
         raise ValidationError("Ordenação inválida.")
+    if order.lstrip("-") in fields and fields[order.lstrip("-")].kind == "multiselect":
+        raise ValidationError("Seleção múltipla pode ser filtrada e agrupada; escolha outro campo para ordenar.")
     if not isinstance(config.get("search", ""), str) or len(config.get("search", "")) > 255:
         raise ValidationError("Busca inválida.")
     if config.get("priority", "") not in ("", "none", "low", "medium", "high", "urgent"):
@@ -197,10 +217,11 @@ class ItemsEndpoint(ProjectEndpoint):
         size = 25
         if group:
             field, annotation = field_annotation(project_id, group)
-            query = query.annotate(_hentis_group=annotation)
+            if field.kind != "multiselect":
+                query = query.annotate(_hentis_group=annotation)
             options = (
                 [(str(o["id"]), o["label"]) for o in field.options]
-                if field.kind == "select"
+                if field.kind in ("select", "multiselect")
                 else [("true", "Sim"), ("false", "Não")]
             )
             options.append(("__empty__", "Sem valor"))
@@ -208,10 +229,14 @@ class ItemsEndpoint(ProjectEndpoint):
             def key_of(value):
                 return "__empty__" if value is None else str(value).lower()
 
-            counts = {
-                key_of(row["_hentis_group"]): row["total"]
-                for row in query.order_by().values("_hentis_group").annotate(total=Count("id"))
-            }
+            counts = (
+                {}
+                if field.kind == "multiselect"
+                else {
+                    key_of(row["_hentis_group"]): row["total"]
+                    for row in query.order_by().values("_hentis_group").annotate(total=Count("id"))
+                }
+            )
             requested = request.query_params.get("group_value")
             groups = []
             if requested is not None and requested not in {key for key, _ in options}:
@@ -219,9 +244,21 @@ class ItemsEndpoint(ProjectEndpoint):
             for key, label in options:
                 if requested is not None and requested != key:
                     continue
-                raw = None if key == "__empty__" else (key == "true" if field.kind == "boolean" else key)
-                selected = query.filter(_hentis_group__isnull=True) if raw is None else query.filter(_hentis_group=raw)
-                count = counts.get(key, 0)
+                if field.kind == "multiselect":
+                    values = Value.objects.filter(field=field, issue_id=OuterRef("pk"))
+                    matching = (
+                        values.exclude(option_values=[])
+                        if key == "__empty__"
+                        else values.filter(option_values__contains=[key])
+                    )
+                    selected = query.filter(~Exists(matching)) if key == "__empty__" else query.filter(Exists(matching))
+                    count = selected.count()
+                else:
+                    raw = None if key == "__empty__" else (key == "true" if field.kind == "boolean" else key)
+                    selected = (
+                        query.filter(_hentis_group__isnull=True) if raw is None else query.filter(_hentis_group=raw)
+                    )
+                    count = counts.get(key, 0)
                 groups.append(
                     {
                         "key": key,
@@ -231,7 +268,13 @@ class ItemsEndpoint(ProjectEndpoint):
                         "has_more": count > page * size,
                     }
                 )
-            return Response({"groups": groups, "count": sum(counts.values()), "page": page})
+            return Response(
+                {
+                    "groups": groups,
+                    "count": query.count() if field.kind == "multiselect" else sum(counts.values()),
+                    "page": page,
+                }
+            )
         count = query.count()
         return Response(
             {

@@ -62,7 +62,7 @@ jobs:
           node-version: '22'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/option-colors.test.ts
+      - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/option-colors.test.ts ../../hentis/tests/selection-values.test.ts
       - run: pnpm exec turbo run build --filter='web^...'
       - run: pnpm --filter web check:types
       - run: pnpm --filter web build

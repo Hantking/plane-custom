@@ -3,10 +3,11 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 from django.db.models.functions import Lower
+from django.contrib.postgres.indexes import GinIndex
 
 
 class Field(models.Model):
-    TYPES = [(kind, kind) for kind in ("text", "number", "date", "boolean", "select", "url")]
+    TYPES = [(kind, kind) for kind in ("text", "number", "date", "boolean", "select", "multiselect", "url")]
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     project = models.ForeignKey("db.Project", on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
@@ -32,12 +33,16 @@ class Value(models.Model):
     date_value = models.DateField(null=True, db_index=True)
     boolean_value = models.BooleanField(null=True, db_index=True)
     option_value = models.CharField(max_length=36, null=True, db_index=True)
+    option_values = models.JSONField(default=list, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "hentis_custom_field_values"
         constraints = [models.UniqueConstraint(fields=["issue", "field"], name="hentis_issue_field_unique")]
-        indexes = [models.Index(fields=["field", "issue"], name="hentis_field_issue_idx")]
+        indexes = [
+            models.Index(fields=["field", "issue"], name="hentis_field_issue_idx"),
+            GinIndex(fields=["option_values"], name="hentis_multi_options_gin"),
+        ]
 
 
 class Change(models.Model):

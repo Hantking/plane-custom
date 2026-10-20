@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { CustomSelect } from "@plane/ui";
+import { CustomSearchSelect, CustomSelect } from "@plane/ui";
 import type { CustomField, FieldValue, SelectOption } from "./service";
 import { fieldInputClass } from "./service";
 import { optionBadgeStyle } from "./option-colors";
+import { selectionValues } from "./selection-values";
 
 export function OptionBadge({ option }: { option: SelectOption }) {
   return (
@@ -17,6 +18,20 @@ export function OptionBadge({ option }: { option: SelectOption }) {
 }
 
 export function FieldDisplay({ field, value }: { field: CustomField; value: FieldValue | undefined }) {
+  if (field.kind === "multiselect") {
+    const selected = selectionValues(field, value);
+    return selected.length ? (
+      <span className="inline-flex flex-wrap gap-1">
+        {field.options
+          .filter((item) => selected.includes(item.id))
+          .map((option) => (
+            <OptionBadge key={option.id} option={option} />
+          ))}
+      </span>
+    ) : (
+      <>—</>
+    );
+  }
   const option = field.kind === "select" ? field.options.find((item) => item.id === value) : undefined;
   return option ? <OptionBadge option={option} /> : <>{displayValue(field, value)}</>;
 }
@@ -38,6 +53,46 @@ export function FieldInput({
   useEffect(() => {
     setDraft(value === null || value === undefined ? "" : String(value));
   }, [value]);
+  if (field.kind === "multiselect") {
+    const selected = selectionValues(field, value);
+    return (
+      <CustomSearchSelect
+        multiple
+        className="w-full"
+        buttonClassName={`${fieldInputClass} min-h-8 w-full`}
+        optionsClassName="z-[100]"
+        value={selected}
+        disabled={disabled}
+        onChange={(keys: string[]) => onChange(selectionValues(field, keys))}
+        options={field.options.map((option) => ({
+          value: option.id,
+          query: option.label,
+          content: <OptionBadge option={option} />,
+        }))}
+        noResultsMessage="Nenhuma opção encontrada"
+        label={
+          <span className="flex flex-wrap gap-1">
+            <span className="sr-only">{field.name}: </span>
+            {selected.length ? (
+              <FieldDisplay field={field} value={selected} />
+            ) : (
+              <span className="text-secondary">Selecionar opções</span>
+            )}
+          </span>
+        }
+        footerOption={
+          <button
+            type="button"
+            disabled={disabled || !selected.length}
+            className="mx-2 mt-2 text-13"
+            onClick={() => onChange([])}
+          >
+            Limpar seleção
+          </button>
+        }
+      />
+    );
+  }
   if (field.kind === "select") {
     const selected = field.options.find((option) => option.id === value);
     return (
@@ -103,5 +158,14 @@ export function displayValue(field: CustomField, value: FieldValue | undefined) 
   if (value === null || value === undefined) return "—";
   if (field.kind === "boolean") return value ? "Sim" : "Não";
   if (field.kind === "select") return field.options.find((option) => option.id === value)?.label ?? "—";
+  if (field.kind === "multiselect") {
+    const selected = selectionValues(field, value);
+    return (
+      field.options
+        .filter((option) => selected.includes(option.id))
+        .map((option) => option.label)
+        .join(", ") || "—"
+    );
+  }
   return String(value);
 }

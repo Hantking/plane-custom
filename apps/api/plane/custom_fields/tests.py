@@ -45,6 +45,16 @@ class CustomFieldsIntegrationTests(TestCase):
         )
         cls.boolean = Field.objects.create(project=cls.project, name="Approved", kind="boolean")
         cls.foreign_field = Field.objects.create(project=cls.other, name="Private", kind="text")
+        cls.multiple = Field.objects.create(
+            project=cls.project,
+            name="Tags",
+            kind="multiselect",
+            options=[
+                {"id": str(uuid4()), "label": "Red", "color": "#ef4444"},
+                {"id": str(uuid4()), "label": "Green", "color": "#22c55e"},
+                {"id": str(uuid4()), "label": "Blue", "color": "#3b82f6"},
+            ],
+        )
 
     def setUp(self):
         self.client = APIClient()
@@ -56,6 +66,7 @@ class CustomFieldsIntegrationTests(TestCase):
 
     def test_project_scope_rejects_foreign_fields_and_strangers(self):
         self.assertEqual(self.save(self.issue, {str(self.foreign_field.id): "secret"}).status_code, 400)
+        self.assertEqual(self.client.delete(self.base + f"definitions/{self.foreign_field.id}/").status_code, 404)
         self.client.force_authenticate(self.stranger)
         self.assertEqual(self.client.get(self.base).status_code, 403)
 
@@ -213,3 +224,196 @@ class CustomFieldsIntegrationTests(TestCase):
         self.issue.project = self.other
         self.issue.save()
         self.assertEqual(values_for([self.issue])[str(self.issue.id)], {})
+
+    def test_multiple_values_are_deduplicated_and_keep_definition_order_and_colors(self):
+        first, second = [option["id"] for option in self.multiple.options[:2]]
+        response = self.save(self.issue, {str(self.multiple.id): [second, first, second]})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["values"][str(self.multiple.id)], [first, second])
+        self.assertEqual(Value.objects.get(issue=self.issue).option_values, [first, second])
+        self.save(self.issue, {str(self.multiple.id): [first, second]})
+        self.assertEqual(Change.objects.filter(issue=self.issue).count(), 1)
+        self.assertEqual(self.client.get(self.base).data["fields"][-1]["options"][0]["color"], "#ef4444")
+
+    def test_multiple_rejects_unknown_options_and_empty_required_values(self):
+        first = self.multiple.options[0]["id"]
+        self.multiple.required = True
+        self.multiple.save()
+        self.assertEqual(self.save(self.issue, {str(self.multiple.id): [first]}).status_code, 200)
+        for invalid in ([], None, first, [str(uuid4())], [False]):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(self.save(self.issue, {str(self.multiple.id): invalid}).status_code, 400)
+        self.assertEqual(Value.objects.get(issue=self.issue).option_values, [first])
+
+    def test_multiple_filters_include_any_all_exclusion_and_empty(self):
+        first, second = [option["id"] for option in self.multiple.options[:2]]
+        self.save(self.issue, {str(self.multiple.id): [first, second]})
+        self.save(self.guest_issue, {str(self.multiple.id): [first]})
+        empty = Issue.objects.create(project=self.project, state=self.state, name="No tags")
+        for operator, choices, expected in [
+            ("contains_any", [second], {self.issue.id}),
+            ("contains_all", [first, second], {self.issue.id}),
+            ("ne", [second], {self.guest_issue.id, empty.id}),
+            ("empty", None, {empty.id}),
+            ("not_empty", None, {self.issue.id, self.guest_issue.id}),
+        ]:
+            config = {"filters": [{"field": str(self.multiple.id), "operator": operator, "value": choices}]}
+            response = self.client.get(self.base + "items/", {"config": json.dumps(config)})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual({item["id"] for item in response.data["results"]}, {str(key) for key in expected})
+
+    def test_multiple_grouping_counts_unique_items_and_each_label_membership(self):
+        first, second = [option["id"] for option in self.multiple.options[:2]]
+        self.save(self.issue, {str(self.multiple.id): [first, second]})
+        self.save(self.guest_issue, {str(self.multiple.id): [first]})
+        Issue.objects.create(project=self.project, state=self.state, name="No tags")
+        response = self.client.get(self.base + "items/", {"config": json.dumps({"group_by": str(self.multiple.id)})})
+        groups = {group["key"]: group for group in response.data["groups"]}
+        self.assertEqual(response.data["count"], 3)
+        self.assertEqual(groups[first]["count"], 2)
+        self.assertEqual(groups[second]["count"], 1)
+        self.assertEqual(groups["__empty__"]["count"], 1)
+
+    def test_multiple_board_move_preserves_unrelated_labels_and_rejects_stale_moves(self):
+        first, second, third = [option["id"] for option in self.multiple.options]
+        self.save(self.issue, {str(self.multiple.id): [first, third]})
+        url = self.base + f"issues/{self.issue.id}/"
+        move = {"selection_move": {"field": str(self.multiple.id), "from": first, "to": second}}
+        response = self.client.patch(url, move, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["values"][str(self.multiple.id)], [second, third])
+        self.assertEqual(self.client.patch(url, move, format="json").status_code, 400)
+        clear = {"selection_move": {"field": str(self.multiple.id), "from": second, "to": "__empty__"}}
+        self.assertEqual(self.client.patch(url, clear, format="json").status_code, 200)
+        self.assertFalse(Value.objects.filter(issue=self.issue, field=self.multiple).exists())
+
+    def test_single_to_multiple_preserves_ids_colors_and_saved_filter(self):
+        first = self.select.options[0]["id"]
+        self.save(self.issue, {str(self.select.id): first})
+        saved = SavedView.objects.create(
+            project=self.project,
+            owner=self.admin,
+            name="Conversion",
+            config={
+                "filters": [{"field": str(self.select.id), "operator": "eq", "value": first}],
+                "group_by": str(self.select.id),
+                "order_by": str(self.select.id),
+                "columns": [str(self.select.id)],
+            },
+        )
+        response = self.client.patch(
+            self.base + f"definitions/{self.select.id}/", {"kind": "multiselect"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["options"], self.select.options)
+        row = Value.objects.get(issue=self.issue)
+        self.assertEqual(row.option_values, [first])
+        self.assertIsNone(row.option_value)
+        saved.refresh_from_db()
+        self.assertEqual(saved.config["filters"][0]["operator"], "contains_any")
+        self.assertEqual(saved.config["filters"][0]["value"], [first])
+        self.assertEqual(saved.config["order_by"], "-created_at")
+        self.assertEqual(self.client.get(self.base + "items/", {"config": json.dumps(saved.config)}).status_code, 200)
+
+    def test_multiple_to_single_blocks_data_loss_then_converts_when_unambiguous(self):
+        first, second = [option["id"] for option in self.multiple.options[:2]]
+        self.save(self.issue, {str(self.multiple.id): [first, second]})
+        self.save(self.guest_issue, {str(self.multiple.id): [first]})
+        url = self.base + f"definitions/{self.multiple.id}/"
+        failed = self.client.patch(url, {"kind": "select"}, format="json")
+        self.assertEqual(failed.status_code, 400)
+        self.multiple.refresh_from_db()
+        self.assertEqual(self.multiple.kind, "multiselect")
+        self.assertEqual(Value.objects.get(issue=self.guest_issue).option_values, [first])
+        self.save(self.issue, {str(self.multiple.id): [first]})
+        self.assertEqual(self.client.patch(url, {"kind": "select"}, format="json").status_code, 200)
+        self.assertEqual(Value.objects.get(issue=self.issue).option_value, first)
+        self.assertEqual(Value.objects.get(issue=self.issue).option_values, [])
+
+    def test_type_conversion_validates_all_rows_before_writing_and_preserves_readable_labels(self):
+        text = Field.objects.create(project=self.project, name="Text conversion", kind="text")
+        self.save(self.issue, {str(text.id): "12.5"})
+        self.save(self.guest_issue, {str(text.id): "Not a number"})
+        url = self.base + f"definitions/{text.id}/"
+        response = self.client.patch(url, {"kind": "number"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        text.refresh_from_db()
+        self.assertEqual(text.kind, "text")
+        self.assertEqual(Value.objects.get(issue=self.issue, field=text).text_value, "12.5")
+        self.save(self.guest_issue, {str(text.id): "7"})
+        self.assertEqual(self.client.patch(url, {"kind": "number"}, format="json").status_code, 200)
+        self.assertEqual(Value.objects.get(issue=self.issue, field=text).number_value, Decimal("12.5"))
+        first, second = [option["id"] for option in self.multiple.options[:2]]
+        self.save(self.issue, {str(self.multiple.id): [first, second]})
+        response = self.client.patch(self.base + f"definitions/{self.multiple.id}/", {"kind": "text"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Value.objects.get(issue=self.issue, field=self.multiple).text_value, "Red, Green")
+
+    def test_definition_deletion_removes_only_its_values_and_repairs_saved_views(self):
+        first = self.multiple.options[0]["id"]
+        self.save(self.issue, {str(self.multiple.id): [first], str(self.numeric.id): "8"})
+        saved = SavedView.objects.create(
+            project=self.project,
+            owner=self.admin,
+            name="Deleted field",
+            config={
+                "filters": [{"field": str(self.multiple.id), "operator": "contains_any", "value": [first]}],
+                "columns": [str(self.multiple.id), str(self.numeric.id)],
+                "group_by": str(self.multiple.id),
+                "order_by": "-created_at",
+            },
+        )
+        response = self.client.delete(self.base + f"definitions/{self.multiple.id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Field.objects.filter(pk=self.multiple.id).exists())
+        self.assertFalse(Change.objects.filter(field_id=self.multiple.id).exists())
+        self.assertEqual(Value.objects.get(issue=self.issue).number_value, Decimal("8"))
+        saved.refresh_from_db()
+        self.assertEqual(saved.config["filters"], [])
+        self.assertEqual(saved.config["columns"], [str(self.numeric.id)])
+        self.assertEqual(saved.config["group_by"], "")
+        self.assertEqual(self.client.get(self.base + "items/", {"config": json.dumps(saved.config)}).status_code, 200)
+
+    def test_archive_and_restore_multiple_preserves_values_and_delete_requires_admin(self):
+        first = self.multiple.options[0]["id"]
+        self.save(self.issue, {str(self.multiple.id): [first]})
+        url = self.base + f"definitions/{self.multiple.id}/"
+        self.assertEqual(self.client.patch(url, {"active": False}, format="json").status_code, 200)
+        self.assertEqual(Value.objects.get(issue=self.issue).option_values, [first])
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)], {})
+        self.assertEqual(self.client.patch(url, {"active": True}, format="json").status_code, 200)
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)][str(self.multiple.id)], [first])
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.client.delete(url).status_code, 403)
+        self.assertEqual(self.client.patch(url, {"kind": "text"}, format="json").status_code, 403)
+
+    def test_options_used_by_multiple_values_cannot_be_removed(self):
+        first = self.multiple.options[0]["id"]
+        self.save(self.issue, {str(self.multiple.id): [first]})
+        response = self.client.patch(
+            self.base + f"definitions/{self.multiple.id}/", {"options": self.multiple.options[1:]}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Value.objects.get(issue=self.issue).option_values, [first])
+
+    def test_definition_type_changed_after_value_validation_rejects_stale_writes(self):
+        prepared = validate_values(self.project.id, {str(self.numeric.id): "7"})
+        self.assertEqual(
+            self.client.patch(
+                self.base + f"definitions/{self.numeric.id}/", {"kind": "text"}, format="json"
+            ).status_code,
+            200,
+        )
+        with self.assertRaises(ValidationError):
+            save_values(self.issue, prepared, self.admin.id)
+        self.assertFalse(Value.objects.filter(issue=self.issue).exists())
+
+    def test_empty_field_can_change_to_every_supported_type(self):
+        field = Field.objects.create(project=self.project, name="Editable type", kind="text")
+        url = self.base + f"definitions/{field.id}/"
+        for kind in ("number", "date", "boolean", "url", "select", "multiselect", "text"):
+            options = self.multiple.options if kind in ("select", "multiselect") else []
+            response = self.client.patch(url, {"kind": kind, "options": options}, format="json")
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data["kind"], kind)
+            self.assertEqual(response.data["id"], str(field.id))

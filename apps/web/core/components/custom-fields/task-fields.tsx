@@ -5,7 +5,7 @@ import { Controller } from "react-hook-form";
 import type { TIssue } from "@plane/types";
 import { FieldInput } from "./inputs";
 import { fieldError, fieldsService } from "./service";
-import type { FieldValues } from "./service";
+import type { FieldValue, FieldValues } from "./service";
 
 export function TaskCustomFields({
   workspaceSlug,
@@ -28,7 +28,7 @@ export function TaskCustomFields({
   const [saving, setSaving] = useState(false);
   const fields = meta?.fields.filter((f) => f.active) ?? [];
   if (!fields.length) return null;
-  const save = async (id: string, value: string | boolean | null) => {
+  const save = async (id: string, value: FieldValue) => {
     setSaving(true);
     setError("");
     try {

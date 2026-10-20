@@ -2,10 +2,13 @@ from uuid import UUID
 import re
 
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import serializers
 
 from .models import Field, SavedView
 from .services import save_values, validate_values
+from .services import SELECTION_KINDS
+from .conversions import update_definition
 
 
 class FieldSerializer(serializers.ModelSerializer):
@@ -26,8 +29,10 @@ class FieldSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         kind = attrs.get("kind", getattr(self.instance, "kind", None))
         options = attrs.get("options", getattr(self.instance, "options", []))
-        if self.instance and kind != self.instance.kind:
-            raise serializers.ValidationError("O tipo de um campo existente não pode ser alterado.")
+        changing_kind = self.instance is not None and kind != self.instance.kind
+        if changing_kind and kind not in SELECTION_KINDS:
+            options = []
+            attrs["options"] = []
         if not isinstance(options, list) or len(options) > 50:
             raise serializers.ValidationError("Máximo de 50 opções.")
         ids, names = set(), set()
@@ -59,16 +64,26 @@ class FieldSerializer(serializers.ModelSerializer):
             option.update(id=key, label=label.strip())
             ids.add(key)
             names.add(label.casefold())
-        if kind == "select" and not options:
+        if kind in SELECTION_KINDS and not options:
             raise serializers.ValidationError("Campo de seleção precisa de opções.")
-        if kind != "select" and options:
+        if kind not in SELECTION_KINDS and options:
             raise serializers.ValidationError("Este tipo não utiliza opções.")
-        if (
-            self.instance
-            and self.instance.values.exclude(option_value__isnull=True).exclude(option_value__in=ids).exists()
-        ):
-            raise serializers.ValidationError("Uma opção em uso não pode ser removida. Renomeie-a ou arquive o campo.")
+        if self.instance and not changing_kind:
+            removed = {str(option["id"]) for option in self.instance.options} - ids
+            used = self.instance.values.filter(option_value__in=removed).exists()
+            if self.instance.kind == "multiselect" and removed:
+                matching = Q()
+                for key in removed:
+                    matching |= Q(option_values__contains=[key])
+                used = self.instance.values.filter(matching).exists()
+            if used:
+                raise serializers.ValidationError(
+                    "Uma opção em uso não pode ser removida. Renomeie-a ou arquive o campo."
+                )
         return attrs
+
+    def update(self, instance, validated_data):
+        return update_definition(instance, validated_data)
 
 
 class SavedViewSerializer(serializers.ModelSerializer):

@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { FieldInput } from "./inputs";
 import { fieldError, fieldsService } from "./service";
-import type { CustomField, FieldValues } from "./service";
+import type { CustomField, FieldValue, FieldValues } from "./service";
 
 type Context = {
   workspace: string;
@@ -65,7 +65,7 @@ export function CustomTableCells({ issueId, disabled }: { issueId: string; disab
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   if (!context) return null;
-  const save = async (field: string, value: string | boolean | null) => {
+  const save = async (field: string, value: FieldValue) => {
     setSaving(true);
     setError("");
     try {

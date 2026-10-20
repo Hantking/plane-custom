@@ -3,6 +3,7 @@ import type { CustomField } from "./service";
 import { fieldError, fieldInputClass, fieldsService } from "./service";
 import { OptionBadge } from "./inputs";
 import { optionBackground, OPTION_PALETTE } from "./option-colors";
+import { isSelectionKind } from "./selection-values";
 
 const blank = (): Partial<CustomField> => ({
   name: "",
@@ -19,6 +20,7 @@ const labels: Record<CustomField["kind"], string> = {
   date: "Data",
   boolean: "Sim/não",
   select: "Seleção única",
+  multiselect: "Seleção múltipla",
   url: "Link",
 };
 
@@ -36,6 +38,25 @@ export function FieldManager({
   const [form, setForm] = useState<Partial<CustomField>>(blank);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const remove = async (field: CustomField) => {
+    if (
+      !window.confirm(
+        `Excluir definitivamente o campo “${field.name}”? Os valores e o histórico desse campo serão removidos das tarefas. Essa ação não pode ser desfeita. Para preservar os dados, use Arquivar.`
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    try {
+      await fieldsService.deleteDefinition(workspace, project, field.id);
+      await refresh();
+      if (form.id === field.id) setForm(blank());
+    } catch (e) {
+      setError(fieldError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const save = async (data: Partial<CustomField>) => {
     setBusy(true);
     setError("");
@@ -53,8 +74,9 @@ export function FieldManager({
     <details className="rounded border border-subtle p-3">
       <summary className="cursor-pointer font-medium">Gerenciar campos do projeto</summary>
       <p className="my-2 text-13 text-secondary">
-        Arquivar preserva os dados. Campos obrigatórios são exigidos nas novas tarefas; o tipo não pode ser trocado
-        depois de criado.
+        Arquivar preserva os dados; excluir remove o campo e seus valores. Ao trocar o tipo, valores compatíveis são
+        convertidos. Se algum valor não puder ser convertido, a alteração é cancelada sem apagar os dados. Visualizações
+        salvas são ajustadas; filtros incompatíveis são removidos.
       </p>
       <div className="space-y-2">
         {fields.map((field) => (
@@ -64,12 +86,16 @@ export function FieldManager({
             </span>
             <button
               className="text-accent-primary"
+              disabled={busy}
               onClick={() => setForm({ ...field, options: field.options.map((o) => ({ ...o })) })}
             >
               Editar
             </button>
             <button disabled={busy} onClick={() => void save({ id: field.id, active: !field.active })}>
               {field.active ? "Arquivar" : "Reativar"}
+            </button>
+            <button disabled={busy} className="text-red-600" onClick={() => void remove(field)}>
+              Excluir
             </button>
           </div>
         ))}
@@ -95,10 +121,13 @@ export function FieldManager({
         <label className="text-13">
           Tipo
           <select
-            disabled={!!form.id}
+            disabled={busy}
             className={`${fieldInputClass} ml-2`}
             value={form.kind}
-            onChange={(e) => setForm({ ...form, kind: e.target.value as CustomField["kind"], options: [] })}
+            onChange={(e) => {
+              const kind = e.target.value as CustomField["kind"];
+              setForm({ ...form, kind, options: isSelectionKind(kind) ? (form.options ?? []) : [] });
+            }}
           >
             {Object.entries(labels).map(([value, label]) => (
               <option key={value} value={value}>
@@ -124,7 +153,7 @@ export function FieldManager({
           />{" "}
           Obrigatório
         </label>
-        {form.kind === "select" && (
+        {form.kind && isSelectionKind(form.kind) && (
           <div className="space-y-2">
             <h4 className="text-13">Opções (máximo 50)</h4>
             <p className="text-13 text-secondary">

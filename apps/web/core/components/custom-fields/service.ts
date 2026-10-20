@@ -1,13 +1,13 @@
 import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 
-export type FieldValue = string | boolean | null;
+export type FieldValue = string | boolean | string[] | null;
 export type FieldValues = Record<string, FieldValue>;
 export type SelectOption = { id: string; label: string; color?: string };
 export type CustomField = {
   id: string;
   name: string;
-  kind: "text" | "number" | "date" | "boolean" | "select" | "url";
+  kind: "text" | "number" | "date" | "boolean" | "select" | "multiselect" | "url";
   description: string;
   required: boolean;
   active: boolean;
@@ -51,6 +51,14 @@ class FieldsService extends APIService {
   async definition(workspace: string, project: string, field: Partial<CustomField>) {
     const base = this.path(workspace, project);
     return (await (field.id ? this.patch(`${base}definitions/${field.id}/`, field) : this.post(base, field))).data;
+  }
+  async deleteDefinition(workspace: string, project: string, id: string) {
+    await this.delete(`${this.path(workspace, project)}definitions/${id}/`);
+  }
+  async moveSelection(workspace: string, project: string, issue: string, field: string, from: string, to: string) {
+    return (
+      await this.patch(`${this.path(workspace, project)}issues/${issue}/`, { selection_move: { field, from, to } })
+    ).data;
   }
   async values(
     workspace: string,

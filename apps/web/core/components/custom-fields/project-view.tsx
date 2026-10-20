@@ -5,6 +5,7 @@ import { FieldDisplay, FieldInput, OptionBadge } from "./inputs";
 import { FieldManager } from "./manager";
 import { fieldError, fieldInputClass, fieldsService } from "./service";
 import type { Condition, CustomField, CustomItem, FieldValue, Group, ViewConfig } from "./service";
+import { isSelectionKind, refreshViewConfig } from "./selection-values";
 
 const initial: ViewConfig = {
   filters: [],
@@ -26,8 +27,11 @@ const operatorNames: Record<string, string> = {
   lte: "menor/antes ou igual",
   empty: "está vazio",
   not_empty: "está preenchido",
+  contains_any: "contém alguma das opções",
+  contains_all: "contém todas as opções",
 };
 function operators(field: CustomField) {
+  if (field.kind === "multiselect") return ["contains_any", "contains_all", "ne", "empty", "not_empty"];
   return [
     "eq",
     "ne",
@@ -104,7 +108,7 @@ function GroupColumn({
   refresh: () => Promise<unknown>;
 }) {
   const [rows, setRows] = useState(group.results);
-  const groupOption = field.kind === "select" ? field.options.find((option) => option.id === group.key) : undefined;
+  const groupOption = isSelectionKind(field.kind) ? field.options.find((option) => option.id === group.key) : undefined;
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(group.has_more);
   const [error, setError] = useState("");
@@ -131,12 +135,19 @@ function GroupColumn({
       setBusy(false);
     }
   };
-  const drop = async (id: string) => {
-    if (!canEdit || !id) return;
+  const drop = async (payload: string) => {
+    if (!canEdit || !payload) return;
     setError("");
     const value = group.key === "__empty__" ? null : field.kind === "boolean" ? group.key === "true" : group.key;
     try {
-      await fieldsService.save(workspace, project, id, { [field.id]: value });
+      const movement = JSON.parse(payload) as { id?: string; from?: string };
+      if (typeof movement.id !== "string" || typeof movement.from !== "string") throw new Error("Movimento inválido.");
+      if (movement.from === group.key) return;
+      if (field.kind === "multiselect") {
+        await fieldsService.moveSelection(workspace, project, movement.id, field.id, movement.from, group.key);
+      } else {
+        await fieldsService.save(workspace, project, movement.id, { [field.id]: value });
+      }
       await refresh();
     } catch (e) {
       setError(fieldError(e));
@@ -166,7 +177,9 @@ function GroupColumn({
           <article
             key={item.id}
             draggable={canEdit && config.layout === "kanban"}
-            onDragStart={(e) => e.dataTransfer.setData("application/x-plane-work-item", item.id)}
+            onDragStart={(e) =>
+              e.dataTransfer.setData("application/x-plane-work-item", JSON.stringify({ id: item.id, from: group.key }))
+            }
             className="rounded border border-subtle bg-surface-1 p-3"
           >
             <Link className="font-medium hover:underline" to={`/${workspace}/projects/${project}/issues/${item.id}`}>
@@ -182,14 +195,14 @@ function GroupColumn({
             ))}
             {canEdit && (
               <div className="mt-2 block text-13">
-                Mover para
+                {field.kind === "multiselect" ? "Rótulos" : "Mover para"}
                 <FieldInput
                   field={field}
                   value={item.custom_fields[field.id]}
                   immediate
                   onChange={(value) => {
                     const key = value === null ? "__empty__" : String(value);
-                    if (key !== group.key)
+                    if (field.kind === "multiselect" || key !== group.key)
                       void fieldsService
                         .save(workspace, project, item.id, { [field.id]: value })
                         .then(refresh)
@@ -247,6 +260,16 @@ export function CustomFieldsProjectView() {
   const fields = meta?.fields.filter((field) => field.active) ?? [];
   const visible = fields.filter((field) => config.columns.includes(field.id));
   const groupedField = fields.find((field) => field.id === config.group_by);
+  const refreshDefinitions = async () => {
+    const nextMeta = await refreshMeta();
+    if (nextMeta) {
+      const next = refreshViewConfig(config, meta?.fields ?? [], nextMeta.fields);
+      setConfig(next);
+      setPage(1);
+      if (JSON.stringify(next) === JSON.stringify(config)) await refreshItems();
+    }
+    await refreshViews();
+  };
   useEffect(() => {
     initialized.current = false;
     setConfig(initial);
@@ -347,7 +370,7 @@ export function CustomFieldsProjectView() {
         >
           <option value="">Sem agrupamento</option>
           {fields
-            .filter((field) => field.kind === "select" || field.kind === "boolean")
+            .filter((field) => isSelectionKind(field.kind) || field.kind === "boolean")
             .map((field) => (
               <option key={field.id} value={field.id}>
                 Agrupar por {field.name}
@@ -363,14 +386,16 @@ export function CustomFieldsProjectView() {
           <option value="-created_at">Mais recentes</option>
           <option value="created_at">Mais antigas</option>
           <option value="name">Título A–Z</option>
-          {fields.flatMap((field) => [
-            <option key={field.id} value={field.id}>
-              {field.name} ↑
-            </option>,
-            <option key={`-${field.id}`} value={`-${field.id}`}>
-              {field.name} ↓
-            </option>,
-          ])}
+          {fields
+            .filter((field) => field.kind !== "multiselect")
+            .flatMap((field) => [
+              <option key={field.id} value={field.id}>
+                {field.name} ↑
+              </option>,
+              <option key={`-${field.id}`} value={`-${field.id}`}>
+                {field.name} ↓
+              </option>,
+            ])}
         </select>
       </div>
       <section className="mb-4 rounded border border-subtle p-3">
@@ -394,7 +419,14 @@ export function CustomFieldsProjectView() {
                 aria-label="Campo do filtro"
                 className={fieldInputClass}
                 value={item.field}
-                onChange={(e) => condition(index, { field: e.target.value, operator: "eq", value: null })}
+                onChange={(e) =>
+                  condition(index, {
+                    field: e.target.value,
+                    operator:
+                      fields.find((f) => f.id === e.target.value)?.kind === "multiselect" ? "contains_any" : "eq",
+                    value: null,
+                  })
+                }
               >
                 {fields.map((f) => (
                   <option key={f.id} value={f.id}>
@@ -411,7 +443,9 @@ export function CustomFieldsProjectView() {
                 {field &&
                   operators(field).map((op) => (
                     <option key={op} value={op}>
-                      {operatorNames[op]}
+                      {field.kind === "multiselect" && op === "ne"
+                        ? "não contém nenhuma das opções"
+                        : operatorNames[op]}
                     </option>
                   ))}
               </select>
@@ -507,7 +541,9 @@ export function CustomFieldsProjectView() {
       )}
       <p className="mb-2 text-13 text-secondary">{isLoading ? "Carregando…" : `${data?.count ?? 0} tarefas`}</p>
       {config.layout === "kanban" && !groupedField ? (
-        <p className="p-4">Escolha um campo de seleção ou sim/não em “Agrupar por” para montar o Kanban.</p>
+        <p className="p-4">
+          Escolha um campo de seleção única/múltipla ou sim/não em “Agrupar por” para montar o Kanban.
+        </p>
       ) : groupedField && data?.groups ? (
         <div className={config.layout === "kanban" ? "flex items-start gap-4 overflow-x-auto pb-4" : "space-y-4"}>
           {data.groups.map((group) => (
@@ -610,7 +646,7 @@ export function CustomFieldsProjectView() {
       )}
       {meta?.can_manage && (
         <div className="mt-6">
-          <FieldManager workspace={workspace} project={project} fields={meta.fields} refresh={refreshMeta} />
+          <FieldManager workspace={workspace} project={project} fields={meta.fields} refresh={refreshDefinitions} />
         </div>
       )}
     </main>
