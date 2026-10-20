@@ -59,7 +59,9 @@ def normalize(field, raw):
 
 
 def json_value(value):
-    if isinstance(value, (Decimal, date)):
+    if isinstance(value, Decimal):
+        return format(value, ".6f")
+    if isinstance(value, date):
         return str(value)
     return value
 

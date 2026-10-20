@@ -114,6 +114,18 @@ class CustomFieldsIntegrationTests(TestCase):
         self.assertEqual(self.save(self.issue, {str(self.numeric.id): None}).status_code, 400)
         self.assertEqual(Value.objects.get(issue=self.issue).number_value, Decimal("5"))
         self.assertEqual(Change.objects.filter(issue=self.issue).count(), 1)
+        self.assertEqual(self.save(self.issue, {str(self.numeric.id): "5.0"}).status_code, 200)
+        self.assertEqual(Change.objects.filter(issue=self.issue).count(), 1)
+
+    def test_archiving_a_column_keeps_saved_view_usable_and_preserves_values(self):
+        self.save(self.issue, {str(self.numeric.id): "8"})
+        self.numeric.active = False
+        self.numeric.save()
+        config = {"columns": [str(self.numeric.id)]}
+        result = self.client.get(self.base + "items/", {"config": json.dumps(config)})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(Value.objects.get(issue=self.issue).number_value, Decimal("8"))
+        self.assertEqual(result.data["results"][0]["custom_fields"], {})
 
     def test_filters_and_counts_apply_before_pagination_and_numeric_sort(self):
         for index in range(30):

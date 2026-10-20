@@ -107,6 +107,8 @@ class ValuesEndpoint(ProjectEndpoint):
 
     @allow_permission(WRITE)
     def patch(self, request, slug, project_id, issue_id):
+        if not isinstance(request.data, dict):
+            raise ValidationError("Informe um objeto de valores.")
         with transaction.atomic():
             issue = get_object_or_404(self.items(include_archived=True).select_for_update(), pk=issue_id)
             if issue.archived_at or issue.project.archived_at:
@@ -142,13 +144,15 @@ def view_config(project_id, config):
         raise ValidationError("Configuração não suportada.")
     # Reuse filter validation without evaluating the query.
     filter_items(Issue.issue_objects.none(), project_id, config.get("filters", []), config.get("match", "all"))
-    fields = {str(f.id): f for f in Field.objects.filter(project_id=project_id, active=True)}
+    all_fields = {str(f.id): f for f in Field.objects.filter(project_id=project_id)}
+    fields = {key: field for key, field in all_fields.items() if field.active}
     if (
         not isinstance(config.get("columns", []), list)
         or len(config.get("columns", [])) > 100
-        or any(not isinstance(c, str) or c not in fields for c in config.get("columns", []))
+        or any(not isinstance(c, str) or c not in all_fields for c in config.get("columns", []))
     ):
         raise ValidationError("Colunas inválidas.")
+    config = {**config, "columns": [key for key in dict.fromkeys(config.get("columns", [])) if key in fields]}
     group = config.get("group_by")
     if group and (not isinstance(group, str) or group not in fields or fields[group].kind not in ("select", "boolean")):
         raise ValidationError("Agrupamento disponível para seleção e sim/não.")
