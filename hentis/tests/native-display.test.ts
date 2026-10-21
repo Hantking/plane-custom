@@ -29,6 +29,14 @@ test("all five layouts retain independent preference keys", () => {
   assert.equal(normalizeNativeLayout("gantt"), "gantt_chart");
 });
 
+test("stock workspace views such as all-issues are supported without treating them as UUID views", () => {
+  const contexts = ["all-issues", "assigned", "created", "subscribed"].map((globalViewId) =>
+    nativeRequest({ globalViewId }, "spreadsheet")
+  );
+  assert.ok(contexts.every((context) => context?.scope === "workspace_builtin"));
+  assert.equal(new Set(contexts.map((context) => context?.target)).size, 4);
+});
+
 test("unsupported and temporary routes do not reuse another screen's preferences", () => {
   assert.equal(nativeRequest({ projectId: "temporary" }, "list"), null);
   assert.equal(nativeRequest({ projectId: project, userId: view }, "list"), null);

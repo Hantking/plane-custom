@@ -8,7 +8,12 @@ import { FieldDisplay, FieldInput, displayValue } from "./inputs";
 import { fieldError, fieldsService } from "./service";
 import type { FieldValue } from "./service";
 import { nativeDisplayService } from "./native-service";
-import { nativeRequest, nativePropertyRank, orderedNativeProperties } from "./native-display-helpers";
+import {
+  isWorkspaceNativeScope,
+  nativeRequest,
+  nativePropertyRank,
+  orderedNativeProperties,
+} from "./native-display-helpers";
 import type { NativeLayout } from "./native-display-helpers";
 
 export function useNativeDisplay(layout: string) {
@@ -188,8 +193,9 @@ export function NativeCustomHeader({ fieldId }: { fieldId: string }) {
   const context = useNativeFieldsContext();
   const field = context?.display.data?.fields.find((item) => item.id === fieldId);
   if (!field) return null;
-  const label =
-    context?.display.request?.scope === "workspace_view" ? `${field.project_identifier} · ${field.name}` : field.name;
+  const label = isWorkspaceNativeScope(context?.display.request?.scope)
+    ? `${field.project_identifier} · ${field.name}`
+    : field.name;
   return (
     <th className="min-w-44 border-r border-subtle bg-layer-1 px-2 py-2 text-left text-13 font-medium" title={label}>
       {label}

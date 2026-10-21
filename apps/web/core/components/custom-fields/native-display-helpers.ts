@@ -1,7 +1,14 @@
 import type { CustomField } from "./service";
 
 export type NativeLayout = "list" | "kanban" | "spreadsheet" | "calendar" | "gantt_chart";
-export type NativeScope = "project" | "module" | "cycle" | "project_view" | "workspace_view" | "archive";
+export type NativeScope =
+  | "project"
+  | "module"
+  | "cycle"
+  | "project_view"
+  | "workspace_view"
+  | "workspace_builtin"
+  | "archive";
 export type NativeRequest = { scope: NativeScope; target: string; project_id?: string; layout: NativeLayout };
 export type NativePreference = { order: string[]; visible: string[] };
 export type NativeField = CustomField & { project_id: string; project_name: string; project_identifier: string };
@@ -23,6 +30,16 @@ export const STANDARD_PROPERTY_ORDER = [
   "issue_type",
 ];
 const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+const builtins: Record<string, string> = {
+  "all-issues": "00000000-0000-0000-0000-000000000001",
+  assigned: "00000000-0000-0000-0000-000000000002",
+  created: "00000000-0000-0000-0000-000000000003",
+  subscribed: "00000000-0000-0000-0000-000000000004",
+};
+
+export function isWorkspaceNativeScope(scope: NativeScope | undefined) {
+  return scope === "workspace_view" || scope === "workspace_builtin";
+}
 
 export function normalizeNativeLayout(layout: string): NativeLayout {
   if (layout === "gantt") return "gantt_chart";
@@ -41,6 +58,9 @@ export function nativeRequest(
     return Array.isArray(item) ? item[0] : item;
   };
   if (value("userId") || value("teamspaceId") || value("epicId")) return null;
+  const builtinView = value("globalViewId");
+  if (builtinView && Object.hasOwn(builtins, builtinView))
+    return { scope: "workspace_builtin", target: builtins[builtinView], layout: normalizeNativeLayout(layout) };
   const project = value("projectId");
   const scope: NativeScope = value("globalViewId")
     ? "workspace_view"

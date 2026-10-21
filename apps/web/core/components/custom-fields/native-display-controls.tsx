@@ -6,7 +6,7 @@ import type { IIssueDisplayProperties } from "@plane/types";
 import { useTranslation } from "@plane/i18n";
 import { useNativeDisplay } from "./native-layout";
 import { nativeDisplayService } from "./native-service";
-import { moveNativeProperty } from "./native-display-helpers";
+import { isWorkspaceNativeScope, moveNativeProperty } from "./native-display-helpers";
 import type { NativePreference } from "./native-display-helpers";
 import { fieldError } from "./service";
 
@@ -53,7 +53,9 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
   const label = (key: string) => {
     const field = fields.get(key);
     if (field)
-      return display.request?.scope === "workspace_view" ? `${field.project_identifier} · ${field.name}` : field.name;
+      return isWorkspaceNativeScope(display.request?.scope)
+        ? `${field.project_identifier} · ${field.name}`
+        : field.name;
     const property = key.slice(9);
     const original = ISSUE_DISPLAY_PROPERTIES.find((item) => item.key === property);
     const fallback: Record<string, string> = {

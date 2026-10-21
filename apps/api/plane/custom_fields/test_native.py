@@ -137,6 +137,21 @@ class NativeLayoutTests(TestCase):
             len(self.read(self.context("module", target=self.module_b.id)).data["preference"]["visible"]), 2
         )
 
+    def test_builtin_workspace_views_have_separate_personal_preferences_and_preserve_acl(self):
+        all_items = {
+            "scope": "workspace_builtin",
+            "target": "00000000-0000-0000-0000-000000000001",
+            "layout": "spreadsheet",
+        }
+        assigned = {**all_items, "target": "00000000-0000-0000-0000-000000000002"}
+        self.assertEqual(self.write(all_items, visible=[]).status_code, 200)
+        self.assertEqual(self.read(all_items).data["preference"]["visible"], [])
+        self.assertEqual(len(self.read(assigned).data["preference"]["visible"]), 2)
+        self.assertNotIn(str(self.foreign_issue.id), self.batch(all_items).data["values"])
+        self.assertEqual(self.read({**all_items, "target": str(uuid4())}).status_code, 400)
+        self.client.force_authenticate(self.guest)
+        self.assertEqual(set(self.batch(all_items).data["values"]), {str(self.guest_issue.id)})
+
     def test_unknown_or_foreign_fields_and_duplicate_properties_are_rejected(self):
         for order, visible in (
             (["custom:" + str(self.foreign.id)], []),

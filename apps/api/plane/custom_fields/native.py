@@ -16,6 +16,12 @@ from .serializers import FieldSerializer
 from .services import values_for
 
 LAYOUTS = {"list", "kanban", "spreadsheet", "calendar", "gantt_chart"}
+BUILTIN_VIEWS = {
+    "00000000-0000-0000-0000-000000000001": "Todos os itens",
+    "00000000-0000-0000-0000-000000000002": "Atribuídos a mim",
+    "00000000-0000-0000-0000-000000000003": "Criados por mim",
+    "00000000-0000-0000-0000-000000000004": "Inscrições",
+}
 STANDARD_PROPERTIES = [
     "state",
     "priority",
@@ -68,7 +74,8 @@ class NativeContext:
         if (
             not isinstance(self.scope, str)
             or not isinstance(self.layout, str)
-            or self.scope not in ("project", "module", "cycle", "project_view", "workspace_view", "archive")
+            or self.scope
+            not in ("project", "module", "cycle", "project_view", "workspace_view", "workspace_builtin", "archive")
             or self.layout not in LAYOUTS
         ):
             raise ValidationError("Contexto/layout não suportado.")
@@ -84,7 +91,11 @@ class NativeContext:
             project__deleted_at__isnull=True,
         ).select_related("project")
         self.project = None
-        if self.scope in ("project", "archive"):
+        if self.scope == "workspace_builtin":
+            if str(self.target) not in BUILTIN_VIEWS:
+                raise ValidationError("Visualização padrão inválida.")
+            self.label = BUILTIN_VIEWS[str(self.target)]
+        elif self.scope in ("project", "archive"):
             self.project = get_object_or_404(Project, pk=self.target, workspace=self.workspace)
             self.label = self.project.name
         elif self.scope in ("module", "cycle"):

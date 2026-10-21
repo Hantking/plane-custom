@@ -12,6 +12,8 @@ Os valores aparecem na criação e nos detalhes das tarefas e nas colunas da tab
 
 Os campos estão incorporados aos layouts **Planilha, Lista, Kanban, Calendário e Cronograma/Gantt**, nas telas de itens do projeto, módulos, ciclos e Views. Abra **Exibir/Display → Propriedades → Campos personalizados e ordem** para marcar/desmarcar campos e arrastar ou usar as setas para escolher a sequência.
 
+Também são suportadas as Views padrão do workspace: Todos os itens, Atribuídos, Criados e Inscrições, cada uma com preferências independentes.
+
 Na planilha, campos personalizados podem ficar entre as propriedades padrão. Na lista e no Kanban, a mesma ordem é usada nas propriedades dos cartões. Calendário e Gantt mostram os campos de forma compacta nos cartões/linhas e barras, preservando as datas usadas pelo layout. Título/identificador permanecem fixos na posição nativa.
 
 Visibilidade dos campos personalizados e ordem são preferências pessoais salvas no servidor, separadas por usuário, projeto/módulo/ciclo/View e layout. A visibilidade das propriedades padrão continua usando o mecanismo original do Plane. As Views de workspace carregam apenas projetos autorizados; colunas de diferentes projetos são qualificadas pelo identificador do projeto.
