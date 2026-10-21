@@ -7,6 +7,7 @@
 import type { ReactNode } from "react";
 import { observer } from "mobx-react";
 import type { IIssueDisplayProperties } from "@plane/types";
+import { useNativePropertyPlacement } from "@/components/custom-fields/native-layout";
 
 interface IWithDisplayPropertiesHOC {
   displayProperties: IIssueDisplayProperties;
@@ -21,6 +22,7 @@ export const WithDisplayPropertiesHOC = observer(function WithDisplayPropertiesH
   displayPropertyKey,
   children,
 }: IWithDisplayPropertiesHOC) {
+  const order = useNativePropertyPlacement(displayPropertyKey);
   let shouldDisplayPropertyFromFilters = false;
   if (Array.isArray(displayPropertyKey))
     shouldDisplayPropertyFromFilters = displayPropertyKey.every((key) => !!displayProperties[key]);
@@ -31,5 +33,11 @@ export const WithDisplayPropertiesHOC = observer(function WithDisplayPropertiesH
 
   if (!renderProperty) return null;
 
-  return <>{children}</>;
+  return order === undefined ? (
+    <>{children}</>
+  ) : (
+    <div className="inline-flex min-w-0" style={{ order }}>
+      {children}
+    </div>
+  );
 });

@@ -6,6 +6,7 @@
 
 import { useState, useRef, forwardRef } from "react";
 import { observer } from "mobx-react";
+import { NativeCardFields } from "@/components/custom-fields/native-layout";
 import { useParams } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 // plane imports
@@ -163,6 +164,12 @@ export const CalendarIssueBlock = observer(
                     })}
                   </div>
                 </div>
+                <NativeCardFields
+                  issueId={issue.id}
+                  projectId={issue.project_id}
+                  compact
+                  className="flex flex-wrap gap-1 px-2 pb-1.5"
+                />
               </>
             </ControlLink>
           }

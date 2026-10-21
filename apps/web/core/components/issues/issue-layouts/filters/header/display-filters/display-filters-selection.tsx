@@ -70,6 +70,7 @@ export const DisplayFiltersSelection = observer(function DisplayFiltersSelection
             cycleViewDisabled={cycleViewDisabled}
             moduleViewDisabled={moduleViewDisabled}
             isEpic={isEpic}
+            nativeLayout={displayFilters?.layout ?? "list"}
           />
         </div>
       )}

@@ -7,7 +7,11 @@
 import type { Dispatch, MouseEvent, MutableRefObject, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react";
-import { CustomTableCells } from "@/components/custom-fields/table-columns";
+import {
+  NativeCustomCell,
+  useNativeColumns,
+  useNativeIssueRegistration,
+} from "@/components/custom-fields/native-layout";
 import { useParams } from "next/navigation";
 import { MoreHorizontal } from "lucide-react";
 import { SPREADSHEET_SELECT_GROUP } from "@plane/constants";
@@ -190,6 +194,8 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   } = props;
   // states
   const [isMenuActive, setIsMenuActive] = useState(false);
+  const columns = useNativeColumns(spreadsheetColumnsList);
+  useNativeIssueRegistration(issueId);
   // refs
   const cellRef = useRef(null);
   const menuActionRef = useRef<HTMLButtonElement | null>(null);
@@ -389,18 +395,26 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
         </ControlLink>
       </td>
       {/* Rest of the columns */}
-      {spreadsheetColumnsList.map((property) => (
-        <IssueColumn
-          key={property}
-          displayProperties={displayProperties}
-          issueDetail={issueDetail}
-          disableUserActions={disableUserActions}
-          property={property}
-          updateIssue={updateIssue}
-          isEstimateEnabled={isEstimateEnabled}
-        />
-      ))}
-      <CustomTableCells issueId={issueDetail.id} disabled={disableUserActions} />
+      {columns.map((property) =>
+        property.startsWith("custom:") ? (
+          <NativeCustomCell
+            key={property}
+            issueId={issueDetail.id}
+            fieldId={property.slice(7)}
+            disabled={disableUserActions}
+          />
+        ) : (
+          <IssueColumn
+            key={property}
+            displayProperties={displayProperties}
+            issueDetail={issueDetail}
+            disableUserActions={disableUserActions}
+            property={property.slice(9) as keyof IIssueDisplayProperties}
+            updateIssue={updateIssue}
+            isEstimateEnabled={isEstimateEnabled}
+          />
+        )
+      )}
     </>
   );
 });

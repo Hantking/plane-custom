@@ -6,6 +6,7 @@
 
 import React from "react";
 import { observer } from "mobx-react";
+import { NativeDisplayControls } from "@/components/custom-fields/native-display-controls";
 // plane constants
 import { ISSUE_DISPLAY_PROPERTIES } from "@plane/constants";
 // plane i18n
@@ -22,6 +23,7 @@ type Props = {
   cycleViewDisabled?: boolean;
   moduleViewDisabled?: boolean;
   isEpic?: boolean;
+  nativeLayout?: string;
 };
 
 export const FilterDisplayProperties = observer(function FilterDisplayProperties(props: Props) {
@@ -32,6 +34,7 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
     cycleViewDisabled = false,
     moduleViewDisabled = false,
     isEpic = false,
+    nativeLayout,
   } = props;
   // hooks
   const { t } = useTranslation();
@@ -52,7 +55,7 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
     }
   }).map((property) => {
     if (isEpic && property.key === "sub_issue_count") {
-      return { ...property, titleTranslationKey: "issue.display.properties.work_item_count" };
+      return { key: property.key, titleTranslationKey: "issue.display.properties.work_item_count" };
     }
     return property;
   });
@@ -65,9 +68,9 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
         handleIsPreviewEnabled={() => setPreviewEnabled(!previewEnabled)}
       />
       {previewEnabled && (
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          {filteredDisplayProperties.map((displayProperty) => (
-            <>
+        <>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {filteredDisplayProperties.map((displayProperty) => (
               <button
                 key={displayProperty.key}
                 type="button"
@@ -84,9 +87,26 @@ export const FilterDisplayProperties = observer(function FilterDisplayProperties
               >
                 {t(displayProperty.titleTranslationKey)}
               </button>
-            </>
-          ))}
-        </div>
+            ))}
+          </div>
+          {nativeLayout && !isEpic && (
+            <NativeDisplayControls
+              layout={nativeLayout}
+              standardProperties={
+                nativeLayout === "spreadsheet"
+                  ? displayPropertiesToRender.filter(
+                      (key) =>
+                        key !== "issue_type" &&
+                        !(key === "cycle" && cycleViewDisabled) &&
+                        !(key === "modules" && moduleViewDisabled)
+                    )
+                  : filteredDisplayProperties.map((property) => property.key)
+              }
+              displayProperties={displayProperties}
+              updateStandard={handleUpdate}
+            />
+          )}
+        </>
       )}
     </>
   );

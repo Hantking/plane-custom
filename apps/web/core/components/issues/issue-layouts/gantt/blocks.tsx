@@ -5,12 +5,13 @@
  */
 
 import { observer } from "mobx-react";
+import { NativeCardFields } from "@/components/custom-fields/native-layout";
 import { useParams } from "next/navigation";
 // plane imports
 import { Popover } from "@plane/propel/popover";
 import { Tooltip } from "@plane/propel/tooltip";
 import { ControlLink } from "@plane/ui";
-import { findTotalDaysInRange, generateWorkItemLink } from "@plane/utils";
+import { generateWorkItemLink } from "@plane/utils";
 // components
 import { SIDEBAR_WIDTH } from "@/components/gantt-chart/constants";
 import { IssueIdentifier } from "@/components/issues/issue-detail/issue-identifier";
@@ -55,8 +56,6 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
 
   const handleIssuePeekOverview = () => handleRedirection(workspaceSlug, issueDetails, isMobile);
 
-  const duration = findTotalDaysInRange(issueDetails?.start_date, issueDetails?.target_date) || 0;
-
   return (
     <Popover delay={100} openOnHover>
       <Popover.Button
@@ -71,10 +70,13 @@ export const IssueGanttBlock = observer(function IssueGanttBlock(props: Props) {
           >
             <div className="absolute top-0 left-0 h-full w-full bg-surface-1/50" />
             <div
-              className="sticky w-auto flex-1 truncate overflow-hidden px-2.5 py-1 text-13 text-primary"
+              className="sticky flex w-auto flex-1 items-center gap-2 overflow-hidden px-2.5 py-1 text-13 text-primary"
               style={{ left: `${SIDEBAR_WIDTH}px` }}
             >
-              {issueDetails?.name}
+              <span className="max-w-48 shrink-0 truncate">{issueDetails?.name}</span>
+              {issueDetails && (
+                <NativeCardFields issueId={issueDetails.id} projectId={issueDetails.project_id} compact />
+              )}
             </div>
           </div>
         }
@@ -138,10 +140,10 @@ export const IssueGanttSidebarBlock = observer(function IssueGanttSidebarBlock(p
       id={`issue-${issueId}`}
       href={workItemLink}
       onClick={handleIssuePeekOverview}
-      className="line-clamp-1 w-full cursor-pointer text-13 text-primary"
+      className="flex h-full w-full cursor-pointer flex-col justify-center text-13 text-primary"
       disabled={!!issueDetails?.tempId}
     >
-      <div className="relative flex h-full w-full cursor-pointer items-center gap-2">
+      <div className="relative flex w-full cursor-pointer items-center gap-2">
         {issueDetails?.project_id && (
           <IssueIdentifier
             issueId={issueDetails.id}
@@ -155,6 +157,14 @@ export const IssueGanttSidebarBlock = observer(function IssueGanttSidebarBlock(p
           <span className="flex-grow truncate text-13 font-medium">{issueDetails?.name}</span>
         </Tooltip>
       </div>
+      {issueDetails && (
+        <NativeCardFields
+          issueId={issueDetails.id}
+          projectId={issueDetails.project_id}
+          compact
+          className="flex gap-1 overflow-hidden"
+        />
+      )}
     </ControlLink>
   );
 });

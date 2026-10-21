@@ -86,7 +86,7 @@ class FieldEndpoint(ProjectEndpoint):
     def delete(self, request, slug, project_id, field_id):
         with transaction.atomic():
             field = get_object_or_404(Field.objects.select_for_update(), pk=field_id, project=self.project())
-            rewrite_views(field, deleting=True)
+            rewrite_views(field, deleting=True, native_delete=True)
             field.delete()
         return Response(status=204)
 

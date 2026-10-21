@@ -8,6 +8,7 @@ import type { SyntheticEvent } from "react";
 import { useCallback, useMemo } from "react";
 import { xor } from "lodash-es";
 import { observer } from "mobx-react";
+import { NativeCardFields, useNativeDateRangeMerge } from "@/components/custom-fields/native-layout";
 import { useParams } from "next/navigation";
 // icons
 import { Paperclip } from "lucide-react";
@@ -60,6 +61,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
   const { issue, updateIssue, displayProperties, isReadOnly, className, isEpic = false } = props;
   // i18n
   const { t } = useTranslation();
+  const canMergeDates = useNativeDateRangeMerge();
   // store hooks
   const { getProjectById } = useProject();
   const { labelMap } = useLabel();
@@ -176,7 +178,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
 
   // date range is enabled only when both dates are available and both dates are enabled
   const isDateRangeEnabled: boolean = Boolean(
-    issue.start_date && issue.target_date && displayProperties.start_date && displayProperties.due_date
+    issue.start_date && issue.target_date && displayProperties.start_date && displayProperties.due_date && canMergeDates
   );
 
   const defaultLabelOptions =
@@ -196,6 +198,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
 
   return (
     <div className={className}>
+      <NativeCardFields issueId={issue.id} projectId={issue.project_id} />
       {/* basic properties */}
       {/* state */}
       <WithDisplayPropertiesHOC displayProperties={displayProperties} displayPropertyKey="state">

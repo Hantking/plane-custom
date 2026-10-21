@@ -7,6 +7,8 @@
 import { observer } from "mobx-react";
 // plane imports
 import { EIssueLayoutTypes } from "@plane/types";
+import { NativeLayoutProvider } from "@/components/custom-fields/native-layout";
+import { flattenNativeIssueIds } from "@/components/custom-fields/native-display-helpers";
 // components
 import { LayoutErrorBoundary } from "@/components/common/layout-error-boundary";
 import { CalendarLayoutLoader } from "@/components/ui/loader/layouts/calendar-layout-loader";
@@ -59,5 +61,9 @@ export const IssueLayoutHOC = observer(function IssueLayoutHOC(props: Props) {
     return <IssueLayoutEmptyState storeType={storeType} />;
   }
 
-  return <LayoutErrorBoundary key={layout}>{props.children}</LayoutErrorBoundary>;
+  return (
+    <NativeLayoutProvider layout={layout} issueIds={flattenNativeIssueIds(issues.groupedIssueIds)}>
+      <LayoutErrorBoundary key={layout}>{props.children}</LayoutErrorBoundary>
+    </NativeLayoutProvider>
+  );
 });

@@ -8,9 +8,12 @@ from .views import (
     ViewEndpoint,
     ViewsEndpoint,
 )
+from .native import NativeDisplayEndpoint, NativeValuesEndpoint
 
 prefix = "workspaces/<str:slug>/projects/<uuid:project_id>/custom-fields/"
 urlpatterns = [
+    path("workspaces/<str:slug>/custom-fields/native-display/", NativeDisplayEndpoint.as_view()),
+    path("workspaces/<str:slug>/custom-fields/native-values/", NativeValuesEndpoint.as_view()),
     path(prefix, FieldsEndpoint.as_view()),
     path(prefix + "definitions/<uuid:field_id>/", FieldEndpoint.as_view()),
     path(prefix + "issues/<uuid:issue_id>/", ValuesEndpoint.as_view()),

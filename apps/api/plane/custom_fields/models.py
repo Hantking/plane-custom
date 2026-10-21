@@ -70,3 +70,23 @@ class SavedView(models.Model):
     class Meta:
         db_table = "hentis_custom_field_views"
         ordering = ["name", "id"]
+
+
+class NativeLayoutPreference(models.Model):
+    workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE)
+    project = models.ForeignKey("db.Project", on_delete=models.CASCADE, null=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    context_type = models.CharField(max_length=20)
+    target = models.UUIDField()
+    layout = models.CharField(max_length=16)
+    property_order = models.JSONField(default=list)
+    visible = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hentis_native_layout_preferences"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner", "workspace", "context_type", "target", "layout"], name="hentis_native_pref_unique"
+            )
+        ]

@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from .models import SavedView
+from .models import NativeLayoutPreference, SavedView
 from .services import COLUMNS, OPERATORS, SELECTION_KINDS, json_value, normalize, value_columns, value_of
 
 
@@ -59,8 +59,17 @@ def convert_value(old, new, value):
     return normalize(new, value)
 
 
-def rewrite_views(field, *, previous=None, deleting=False):
+def rewrite_views(field, *, previous=None, deleting=False, native_delete=False):
     key = str(field.id)
+    if native_delete:
+        for preference in NativeLayoutPreference.objects.select_for_update().filter(
+            workspace_id=field.project.workspace_id
+        ):
+            order = [item for item in preference.property_order if item != "custom:" + key]
+            visible = [item for item in preference.visible if item != key]
+            if order != preference.property_order or visible != preference.visible:
+                preference.property_order, preference.visible = order, visible
+                preference.save(update_fields=["property_order", "visible", "updated_at"])
     for view in SavedView.objects.select_for_update().filter(project_id=field.project_id):
         config = copy.deepcopy(view.config)
         if not isinstance(config, dict):

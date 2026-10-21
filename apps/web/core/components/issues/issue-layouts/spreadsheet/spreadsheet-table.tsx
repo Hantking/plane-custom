@@ -7,7 +7,7 @@
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
-import { CustomTableProvider } from "@/components/custom-fields/table-columns";
+import { useNativeColumns } from "@/components/custom-fields/native-layout";
 // plane imports
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties, TIssue } from "@plane/types";
 // components
@@ -62,6 +62,7 @@ export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props)
 
   // states
   const isScrolled = useRef(false);
+  const customColumnCount = useNativeColumns(spreadsheetColumnsList).filter((key) => key.startsWith("custom:")).length;
   const [intersectionElement, setIntersectionElement] = useState<HTMLTableSectionElement | null>(null);
 
   const {
@@ -109,49 +110,48 @@ export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props)
 
   const ignoreFieldsForCounting: (keyof IIssueDisplayProperties)[] = ["key"];
   if (!isEstimateEnabled) ignoreFieldsForCounting.push("estimate");
-  const displayPropertiesCount = getDisplayPropertiesCount(displayProperties, ignoreFieldsForCounting);
+  const displayPropertiesCount =
+    getDisplayPropertiesCount(displayProperties, ignoreFieldsForCounting) + customColumnCount;
 
   return (
-    <CustomTableProvider issueIds={issueIds}>
-      <table className="w-full overflow-y-auto bg-surface-1" onKeyDown={handleKeyBoardNavigation}>
-        <SpreadsheetHeader
-          displayProperties={displayProperties}
-          displayFilters={displayFilters}
-          handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-          canEditProperties={canEditProperties}
-          isEstimateEnabled={isEstimateEnabled}
-          spreadsheetColumnsList={spreadsheetColumnsList}
-          selectionHelpers={selectionHelpers}
-          isEpic={isEpic}
-        />
-        <tbody>
-          {issueIds.map((id) => (
-            <SpreadsheetIssueRow
-              key={id}
-              issueId={id}
-              displayProperties={displayProperties}
-              quickActions={quickActions}
-              canEditProperties={canEditProperties}
-              nestingLevel={0}
-              isEstimateEnabled={isEstimateEnabled}
-              updateIssue={updateIssue}
-              portalElement={portalElement}
-              containerRef={containerRef}
-              isScrolled={isScrolled}
-              spreadsheetColumnsList={spreadsheetColumnsList}
-              selectionHelpers={selectionHelpers}
-              isEpic={isEpic}
-            />
+    <table className="w-full overflow-y-auto bg-surface-1" onKeyDown={handleKeyBoardNavigation}>
+      <SpreadsheetHeader
+        displayProperties={displayProperties}
+        displayFilters={displayFilters}
+        handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+        canEditProperties={canEditProperties}
+        isEstimateEnabled={isEstimateEnabled}
+        spreadsheetColumnsList={spreadsheetColumnsList}
+        selectionHelpers={selectionHelpers}
+        isEpic={isEpic}
+      />
+      <tbody>
+        {issueIds.map((id) => (
+          <SpreadsheetIssueRow
+            key={id}
+            issueId={id}
+            displayProperties={displayProperties}
+            quickActions={quickActions}
+            canEditProperties={canEditProperties}
+            nestingLevel={0}
+            isEstimateEnabled={isEstimateEnabled}
+            updateIssue={updateIssue}
+            portalElement={portalElement}
+            containerRef={containerRef}
+            isScrolled={isScrolled}
+            spreadsheetColumnsList={spreadsheetColumnsList}
+            selectionHelpers={selectionHelpers}
+            isEpic={isEpic}
+          />
+        ))}
+      </tbody>
+      {canLoadMoreIssues && (
+        <tfoot ref={setIntersectionElement}>
+          {["loading-1", "loading-2", "loading-3"].map((key) => (
+            <SpreadsheetIssueRowLoader key={key} columnCount={displayPropertiesCount} />
           ))}
-        </tbody>
-        {canLoadMoreIssues && (
-          <tfoot ref={setIntersectionElement}>
-            {["loading-1", "loading-2", "loading-3"].map((key) => (
-              <SpreadsheetIssueRowLoader key={key} columnCount={displayPropertiesCount} />
-            ))}
-          </tfoot>
-        )}
-      </table>
-    </CustomTableProvider>
+        </tfoot>
+      )}
+    </table>
   );
 });

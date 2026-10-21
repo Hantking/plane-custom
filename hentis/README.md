@@ -8,6 +8,16 @@ Na página de tarefas do projeto, abra **Campos e visualizações**. Administrad
 
 Os valores aparecem na criação e nos detalhes das tarefas e nas colunas da tabela nativa do projeto. Na página **Campos e visualizações**, é possível filtrar com E/OU, ordenar por campos tipados, escolher colunas, salvar Views privadas/compartilhadas e agrupar listas/Kanban por seleção ou sim/não. Cada grupo é paginado no servidor; arrastar cartões ou usar o seletor do cartão muda o valor do campo. Campos numéricos/texto/data podem ser filtrados e ordenados; não geram grupos arbitrários de Kanban.
 
+### Exibição nos layouts nativos
+
+Os campos estão incorporados aos layouts **Planilha, Lista, Kanban, Calendário e Cronograma/Gantt**, nas telas de itens do projeto, módulos, ciclos e Views. Abra **Exibir/Display → Propriedades → Campos personalizados e ordem** para marcar/desmarcar campos e arrastar ou usar as setas para escolher a sequência.
+
+Na planilha, campos personalizados podem ficar entre as propriedades padrão. Na lista e no Kanban, a mesma ordem é usada nas propriedades dos cartões. Calendário e Gantt mostram os campos de forma compacta nos cartões/linhas e barras, preservando as datas usadas pelo layout. Título/identificador permanecem fixos na posição nativa.
+
+Visibilidade dos campos personalizados e ordem são preferências pessoais salvas no servidor, separadas por usuário, projeto/módulo/ciclo/View e layout. A visibilidade das propriedades padrão continua usando o mecanismo original do Plane. As Views de workspace carregam apenas projetos autorizados; colunas de diferentes projetos são qualificadas pelo identificador do projeto.
+
+Os valores são consultados em lotes, evitando uma chamada por cartão/campo. Convidados continuam limitados às próprias tarefas quando o projeto assim determina. Editar um valor nos detalhes atualiza os layouts nativos; excluir um campo também limpa suas referências nas preferências. A migração `0003_nativelayoutpreference` adiciona somente a tabela dessas preferências.
+
 Os filtros/Views personalizados estão nessa página dedicada, não no menu de filtros padrão de todas as telas oficiais. Isso concentra os pontos de integração e reduz conflitos upstream. Fórmulas, campos de usuário, dashboards agregados e integração automática com APIs externas/importadores continuam fora deste módulo.
 
 Campos obrigatórios são validados na criação nativa da tarefa e ao limpar um campo. Tarefas existentes não são bloqueadas em alterações não relacionadas. Quick-add sem os campos obrigatórios deve utilizar o formulário completo. Os rascunhos mantêm o comportamento oficial e preenchem os campos quando convertidos em tarefas pelo formulário.

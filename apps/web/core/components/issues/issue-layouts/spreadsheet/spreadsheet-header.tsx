@@ -5,7 +5,7 @@
  */
 
 import { observer } from "mobx-react";
-import { CustomTableHeaders } from "@/components/custom-fields/table-columns";
+import { NativeCustomHeader, useNativeColumns } from "@/components/custom-fields/native-layout";
 import { useParams } from "next/navigation";
 // constants
 import { SPREADSHEET_SELECT_GROUP } from "@plane/constants";
@@ -42,6 +42,7 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
   } = props;
   // router
   const { projectId } = useParams();
+  const columns = useNativeColumns(spreadsheetColumnsList);
   // derived values
   const isGroupSelectionEmpty = selectionHelpers.isGroupSelected(SPREADSHEET_SELECT_GROUP) === "empty";
   // auth
@@ -77,18 +78,21 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
           </div>
         </th>
 
-        {spreadsheetColumnsList.map((property) => (
-          <SpreadsheetHeaderColumn
-            key={property}
-            property={property}
-            displayProperties={displayProperties}
-            displayFilters={displayFilters}
-            handleDisplayFilterUpdate={handleDisplayFilterUpdate}
-            isEstimateEnabled={isEstimateEnabled}
-            isEpic={isEpic}
-          />
-        ))}
-        <CustomTableHeaders />
+        {columns.map((property) =>
+          property.startsWith("custom:") ? (
+            <NativeCustomHeader key={property} fieldId={property.slice(7)} />
+          ) : (
+            <SpreadsheetHeaderColumn
+              key={property}
+              property={property.slice(9) as keyof IIssueDisplayProperties}
+              displayProperties={displayProperties}
+              displayFilters={displayFilters}
+              handleDisplayFilterUpdate={handleDisplayFilterUpdate}
+              isEstimateEnabled={isEstimateEnabled}
+              isEpic={isEpic}
+            />
+          )
+        )}
       </tr>
     </thead>
   );
