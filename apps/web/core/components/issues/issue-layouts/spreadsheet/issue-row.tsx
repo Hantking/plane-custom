@@ -7,6 +7,7 @@
 import type { Dispatch, MouseEvent, MutableRefObject, SetStateAction } from "react";
 import { useRef, useState } from "react";
 import { observer } from "mobx-react";
+import { useTableColumnStyle } from "@/components/custom-fields/table-column-widths";
 import {
   NativeCustomCell,
   useNativeColumns,
@@ -195,6 +196,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
   // states
   const [isMenuActive, setIsMenuActive] = useState(false);
   const columns = useNativeColumns(spreadsheetColumnsList);
+  const titleStyle = useTableColumnStyle("title");
   useNativeIssueRegistration(issueId);
   // refs
   const cellRef = useRef(null);
@@ -271,6 +273,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
         ref={cellRef}
         tabIndex={0}
         className="group/list-block relative left-0 z-10 max-w-lg bg-surface-1 md:sticky"
+        style={titleStyle}
       >
         <ControlLink
           href={workItemLink}
@@ -308,9 +311,9 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
 
             {/* Workitem section */}
             <div
-              className={cn("flex flex-grow items-center gap-0.5 py-2", {
-                "min-w-[360px]": !displayProperties?.key,
-                "min-w-60": displayProperties?.key,
+              className={cn("flex min-w-0 flex-1 items-center gap-0.5 py-2", {
+                "min-w-[360px]": !titleStyle && !displayProperties?.key,
+                "min-w-60": !titleStyle && displayProperties?.key,
               })}
             >
               {/* select checkbox */}

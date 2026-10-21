@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { observer } from "mobx-react";
 import { useParams, usePathname } from "next/navigation";
@@ -8,6 +8,10 @@ import { FieldDisplay, FieldInput, displayValue } from "./inputs";
 import { fieldError, fieldsService } from "./service";
 import type { FieldValue } from "./service";
 import { nativeDisplayService } from "./native-service";
+import { NativeFieldsContext, useNativeFieldsContext } from "./native-context";
+import type { Registration } from "./native-context";
+import { ColumnResizeHandle, useTableColumnStyle } from "./table-column-widths";
+export { useNativeFieldsContext } from "./native-context";
 import {
   isWorkspaceNativeScope,
   nativeRequest,
@@ -37,18 +41,6 @@ export function useNativeDisplay(layout: string) {
   const response = useSWR(key, () => nativeDisplayService.metadata(workspace, request!));
   return { ...response, request, workspace, userId: user?.id, identity: key?.join("/") ?? "unsupported" };
 }
-
-type Registration = (id: string) => () => void;
-type NativeContextData = {
-  display: ReturnType<typeof useNativeDisplay>;
-  layout: NativeLayout;
-  register: Registration;
-  values: Record<string, Record<string, FieldValue>>;
-  projects: Record<string, string>;
-  refresh: () => Promise<unknown>;
-};
-const NativeFieldsContext = createContext<NativeContextData | null>(null);
-export const useNativeFieldsContext = () => useContext(NativeFieldsContext);
 
 function NativeDataProvider({
   display,
@@ -191,14 +183,20 @@ export function NativeCardFields({
 
 export function NativeCustomHeader({ fieldId }: { fieldId: string }) {
   const context = useNativeFieldsContext();
+  const columnStyle = useTableColumnStyle("custom:" + fieldId);
   const field = context?.display.data?.fields.find((item) => item.id === fieldId);
   if (!field) return null;
   const label = isWorkspaceNativeScope(context?.display.request?.scope)
     ? `${field.project_identifier} · ${field.name}`
     : field.name;
   return (
-    <th className="min-w-44 border-r border-subtle bg-layer-1 px-2 py-2 text-left text-13 font-medium" title={label}>
+    <th
+      className="relative min-w-44 border-r border-subtle bg-layer-1 px-2 py-2 pr-3 text-left text-13 font-medium"
+      style={columnStyle}
+      title={label}
+    >
       {label}
+      <ColumnResizeHandle columnKey={"custom:" + fieldId} label={label} />
     </th>
   );
 }
@@ -216,6 +214,7 @@ export function NativeCustomCell({
   const field = context?.display.data?.fields.find((item) => item.id === fieldId);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const columnStyle = useTableColumnStyle("custom:" + fieldId);
   if (!context || !field) return null;
   const project = context.projects[issueId];
   const save = async (value: FieldValue) => {
@@ -231,7 +230,11 @@ export function NativeCustomCell({
     }
   };
   return (
-    <td className="min-w-44 border-r border-subtle px-2 text-13" onClick={(event) => event.stopPropagation()}>
+    <td
+      className="min-w-44 border-r border-subtle px-2 text-13"
+      style={columnStyle}
+      onClick={(event) => event.stopPropagation()}
+    >
       {project !== field.project_id ? (
         <span className="text-secondary">—</span>
       ) : (

@@ -22,7 +22,21 @@ class NativeDisplayService extends APIService {
     return (await this.get(this.path(workspace) + "native-display/", { params: context })).data;
   }
   async save(workspace: string, context: NativeRequest, preference: NativePreference): Promise<NativeMetadata> {
-    return (await this.patch(this.path(workspace) + "native-display/", { ...context, ...preference })).data;
+    return (
+      await this.patch(this.path(workspace) + "native-display/", {
+        ...context,
+        order: preference.order,
+        visible: preference.visible,
+      })
+    ).data;
+  }
+  async resizeColumn(
+    workspace: string,
+    context: NativeRequest,
+    key: string,
+    width: number | null
+  ): Promise<NativeMetadata> {
+    return (await this.patch(this.path(workspace) + "native-display/", { ...context, widths: { [key]: width } })).data;
   }
   async batch(workspace: string, context: NativeRequest, ids: string[]): Promise<NativeBatch> {
     const chunks = Array.from({ length: Math.ceil(ids.length / 100) }, (_, index) =>

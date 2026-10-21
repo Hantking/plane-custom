@@ -8,6 +8,12 @@ import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { useNativeColumns } from "@/components/custom-fields/native-layout";
+import {
+  TableColumnWidthsProvider,
+  TableWidthGroup,
+  useNativeTableWidthStyle,
+} from "@/components/custom-fields/table-column-widths";
+import { visibleTableColumns } from "@/components/custom-fields/column-width-helpers";
 // plane imports
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties, TIssue } from "@plane/types";
 // components
@@ -42,6 +48,16 @@ type Props = {
 };
 
 export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props) {
+  const columns = useNativeColumns(props.spreadsheetColumnsList);
+  const visibleColumns = visibleTableColumns(columns, props.displayProperties, props.isEstimateEnabled);
+  return (
+    <TableColumnWidthsProvider columns={visibleColumns}>
+      <SpreadsheetTableContent {...props} visibleColumns={visibleColumns} />
+    </TableColumnWidthsProvider>
+  );
+});
+
+const SpreadsheetTableContent = observer(function SpreadsheetTableContent(props: Props & { visibleColumns: string[] }) {
   const {
     displayProperties,
     displayFilters,
@@ -62,6 +78,7 @@ export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props)
 
   // states
   const isScrolled = useRef(false);
+  const tableWidthStyle = useNativeTableWidthStyle();
   const customColumnCount = useNativeColumns(spreadsheetColumnsList).filter((key) => key.startsWith("custom:")).length;
   const [intersectionElement, setIntersectionElement] = useState<HTMLTableSectionElement | null>(null);
 
@@ -114,7 +131,8 @@ export const SpreadsheetTable = observer(function SpreadsheetTable(props: Props)
     getDisplayPropertiesCount(displayProperties, ignoreFieldsForCounting) + customColumnCount;
 
   return (
-    <table className="w-full overflow-y-auto bg-surface-1" onKeyDown={handleKeyBoardNavigation}>
+    <table className="w-full overflow-y-auto bg-surface-1" style={tableWidthStyle} onKeyDown={handleKeyBoardNavigation}>
+      <TableWidthGroup columns={props.visibleColumns} />
       <SpreadsheetHeader
         displayProperties={displayProperties}
         displayFilters={displayFilters}

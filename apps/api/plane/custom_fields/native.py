@@ -153,6 +153,17 @@ class NativeContext:
             )
         )
         visible = [key for key in (preference.visible if preference else ids) if key in ids]
+        widths = (
+            {
+                key: value
+                for key, value in (preference.column_widths if preference else {}).items()
+                if key in allowed | {"title"}
+                and type(value) is int
+                and (160 if key == "title" else 80) <= value <= 1200
+            }
+            if self.layout == "spreadsheet"
+            else {}
+        )
         editable = [
             str(membership.project_id)
             for membership in self.memberships
@@ -168,7 +179,7 @@ class NativeContext:
                 }
                 for field in fields
             ],
-            "preference": {"order": order, "visible": visible},
+            "preference": {"order": order, "visible": visible, "widths": widths},
             "editable_project_ids": editable,
             "context_label": self.label,
         }
@@ -197,24 +208,62 @@ class NativeDisplayEndpoint(APIView):
         known = {str(field.id) for field in fields}
         allowed = {"standard:" + key for key in STANDARD_PROPERTIES} | {"custom:" + key for key in known}
         order, visible = request.data.get("order"), request.data.get("visible")
-        if (
+        if not {"order", "visible", "widths"}.intersection(request.data):
+            raise ValidationError("Informe ordem, visibilidade ou largura das colunas.")
+        if "order" in request.data and (
             not isinstance(order, list)
             or len(order) > len(allowed)
             or any(not isinstance(key, str) or key not in allowed for key in order)
         ):
             raise ValidationError("Ordem contém propriedades inexistentes ou sem acesso.")
-        if (
+        if "visible" in request.data and (
             not isinstance(visible, list)
             or len(visible) > len(known)
             or any(not isinstance(key, str) or key not in known for key in visible)
         ):
             raise ValidationError("Campos visíveis inexistentes ou sem acesso.")
-        if len(order) != len(set(order)) or len(visible) != len(set(visible)):
+        if (order is not None and len(order) != len(set(order))) or (
+            visible is not None and len(visible) != len(set(visible))
+        ):
             raise ValidationError("Propriedades duplicadas.")
+        widths = request.data.get("widths", {})
+        width_keys = allowed | {"title"}
+        if "widths" in request.data:
+            if context.layout != "spreadsheet" and widths != {}:
+                raise ValidationError("Larguras são exclusivas do layout Tabela/Planilha.")
+            if not isinstance(widths, dict) or len(widths) > len(width_keys):
+                raise ValidationError("Larguras inválidas.")
+            for key, width in widths.items():
+                if key not in width_keys or (
+                    width is not None
+                    and (type(width) is not int or not (160 if key == "title" else 80) <= width <= 1200)
+                ):
+                    raise ValidationError(
+                        "Largura inválida: use pixels inteiros de 80 a 1200 (mínimo 160 para o título)."
+                    )
+        defaults = context.metadata()["preference"]
         with transaction.atomic():
-            NativeLayoutPreference.objects.update_or_create(
-                **context.key(), defaults={"project": context.project, "property_order": order, "visible": visible}
+            preference, _ = NativeLayoutPreference.objects.select_for_update().get_or_create(
+                **context.key(),
+                defaults={
+                    "project": context.project,
+                    "property_order": defaults["order"],
+                    "visible": defaults["visible"],
+                },
             )
+            if "order" in request.data:
+                preference.property_order = order
+            if "visible" in request.data:
+                preference.visible = visible
+            if "widths" in request.data:
+                current_widths = dict(preference.column_widths)
+                for key, width in widths.items():
+                    if width is None:
+                        current_widths.pop(key, None)
+                    else:
+                        current_widths[key] = width
+                preference.column_widths = current_widths
+            preference.save(update_fields=["property_order", "visible", "column_widths", "updated_at"])
         return Response(context.metadata())
 
 

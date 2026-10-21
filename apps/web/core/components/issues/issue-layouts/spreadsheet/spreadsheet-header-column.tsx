@@ -7,6 +7,9 @@
 import { useRef } from "react";
 //types
 import { observer } from "mobx-react";
+import { SPREADSHEET_PROPERTY_DETAILS } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
+import { ColumnResizeHandle, useTableColumnStyle } from "@/components/custom-fields/table-column-widths";
 import type { IIssueDisplayFilterOptions, IIssueDisplayProperties } from "@plane/types";
 //components
 import { shouldRenderColumn } from "@/helpers/issue-filter.helper";
@@ -26,6 +29,8 @@ export const SpreadsheetHeaderColumn = observer(function SpreadsheetHeaderColumn
 
   //hooks
   const tableHeaderCellRef = useRef<HTMLTableCellElement | null>(null);
+  const columnStyle = useTableColumnStyle("standard:" + property);
+  const { t } = useTranslation();
 
   const shouldRenderProperty = shouldRenderColumn(property);
 
@@ -39,6 +44,7 @@ export const SpreadsheetHeaderColumn = observer(function SpreadsheetHeaderColumn
         className="h-11 min-w-36 items-center border border-t-0 border-b-0 border-subtle bg-layer-1 py-1 text-13 font-medium"
         ref={tableHeaderCellRef}
         tabIndex={0}
+        style={{ ...columnStyle, position: "relative", paddingRight: 12 }}
       >
         <HeaderColumn
           displayFilters={displayFilters}
@@ -48,6 +54,10 @@ export const SpreadsheetHeaderColumn = observer(function SpreadsheetHeaderColumn
             tableHeaderCellRef?.current?.focus();
           }}
           isEpic={isEpic}
+        />
+        <ColumnResizeHandle
+          columnKey={"standard:" + property}
+          label={t(SPREADSHEET_PROPERTY_DETAILS[property]?.i18n_title ?? "common.properties")}
         />
       </th>
     </WithDisplayPropertiesHOC>

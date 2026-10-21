@@ -20,6 +20,14 @@ Visibilidade dos campos personalizados e ordem são preferências pessoais salva
 
 Os valores são consultados em lotes, evitando uma chamada por cartão/campo. Convidados continuam limitados às próprias tarefas quando o projeto assim determina. Editar um valor nos detalhes atualiza os layouts nativos; excluir um campo também limpa suas referências nas preferências. A migração `0003_nativelayoutpreference` adiciona somente a tabela dessas preferências.
 
+### Largura das colunas da Planilha
+
+Arraste a borda direita do cabeçalho de qualquer coluna para ajustar sua largura, incluindo **Tarefa**, **Criado em**, **Atualizado em** e campos personalizados. A prévia acompanha o movimento e a largura é salva ao soltar. Um clique duplo na borda restaura o tamanho padrão daquela coluna.
+
+A borda também pode receber foco pelo teclado: **←/→** ajustam 10 px, **Shift + ←/→** ajustam 50 px e **Home** restaura o padrão. **Escape** cancela um arraste em andamento. Os limites são 80–1200 px por coluna, com mínimo de 160 px para Tarefa.
+
+As larguras são preferências pessoais, separadas pelo mesmo usuário/contexto da Planilha, e persistem no servidor após recarregar ou entrar novamente. Ajustar uma coluna preserva as larguras das demais, a ordem e a visibilidade. A migração aditiva `0004_nativelayoutpreference_column_widths` adiciona apenas um campo JSON à tabela de preferências.
+
 Os filtros/Views personalizados estão nessa página dedicada, não no menu de filtros padrão de todas as telas oficiais. Isso concentra os pontos de integração e reduz conflitos upstream. Fórmulas, campos de usuário, dashboards agregados e integração automática com APIs externas/importadores continuam fora deste módulo.
 
 Campos obrigatórios são validados na criação nativa da tarefa e ao limpar um campo. Tarefas existentes não são bloqueadas em alterações não relacionadas. Quick-add sem os campos obrigatórios deve utilizar o formulário completo. Os rascunhos mantêm o comportamento oficial e preenchem os campos quando convertidos em tarefas pelo formulário.

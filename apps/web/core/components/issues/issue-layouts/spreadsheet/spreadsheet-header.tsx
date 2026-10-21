@@ -6,6 +6,7 @@
 
 import { observer } from "mobx-react";
 import { NativeCustomHeader, useNativeColumns } from "@/components/custom-fields/native-layout";
+import { ColumnResizeHandle, useTableColumnStyle } from "@/components/custom-fields/table-column-widths";
 import { useParams } from "next/navigation";
 // constants
 import { SPREADSHEET_SELECT_GROUP } from "@plane/constants";
@@ -43,6 +44,7 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
   // router
   const { projectId } = useParams();
   const columns = useNativeColumns(spreadsheetColumnsList);
+  const titleStyle = useTableColumnStyle("title");
   // derived values
   const isGroupSelectionEmpty = selectionHelpers.isGroupSelected(SPREADSHEET_SELECT_GROUP) === "empty";
   // auth
@@ -53,12 +55,13 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
       <tr>
         {/* Single header column containing both identifier and workitem */}
         <th
-          className="group/list-header left-0 z-[15] h-11 min-w-60 border-r-[0.5px] border-subtle bg-layer-1 text-13 font-medium md:sticky"
+          className="group/list-header relative left-0 z-[15] h-11 min-w-60 border-r-[0.5px] border-subtle bg-layer-1 text-13 font-medium md:sticky"
           tabIndex={-1}
+          style={titleStyle}
         >
           <div className="flex h-full w-full items-center gap-2 px-page-x">
             {/* Workitem header section */}
-            <div className="flex h-full min-w-80 flex-grow items-center gap-1 py-2.5">
+            <div className="flex h-full min-w-0 flex-grow items-center gap-1 overflow-hidden py-2.5">
               {canSelectIssues && (
                 <div className="mr-1 flex w-3.5 flex-shrink-0 items-center">
                   <MultipleSelectGroupAction
@@ -76,6 +79,7 @@ export const SpreadsheetHeader = observer(function SpreadsheetHeader(props: Prop
               <span className="text-13 font-medium">{`${isEpic ? "Epics" : "Work items"}`}</span>
             </div>
           </div>
+          <ColumnResizeHandle columnKey="title" label="Tarefa" />
         </th>
 
         {columns.map((property) =>

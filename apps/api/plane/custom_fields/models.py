@@ -81,6 +81,7 @@ class NativeLayoutPreference(models.Model):
     layout = models.CharField(max_length=16)
     property_order = models.JSONField(default=list)
     visible = models.JSONField(default=list)
+    column_widths = models.JSONField(default=dict)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

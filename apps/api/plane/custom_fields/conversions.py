@@ -67,9 +67,15 @@ def rewrite_views(field, *, previous=None, deleting=False, native_delete=False):
         ):
             order = [item for item in preference.property_order if item != "custom:" + key]
             visible = [item for item in preference.visible if item != key]
-            if order != preference.property_order or visible != preference.visible:
+            widths = {item: width for item, width in preference.column_widths.items() if item != "custom:" + key}
+            if (
+                order != preference.property_order
+                or visible != preference.visible
+                or widths != preference.column_widths
+            ):
                 preference.property_order, preference.visible = order, visible
-                preference.save(update_fields=["property_order", "visible", "updated_at"])
+                preference.column_widths = widths
+                preference.save(update_fields=["property_order", "visible", "column_widths", "updated_at"])
     for view in SavedView.objects.select_for_update().filter(project_id=field.project_id):
         config = copy.deepcopy(view.config)
         if not isinstance(config, dict):

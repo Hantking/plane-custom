@@ -242,3 +242,90 @@ class NativeLayoutTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.batch(ids=["invalid"]).status_code, 400)
+
+    def test_column_widths_include_created_updated_title_and_custom_without_changing_visibility(self):
+        self.write()
+        previous = self.read().data["preference"]
+        widths = {
+            "title": 510,
+            "standard:created_on": 240,
+            "standard:updated_on": 280,
+            "custom:" + str(self.field.id): 320,
+        }
+        response = self.client.patch(self.path + "native-display/", {**self.context(), "widths": widths}, format="json")
+        self.assertEqual(response.status_code, 200)
+        actual = self.read().data["preference"]
+        self.assertEqual(actual["widths"], widths)
+        self.assertEqual(actual["order"], previous["order"])
+        self.assertEqual(actual["visible"], previous["visible"])
+
+    def test_first_resize_preserves_default_fields_and_partial_width_patches_merge(self):
+        first = self.client.patch(
+            self.path + "native-display/", {**self.context(), "widths": {"standard:created_on": 260}}, format="json"
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(len(first.data["preference"]["visible"]), 2)
+        self.client.patch(
+            self.path + "native-display/", {**self.context(), "widths": {"standard:updated_on": 300}}, format="json"
+        )
+        self.write()
+        self.assertEqual(
+            self.read().data["preference"]["widths"], {"standard:created_on": 260, "standard:updated_on": 300}
+        )
+
+    def test_widths_are_personal_and_separate_between_modules_and_layouts(self):
+        self.client.patch(
+            self.path + "native-display/", {**self.context("module"), "widths": {"title": 620}}, format="json"
+        )
+        self.assertEqual(self.read(self.context("module")).data["preference"]["widths"], {"title": 620})
+        self.assertEqual(self.read().data["preference"]["widths"], {})
+        self.assertEqual(self.read(self.context("module", self.module_b.id)).data["preference"]["widths"], {})
+        self.assertEqual(self.read(self.context("module", layout="list")).data["preference"]["widths"], {})
+        self.client.force_authenticate(self.member)
+        self.assertEqual(self.read(self.context("module")).data["preference"]["widths"], {})
+
+    def test_invalid_or_unauthorized_column_widths_do_not_create_preferences(self):
+        for widths in (
+            {"title": 159},
+            {"standard:created_on": 79},
+            {"standard:updated_on": 1201},
+            {"standard:created_on": True},
+            {"standard:created_on": "100px"},
+            {"standard:created_on": 120.5},
+            {"custom:" + str(self.foreign.id): 200},
+            {"standard:unknown": 200},
+            [],
+        ):
+            with self.subTest(widths=widths):
+                response = self.client.patch(
+                    self.path + "native-display/", {**self.context(), "widths": widths}, format="json"
+                )
+                self.assertEqual(response.status_code, 400)
+        self.assertEqual(NativeLayoutPreference.objects.count(), 0)
+        response = self.client.patch(
+            self.path + "native-display/", {**self.context(layout="list"), "widths": {"title": 300}}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_reset_and_definition_deletion_remove_only_the_affected_width(self):
+        custom = "custom:" + str(self.field.id)
+        self.client.patch(
+            self.path + "native-display/",
+            {**self.context(), "widths": {custom: 350, "title": 600, "standard:created_on": 250}},
+            format="json",
+        )
+        self.client.patch(
+            self.path + "native-display/", {**self.context(), "widths": {"standard:created_on": None}}, format="json"
+        )
+        self.assertEqual(self.read().data["preference"]["widths"], {custom: 350, "title": 600})
+        self.assertEqual(self.client.delete(self.project_path + f"definitions/{self.field.id}/").status_code, 204)
+        self.assertEqual(self.read().data["preference"]["widths"], {"title": 600})
+
+    def test_legacy_non_table_preference_can_include_empty_widths(self):
+        context = self.context(layout="list")
+        self.assertEqual(
+            self.client.patch(
+                self.path + "native-display/", {**context, "order": [], "visible": [], "widths": {}}, format="json"
+            ).status_code,
+            200,
+        )

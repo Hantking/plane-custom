@@ -6,6 +6,7 @@
 
 import { useRef } from "react";
 import { observer } from "mobx-react";
+import { useTableColumnStyle } from "@/components/custom-fields/table-column-widths";
 // types
 import type { IIssueDisplayProperties, TIssue } from "@plane/types";
 // constants
@@ -27,6 +28,7 @@ export const IssueColumn = observer(function IssueColumn(props: Props) {
   const { displayProperties, issueDetail, disableUserActions, property, updateIssue } = props;
   // router
   const tableCellRef = useRef<HTMLTableCellElement | null>(null);
+  const columnStyle = useTableColumnStyle("standard:" + property);
 
   const shouldRenderProperty = shouldRenderColumn(property);
 
@@ -48,13 +50,16 @@ export const IssueColumn = observer(function IssueColumn(props: Props) {
         tabIndex={0}
         className="h-11 min-w-36 border-r-[1px] border-subtle text-13 after:absolute after:bottom-[-1px] after:w-full after:border after:border-subtle"
         ref={tableCellRef}
+        style={columnStyle}
       >
-        <Column
-          issue={issueDetail}
-          onChange={handleUpdateIssue}
-          disabled={disableUserActions}
-          onClose={() => tableCellRef?.current?.focus()}
-        />
+        <div className="w-full min-w-0 overflow-hidden">
+          <Column
+            issue={issueDetail}
+            onChange={handleUpdateIssue}
+            disabled={disableUserActions}
+            onClose={() => tableCellRef?.current?.focus()}
+          />
+        </div>
       </td>
     </WithDisplayPropertiesHOC>
   );
