@@ -174,6 +174,7 @@ const ISSUE_ORDERBY_KEY: Record<TIssueOrderByOptions, keyof TIssue> = {
 };
 
 export abstract class BaseIssuesStore implements IBaseIssuesStore {
+  private hentisServerOrder = false;
   loader: Record<string, TLoader> = {};
   groupedIssueIds: TIssues | undefined = undefined;
   issuePaginationData: TIssuePaginationData = {};
@@ -466,6 +467,8 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
     shouldClearPaginationOptions = true
   ) {
     // Process the Issue Response to get the following data from it
+    this.hentisServerOrder = !!(issuesResponse as TIssuesResponse & { hentis_server_order?: boolean })
+      .hentis_server_order;
     const { issueList, groupedIssues, groupedIssueCount } = this.processIssueResponse(issuesResponse);
 
     // The Issue list is added to the main Issue Map
@@ -496,6 +499,8 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
    * @param subGroupId
    */
   onfetchNexIssues(issuesResponse: TIssuesResponse, groupId?: string, subGroupId?: string) {
+    this.hentisServerOrder = !!(issuesResponse as TIssuesResponse & { hentis_server_order?: boolean })
+      .hentis_server_order;
     // Process the Issue Response to get the following data from it
     const { issueList, groupedIssues, groupedIssueCount } = this.processIssueResponse(issuesResponse);
 
@@ -1764,6 +1769,7 @@ export abstract class BaseIssuesStore implements IBaseIssuesStore {
   }
 
   issuesSortWithOrderBy = (issueIds: string[], key: TIssueOrderByOptions | undefined): string[] => {
+    if (this.hentisServerOrder) return issueIds;
     const issues = this.rootIssueStore.issues.getIssuesByIds(issueIds, this.isArchived ? "archived" : "un-archived");
     const array = orderBy(issues, (issue) => convertToISODateString(issue["created_at"]), ["desc"]);
 

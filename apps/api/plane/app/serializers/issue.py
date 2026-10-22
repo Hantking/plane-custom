@@ -196,6 +196,21 @@ class IssueCreateSerializer(CustomFieldsSerializerMixin, BaseSerializer):
         ):
             raise serializers.ValidationError("Estimate point is not valid please pass a valid estimate_point_id")
 
+        if attrs.get("parent") and self.instance:
+            ancestor = attrs["parent"]
+            visited = set()
+            while ancestor:
+                if ancestor.id == self.instance.id or ancestor.id in visited:
+                    raise serializers.ValidationError("Uma tarefa não pode ser descendente de si mesma.")
+                visited.add(ancestor.id)
+                if len(visited) > 100:
+                    raise serializers.ValidationError("Hierarquia acima de 100 níveis; revise o parentesco.")
+                ancestor = (
+                    Issue.objects.filter(pk=ancestor.parent_id, project_id=self.context["project_id"]).first()
+                    if ancestor.parent_id
+                    else None
+                )
+
         return attrs
 
     def create(self, validated_data):

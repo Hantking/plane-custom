@@ -1,4 +1,5 @@
 import type { CustomField } from "./service";
+import type { ViewConfig } from "./service";
 
 export type NativeLayout = "list" | "kanban" | "spreadsheet" | "calendar" | "gantt_chart";
 export type NativeScope =
@@ -10,7 +11,13 @@ export type NativeScope =
   | "workspace_builtin"
   | "archive";
 export type NativeRequest = { scope: NativeScope; target: string; project_id?: string; layout: NativeLayout };
-export type NativePreference = { order: string[]; visible: string[]; widths?: Record<string, number> };
+export type NativePreference = {
+  order: string[];
+  visible: string[];
+  widths?: Record<string, number>;
+  query?: Partial<ViewConfig>;
+  schema_version?: number;
+};
 export type NativeField = CustomField & { project_id: string; project_name: string; project_identifier: string };
 export const STANDARD_PROPERTY_ORDER = [
   "state",

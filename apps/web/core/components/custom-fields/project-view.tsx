@@ -6,6 +6,8 @@ import { FieldManager } from "./manager";
 import { fieldError, fieldInputClass, fieldsService } from "./service";
 import type { Condition, CustomField, CustomItem, FieldValue, Group, ViewConfig } from "./service";
 import { isSelectionKind, refreshViewConfig } from "./selection-values";
+import { FilterTreeEditor, MultiSortEditor } from "./query-editors";
+import { normalizeListQuery } from "./native-list-model";
 
 const initial: ViewConfig = {
   filters: [],
@@ -284,7 +286,12 @@ export function CustomFieldsProjectView() {
   }, [meta]);
   const update = (next: Partial<ViewConfig>) => {
     setPage(1);
-    setConfig((current) => ({ ...current, ...next }));
+    setConfig((current) => {
+      const result = { ...current, ...next };
+      if (("filters" in next || "match" in next) && !("filter_tree" in next)) delete result.filter_tree;
+      if ("order_by" in next && !("sorts" in next)) delete result.sorts;
+      return result;
+    });
     setError("");
   };
   const condition = (index: number, next: Partial<Condition>) =>
@@ -321,7 +328,11 @@ export function CustomFieldsProjectView() {
           onChange={(e) => {
             setSelectedView(e.target.value);
             const view = views?.find((v) => v.id === e.target.value);
-            update(view ? { ...initial, ...view.config } : initial);
+            update(
+              view
+                ? normalizeListQuery({ ...initial, ...view.config })
+                : { ...initial, filter_tree: undefined, sorts: undefined }
+            );
           }}
         >
           <option value="">Visualização atual</option>
@@ -377,108 +388,133 @@ export function CustomFieldsProjectView() {
               </option>
             ))}
         </select>
-        <select
-          aria-label="Ordenar por"
-          className={fieldInputClass}
-          value={config.order_by}
-          onChange={(e) => update({ order_by: e.target.value })}
-        >
-          <option value="-created_at">Mais recentes</option>
-          <option value="created_at">Mais antigas</option>
-          <option value="name">Título A–Z</option>
-          {fields
-            .filter((field) => field.kind !== "multiselect")
-            .flatMap((field) => [
-              <option key={field.id} value={field.id}>
-                {field.name} ↑
-              </option>,
-              <option key={`-${field.id}`} value={`-${field.id}`}>
-                {field.name} ↓
-              </option>,
-            ])}
-        </select>
-      </div>
-      <section className="mb-4 rounded border border-subtle p-3">
-        <div className="mb-2 flex items-center gap-3">
-          <h2 className="font-medium">Filtros</h2>
+        {config.sorts === undefined && (
           <select
-            aria-label="Combinar condições"
+            aria-label="Ordenar por"
             className={fieldInputClass}
-            value={config.match}
-            onChange={(e) => update({ match: e.target.value as "all" | "any" })}
+            value={config.order_by}
+            onChange={(e) => update({ order_by: e.target.value })}
           >
-            <option value="all">Todas as condições (E)</option>
-            <option value="any">Qualquer condição (OU)</option>
+            <option value="-created_at">Mais recentes</option>
+            <option value="created_at">Mais antigas</option>
+            <option value="name">Título A–Z</option>
+            {fields
+              .filter((field) => field.kind !== "multiselect")
+              .flatMap((field) => [
+                <option key={field.id} value={field.id}>
+                  {field.name} ↑
+                </option>,
+                <option key={`-${field.id}`} value={`-${field.id}`}>
+                  {field.name} ↓
+                </option>,
+              ])}
           </select>
-        </div>
-        {config.filters.map((item, index) => {
-          const field = fields.find((f) => f.id === item.field);
-          return (
-            <div key={item.id} className="mb-2 flex flex-wrap gap-2">
-              <select
-                aria-label="Campo do filtro"
-                className={fieldInputClass}
-                value={item.field}
-                onChange={(e) =>
-                  condition(index, {
-                    field: e.target.value,
-                    operator:
-                      fields.find((f) => f.id === e.target.value)?.kind === "multiselect" ? "contains_any" : "eq",
-                    value: null,
-                  })
-                }
-              >
-                {fields.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Operador"
-                className={fieldInputClass}
-                value={item.operator}
-                onChange={(e) => condition(index, { operator: e.target.value })}
-              >
-                {field &&
-                  operators(field).map((op) => (
-                    <option key={op} value={op}>
-                      {field.kind === "multiselect" && op === "ne"
-                        ? "não contém nenhuma das opções"
-                        : operatorNames[op]}
+        )}
+      </div>
+      {config.sorts !== undefined ? (
+        <section className="mb-4 rounded border border-subtle p-3">
+          <MultiSortEditor value={config.sorts} fields={fields} onChange={(sorts) => update({ sorts })} />
+          <button onClick={() => update({ sorts: undefined })}>Usar ordenação simples</button>
+        </section>
+      ) : (
+        <button className="mb-2 text-13" onClick={() => update({ sorts: [] })}>
+          Ordenação múltipla
+        </button>
+      )}
+      {config.filter_tree ? (
+        <section className="mb-4 rounded border border-subtle p-3">
+          <FilterTreeEditor
+            value={config.filter_tree}
+            fields={fields}
+            onChange={(filter_tree) => update({ filter_tree })}
+          />
+          <button onClick={() => update({ filter_tree: undefined, filters: [], match: "all" })}>
+            Substituir árvore por filtros simples
+          </button>
+        </section>
+      ) : (
+        <section className="mb-4 rounded border border-subtle p-3">
+          <div className="mb-2 flex items-center gap-3">
+            <h2 className="font-medium">Filtros</h2>
+            <select
+              aria-label="Combinar condições"
+              className={fieldInputClass}
+              value={config.match}
+              onChange={(e) => update({ match: e.target.value as "all" | "any" })}
+            >
+              <option value="all">Todas as condições (E)</option>
+              <option value="any">Qualquer condição (OU)</option>
+            </select>
+          </div>
+          {config.filters.map((item, index) => {
+            const field = fields.find((f) => f.id === item.field);
+            return (
+              <div key={item.id} className="mb-2 flex flex-wrap gap-2">
+                <select
+                  aria-label="Campo do filtro"
+                  className={fieldInputClass}
+                  value={item.field}
+                  onChange={(e) =>
+                    condition(index, {
+                      field: e.target.value,
+                      operator:
+                        fields.find((f) => f.id === e.target.value)?.kind === "multiselect" ? "contains_any" : "eq",
+                      value: null,
+                    })
+                  }
+                >
+                  {fields.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
                     </option>
                   ))}
-              </select>
-              {field && !["empty", "not_empty"].includes(item.operator) && (
-                <div className="w-60">
-                  <FieldInput
-                    field={field}
-                    value={item.value}
-                    immediate
-                    onChange={(value) => condition(index, { value })}
-                  />
-                </div>
-              )}
-              <button onClick={() => update({ filters: config.filters.filter((_, i) => i !== index) })}>
-                Remover filtro
-              </button>
-            </div>
-          );
-        })}
-        <button
-          disabled={!fields.length || config.filters.length >= 30}
-          onClick={() =>
-            update({
-              filters: [...config.filters, { id: crypto.randomUUID(), field: fields[0].id, operator: "not_empty" }],
-            })
-          }
-        >
-          + Adicionar filtro
-        </button>
-        <button className="ml-4" onClick={() => update({ filters: [], search: "", priority: "" })}>
-          Limpar filtros
-        </button>
-      </section>
+                </select>
+                <select
+                  aria-label="Operador"
+                  className={fieldInputClass}
+                  value={item.operator}
+                  onChange={(e) => condition(index, { operator: e.target.value })}
+                >
+                  {field &&
+                    operators(field).map((op) => (
+                      <option key={op} value={op}>
+                        {field.kind === "multiselect" && op === "ne"
+                          ? "não contém nenhuma das opções"
+                          : operatorNames[op]}
+                      </option>
+                    ))}
+                </select>
+                {field && !["empty", "not_empty"].includes(item.operator) && (
+                  <div className="w-60">
+                    <FieldInput
+                      field={field}
+                      value={item.value}
+                      immediate
+                      onChange={(value) => condition(index, { value })}
+                    />
+                  </div>
+                )}
+                <button onClick={() => update({ filters: config.filters.filter((_, i) => i !== index) })}>
+                  Remover filtro
+                </button>
+              </div>
+            );
+          })}
+          <button
+            disabled={!fields.length || config.filters.length >= 30}
+            onClick={() =>
+              update({
+                filters: [...config.filters, { id: crypto.randomUUID(), field: fields[0].id, operator: "not_empty" }],
+              })
+            }
+          >
+            + Adicionar filtro
+          </button>
+          <button className="ml-4" onClick={() => update({ filters: [], search: "", priority: "" })}>
+            Limpar filtros
+          </button>
+        </section>
+      )}
       <details className="mb-4">
         <summary className="cursor-pointer text-13">Colunas e propriedades dos cartões</summary>
         <div className="mt-2 flex flex-wrap gap-3">

@@ -7,3 +7,6 @@ COPY apps/api/plane/celery.py /code/plane/celery.py
 COPY apps/api/plane/settings/common.py /code/plane/settings/common.py
 COPY apps/api/plane/app/urls/__init__.py /code/plane/app/urls/__init__.py
 COPY apps/api/plane/app/serializers/issue.py /code/plane/app/serializers/issue.py
+COPY apps/api/plane/utils/filters/filter_backend.py /code/plane/utils/filters/filter_backend.py
+COPY apps/api/plane/utils/order_queryset.py /code/plane/utils/order_queryset.py
+COPY apps/api/plane/utils/paginator.py /code/plane/utils/paginator.py

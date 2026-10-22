@@ -1,4 +1,5 @@
 from django.urls import path
+from .list_api import NativeListOperations
 from .views import (
     BatchValuesEndpoint,
     FieldEndpoint,
@@ -12,6 +13,7 @@ from .native import NativeDisplayEndpoint, NativeValuesEndpoint
 
 prefix = "workspaces/<str:slug>/projects/<uuid:project_id>/custom-fields/"
 urlpatterns = [
+    path("workspaces/<str:slug>/custom-fields/native-list/<str:operation>/", NativeListOperations.as_view()),
     path("workspaces/<str:slug>/custom-fields/native-display/", NativeDisplayEndpoint.as_view()),
     path("workspaces/<str:slug>/custom-fields/native-values/", NativeValuesEndpoint.as_view()),
     path(prefix, FieldsEndpoint.as_view()),

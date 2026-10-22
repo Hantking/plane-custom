@@ -5,7 +5,7 @@
  */
 
 import type { MutableRefObject } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { observer } from "mobx-react";
@@ -46,6 +46,9 @@ import {
 import { IssueBlocksList } from "./blocks-list";
 import { HeaderGroupByCard } from "./headers/group-by-card";
 import type { TRenderQuickActions } from "./list-view-types";
+import { useNativeList } from "@/components/custom-fields/native-list-context";
+import { useNativeFieldsContext } from "@/components/custom-fields/native-context";
+import { NativeListCreateButton } from "@/components/custom-fields/native-list-create";
 
 interface Props {
   groupIssueIds: string[] | undefined;
@@ -102,7 +105,23 @@ export const ListGroup = observer(function ListGroup(props: Props) {
 
   const [isDraggingOverColumn, setIsDraggingOverColumn] = useState(false);
   const [dragColumnOrientation, setDragColumnOrientation] = useState<"justify-start" | "justify-end">("justify-start");
-  const isExpanded = !collapsedGroups?.group_by.includes(group.id);
+  const native = useNativeList();
+  const custom = useNativeFieldsContext();
+  const personalCollapsed = native?.enabled
+    ? (native.query.collapsed_groups ?? collapsedGroups?.group_by)
+    : collapsedGroups?.group_by;
+  const isExpanded = !personalCollapsed?.includes(group.id);
+  const collapse = native?.enabled
+    ? (key: string) => {
+        const previous = native.query.collapsed_groups ?? collapsedGroups?.group_by ?? [];
+        void native
+          .patch({
+            collapsed_groups: previous.includes(key) ? previous.filter((id) => id !== key) : [...previous, key],
+          })
+          .catch(() => undefined);
+      }
+    : handleCollapsedGroups;
+  const required = !!custom?.display.data?.fields.some((field) => field.required);
   const groupRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
   const projectState = useProjectState();
@@ -114,14 +133,15 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const [intersectionElement, setIntersectionElement] = useState<HTMLDivElement | null>(null);
 
   const { workflowDisabledSource, isWorkflowDropDisabled, handleWorkFlowState, getIsWorkflowWorkItemCreationDisabled } =
-    useWorkFlowFDragNDrop(group_by);
+    useWorkFlowFDragNDrop(native?.customGroup ? null : group_by);
   const isWorkflowIssueCreationDisabled = getIsWorkflowWorkItemCreationDisabled(group.id);
 
   const groupIssueCount = getGroupIssueCount(group.id, undefined, false) ?? 0;
   const nextPageResults = getPaginationData(group.id, undefined)?.nextPageResults;
   const isPaginating = !!getIssueLoader(group.id);
 
-  useIntersectionObserver(containerRef, isPaginating ? null : intersectionElement, loadMoreIssues, `100% 0% 100% 0%`);
+  const loadGroupPage = useCallback(() => loadMoreIssues(group.id), [loadMoreIssues, group.id]);
+  useIntersectionObserver(containerRef, isPaginating ? null : intersectionElement, loadGroupPage, `100% 0% 100% 0%`);
 
   const shouldLoadMore =
     nextPageResults === undefined && groupIssueCount !== undefined && groupIssueIds
@@ -131,15 +151,15 @@ export const ListGroup = observer(function ListGroup(props: Props) {
   const loadMore = isPaginating ? (
     <ListLoaderItemRow />
   ) : (
-    // oxlint-disable-next-line jsx_a11y/click-events-have-key-events oxlint-disable-next-line jsx_a11y/no-static-element-interactions
-    <div
+    <button
+      type="button"
       className={
-        "relative flex h-11 cursor-pointer items-center gap-3 border border-transparent border-t-subtle-1 bg-surface-1 p-3 pl-8 text-13 font-medium text-accent-primary hover:text-accent-secondary hover:underline"
+        "relative flex h-11 w-full cursor-pointer items-center gap-3 border border-transparent border-t-subtle-1 bg-surface-1 p-3 pl-8 text-left text-13 font-medium text-accent-primary hover:text-accent-secondary hover:underline"
       }
       onClick={() => loadMoreIssues(group.id)}
     >
       {t("common.load_more")} &darr;
-    </div>
+    </button>
   );
 
   const validateEmptyIssueGroups = (issueCount: number = 0) => {
@@ -232,7 +252,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
           highlightIssueOnDrop(getIssueBlockId(source.id, destination?.groupId), orderBy !== "sort_order");
 
           if (!isExpanded) {
-            handleCollapsedGroups(group.id);
+            collapse(group.id);
           }
         },
       })
@@ -265,23 +285,30 @@ export const ListGroup = observer(function ListGroup(props: Props) {
     >
       <Row
         className={cn("w-full flex-shrink-0 border-b border-subtle bg-layer-1 py-1 pr-3 hover:bg-layer-1-hover", {
-          "sticky top-0 z-[2]": isExpanded && groupIssueCount > 0,
+          "sticky top-0 z-[2]": !native?.enabled && isExpanded && groupIssueCount > 0,
+          "sticky top-11 z-[2]": native?.enabled && isExpanded && groupIssueCount > 0,
         })}
       >
         <HeaderGroupByCard
+          isExpanded={isExpanded}
+          disabled={native?.enabled && native.busy}
           groupID={group.id}
           groupBy={group_by}
           icon={group.icon}
           title={group.name}
           count={groupIssueCount}
-          issuePayload={group.payload}
+          issuePayload={native?.enabled ? { ...group.payload, ...native.createDefaults(group.id) } : group.payload}
           canEditProperties={canEditProperties}
           disableIssueCreation={
-            disableIssueCreation || isGroupByCreatedBy || isCompletedCycle || isWorkflowIssueCreationDisabled
+            disableIssueCreation ||
+            isGroupByCreatedBy ||
+            isCompletedCycle ||
+            isWorkflowIssueCreationDisabled ||
+            !!(native?.customGroup?.required && group.id === "__empty__")
           }
           addIssuesToView={addIssuesToView}
           selectionHelpers={selectionHelpers}
-          handleCollapsedGroups={handleCollapsedGroups}
+          handleCollapsedGroups={collapse}
           isEpic={isEpic}
         />
       </Row>
@@ -331,16 +358,41 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             !disableIssueCreation &&
             !isGroupByCreatedBy &&
             !isCompletedCycle &&
-            !isWorkflowIssueCreationDisabled && (
+            !isWorkflowIssueCreationDisabled &&
+            !(native?.customGroup?.required && group.id === "__empty__") && (
               <div className="sticky bottom-0 z-[1] w-full flex-shrink-0">
-                <QuickAddIssueRoot
-                  layout={EIssueLayoutTypes.LIST}
-                  QuickAddButton={ListQuickAddIssueButton}
-                  prePopulatedData={prePopulateQuickAddData(group_by, group.id)}
-                  containerClassName="border-b border-t border-subtle bg-surface-1 "
-                  quickAddCallback={quickAddCallback}
-                  isEpic={isEpic}
-                />
+                {native?.enabled && required ? (
+                  <NativeListCreateButton
+                    defaults={{
+                      ...prePopulateQuickAddData(native.customGroup ? null : group_by, group.id),
+                      ...native.createDefaults(group.id),
+                    }}
+                  />
+                ) : (
+                  <QuickAddIssueRoot
+                    layout={EIssueLayoutTypes.LIST}
+                    QuickAddButton={ListQuickAddIssueButton}
+                    prePopulatedData={
+                      native?.enabled
+                        ? {
+                            ...prePopulateQuickAddData(native.customGroup ? null : group_by, group.id),
+                            ...native.createDefaults(group.id),
+                          }
+                        : prePopulateQuickAddData(group_by, group.id)
+                    }
+                    containerClassName="border-b border-t border-subtle bg-surface-1 "
+                    quickAddCallback={
+                      native?.enabled && quickAddCallback
+                        ? async (project, data) => {
+                            const result = await quickAddCallback(project, data);
+                            await native.reload();
+                            return result;
+                          }
+                        : quickAddCallback
+                    }
+                    isEpic={isEpic}
+                  />
+                )}
               </div>
             )}
         </div>

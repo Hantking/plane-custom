@@ -133,6 +133,9 @@ class NativeContext:
             "layout": self.layout,
         }
 
+    def key_string(self):
+        return f"{self.user.id}/{self.workspace.id}/{self.scope}/{self.target}/{self.layout}"
+
     def fields(self):
         return list(
             Field.objects.filter(project_id__in=self.project_ids, active=True)
@@ -161,7 +164,7 @@ class NativeContext:
                 and type(value) is int
                 and (160 if key == "title" else 80) <= value <= 1200
             }
-            if self.layout == "spreadsheet"
+            if self.layout in {"spreadsheet", "list"}
             else {}
         )
         editable = [
@@ -179,10 +182,33 @@ class NativeContext:
                 }
                 for field in fields
             ],
-            "preference": {"order": order, "visible": visible, "widths": widths},
+            "preference": {
+                "order": order,
+                "visible": visible,
+                "widths": widths,
+                "schema_version": preference.schema_version if preference else 1,
+                "query": preference.query_config if preference and self.layout == "list" else {},
+            },
             "editable_project_ids": editable,
+            "manageable_project_ids": [
+                str(member.project_id)
+                for member in self.memberships
+                if member.role == 20 or self.workspace_member.role == 20
+            ],
             "context_label": self.label,
         }
+
+    def issues_all(self):
+        complete = [
+            membership.project_id
+            for membership in self.memberships
+            if membership.role > 5 or membership.project.guest_view_all_features
+        ]
+        manager = Issue.objects if self.scope == "archive" else Issue.issue_objects
+        query = manager.filter(workspace=self.workspace, project_id__in=self.project_ids).filter(
+            Q(project_id__in=complete) | Q(created_by=self.user)
+        )
+        return query.filter(archived_at__isnull=False) if self.scope == "archive" else query
 
     def issues(self, ids):
         complete = [
@@ -208,7 +234,7 @@ class NativeDisplayEndpoint(APIView):
         known = {str(field.id) for field in fields}
         allowed = {"standard:" + key for key in STANDARD_PROPERTIES} | {"custom:" + key for key in known}
         order, visible = request.data.get("order"), request.data.get("visible")
-        if not {"order", "visible", "widths"}.intersection(request.data):
+        if not {"order", "visible", "widths", "query"}.intersection(request.data):
             raise ValidationError("Informe ordem, visibilidade ou largura das colunas.")
         if "order" in request.data and (
             not isinstance(order, list)
@@ -229,8 +255,8 @@ class NativeDisplayEndpoint(APIView):
         widths = request.data.get("widths", {})
         width_keys = allowed | {"title"}
         if "widths" in request.data:
-            if context.layout != "spreadsheet" and widths != {}:
-                raise ValidationError("Larguras são exclusivas do layout Tabela/Planilha.")
+            if context.layout not in {"spreadsheet", "list"} and widths != {}:
+                raise ValidationError("Larguras são exclusivas da Lista e Tabela/Planilha.")
             if not isinstance(widths, dict) or len(widths) > len(width_keys):
                 raise ValidationError("Larguras inválidas.")
             for key, width in widths.items():
@@ -242,6 +268,16 @@ class NativeDisplayEndpoint(APIView):
                         "Largura inválida: use pixels inteiros de 80 a 1200 (mínimo 160 para o título)."
                     )
         defaults = context.metadata()["preference"]
+        query_config = None
+        if "query" in request.data:
+            from .query import normalize_query
+
+            if context.layout != "list":
+                raise ValidationError("Consulta avançada exclusiva da Lista.")
+            query_config = normalize_query(context.project_ids, request.data["query"])
+            from .list_api import validate_preset
+
+            validate_preset(context, query_config)
         with transaction.atomic():
             preference, _ = NativeLayoutPreference.objects.select_for_update().get_or_create(
                 **context.key(),
@@ -263,7 +299,19 @@ class NativeDisplayEndpoint(APIView):
                     else:
                         current_widths[key] = width
                 preference.column_widths = current_widths
-            preference.save(update_fields=["property_order", "visible", "column_widths", "updated_at"])
+            if query_config is not None:
+                preference.query_config = query_config
+                preference.schema_version = 2
+            preference.save(
+                update_fields=[
+                    "property_order",
+                    "visible",
+                    "column_widths",
+                    "query_config",
+                    "schema_version",
+                    "updated_at",
+                ]
+            )
         return Response(context.metadata())
 
 

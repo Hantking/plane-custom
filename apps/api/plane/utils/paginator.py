@@ -117,6 +117,7 @@ class OffsetPaginator:
         # Set desc to true when `-` exists in the order by
         self.desc = True if order_by and order_by.startswith("-") else False
         self.queryset = queryset
+        self.hentis_order = getattr(queryset.query, "hentis_order", None)
         self.max_limit = max_limit
         self.max_offset = max_offset
         self.on_results = on_results
@@ -133,7 +134,9 @@ class OffsetPaginator:
 
         # queryset
         queryset = self.queryset
-        if self.key:
+        if self.hentis_order:
+            queryset = queryset.order_by(*self.hentis_order)
+        elif self.key:
             queryset = queryset.order_by(
                 (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
                 "-created_at",
@@ -251,7 +254,8 @@ class GroupedOffsetPaginator(OffsetPaginator):
             row_number=Window(
                 expression=RowNumber(),
                 partition_by=[F(self.group_by_field_name)],
-                order_by=(
+                order_by=self.hentis_order
+                or (
                     (
                         F(*self.key).desc(nulls_last=True)  # order by desc if desc is set
                         if self.desc
@@ -262,9 +266,13 @@ class GroupedOffsetPaginator(OffsetPaginator):
             )
         )
         # Filter the results by row number
-        results = queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(
-            (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
-            F("created_at").desc(),
+        results = (
+            queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(*self.hentis_order)
+            if self.hentis_order
+            else queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(
+                (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
+                F("created_at").desc(),
+            )
         )
 
         # Adjust cursors based on the grouped results for pagination
@@ -459,7 +467,8 @@ class SubGroupedOffsetPaginator(OffsetPaginator):
                     F(self.group_by_field_name),
                     F(self.sub_group_by_field_name),
                 ],
-                order_by=(
+                order_by=self.hentis_order
+                or (
                     (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
                     "-created_at",
                 ),
@@ -467,9 +476,13 @@ class SubGroupedOffsetPaginator(OffsetPaginator):
         )
 
         # Filter the results
-        results = queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(
-            (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
-            F("created_at").desc(),
+        results = (
+            queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(*self.hentis_order)
+            if self.hentis_order
+            else queryset.filter(row_number__gt=offset, row_number__lt=stop).order_by(
+                (F(*self.key).desc(nulls_last=True) if self.desc else F(*self.key).asc(nulls_last=True)),
+                F("created_at").desc(),
+            )
         )
 
         # Adjust cursors based on the grouped results for pagination
@@ -672,6 +685,13 @@ class BasePaginator:
         **paginator_kwargs,
     ):
         """Paginate the request"""
+        query = paginator_kwargs.get("queryset")
+        if query is not None and getattr(query.query, "hentis_list", None):
+            from plane.custom_fields.query import native_group_response
+
+            custom_response = native_group_response(request, query, on_results)
+            if custom_response is not None:
+                return custom_response
         per_page = self.get_per_page(request, default_per_page, max_per_page)
         # Convert the cursor value to integer and float from string
         input_cursor = None
@@ -742,4 +762,6 @@ class BasePaginator:
             }
         )
 
+        if query is not None and getattr(query.query, "hentis_list", None):
+            response.data["hentis_server_order"] = True
         return response

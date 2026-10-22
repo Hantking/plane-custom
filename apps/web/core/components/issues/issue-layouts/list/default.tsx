@@ -35,8 +35,17 @@ import type { GroupDropLocation } from "../utils";
 import { getGroupByColumns, isWorkspaceLevel, isSubGrouped } from "../utils";
 import { ListGroup } from "./list-group";
 import type { TRenderQuickActions } from "./list-view-types";
+import { NativeListController } from "@/components/custom-fields/native-list-controller";
+import { NativeListHeaders } from "@/components/custom-fields/native-list-cells";
+import { NativeListBulkTools } from "@/components/custom-fields/native-list-toolbar";
+import { useNativeList } from "@/components/custom-fields/native-list-context";
+import { compatibleGroup } from "@/components/custom-fields/native-list-model";
+import { OptionBadge } from "@/components/custom-fields/inputs";
+import { useIssues } from "@/hooks/store/use-issues";
+import { ListLayoutLoader } from "@/components/ui/loader/layouts/list-layout-loader";
 
 export interface IList {
+  viewId?: string;
   groupedIssueIds: TGroupedIssues;
   issuesMap: TIssueMap;
   group_by: TIssueGroupByOptions | null;
@@ -59,11 +68,19 @@ export interface IList {
 }
 
 export const List = observer(function List(props: IList) {
+  return (
+    <NativeListController props={props}>
+      <ListContent {...props} />
+    </NativeListController>
+  );
+});
+
+const ListContent = observer(function ListContent(props: IList) {
   const {
     groupedIssueIds,
     issuesMap,
-    group_by,
-    orderBy,
+    group_by: originalGroupBy,
+    orderBy: originalOrder,
     updateIssue,
     quickActions,
     displayProperties,
@@ -82,17 +99,54 @@ export const List = observer(function List(props: IList) {
   } = props;
 
   const storeType = useIssueStoreType();
+  const native = useNativeList();
+  const { issues } = useIssues(storeType);
+  const group_by = (
+    native?.enabled
+      ? native.customGroup
+        ? "state"
+        : native.query.native_group && native.query.native_group !== "inherit"
+          ? native.query.native_group === "none"
+            ? null
+            : native.query.native_group
+          : originalGroupBy
+      : originalGroupBy
+  ) as TIssueGroupByOptions;
+  const orderBy = native?.enabled ? (native.canReorder ? "sort_order" : "-created_at") : originalOrder;
   // plane web hooks
   const isBulkOperationsEnabled = useBulkOperationStatus();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const groups = getGroupByColumns({
+  const normalGroups = getGroupByColumns({
     groupBy: group_by as GroupByColumnTypes,
     includeNone: true,
     isWorkspaceLevel: isWorkspaceLevel(storeType),
     isEpic: isEpic,
   });
+  const field = native?.enabled ? native.customGroup : undefined;
+  const groups: IGroupByColumn[] | undefined = field
+    ? ([
+        ...(field.kind === "boolean"
+          ? [
+              { id: "true", name: "Sim" },
+              { id: "false", name: "Não" },
+            ]
+          : field.options.map((option) => ({
+              id: option.id,
+              name: option.label,
+              icon: <OptionBadge option={option} />,
+            }))),
+        { id: "__empty__", name: "Sem valor" },
+      ]
+        .filter((group) => compatibleGroup(native!.query.filter_tree!, field.id, group.id))
+        .map((group) =>
+          Object.assign(group, {
+            payload: native!.createDefaults(group.id),
+            isDropDisabled: false,
+          })
+        ) as IGroupByColumn[])
+    : normalGroups;
 
   // Enable Auto Scroll for Main Kanban
   useEffect(() => {
@@ -111,7 +165,7 @@ export const List = observer(function List(props: IList) {
 
   const getGroupIndex = (groupId: string | undefined) => groups.findIndex(({ id }) => id === groupId);
 
-  const is_list = group_by === null ? true : false;
+  const is_list = group_by === null;
 
   // create groupIds array and entities object for bulk ops
   const groupIds = groups.map((g) => g.id);
@@ -129,7 +183,7 @@ export const List = observer(function List(props: IList) {
     entities = orderedGroups;
   }
   return (
-    <div className="relative flex size-full flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col">
       {groups && (
         <MultipleSelectGroup
           containerRef={containerRef}
@@ -141,7 +195,16 @@ export const List = observer(function List(props: IList) {
               <div
                 ref={containerRef}
                 className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
+                role={native?.enabled ? "treegrid" : undefined}
+                aria-label={native?.enabled ? "Lista de tarefas por colunas" : undefined}
               >
+                <NativeListHeaders />
+                {issues?.getIssueLoader() === "init-loader" ? <ListLayoutLoader /> : null}
+                {!issues?.getIssueLoader() && issues?.getGroupIssueCount(undefined, undefined, false) === 0 && (
+                  <p className="p-4 text-13 text-secondary">
+                    Nenhum item corresponde à consulta. Ajuste os filtros ou crie uma tarefa.
+                  </p>
+                )}
                 {groups.map((group: IGroupByColumn) => (
                   <ListGroup
                     key={group.id}
@@ -153,7 +216,7 @@ export const List = observer(function List(props: IList) {
                     quickActions={quickActions}
                     orderBy={orderBy}
                     getGroupIndex={getGroupIndex}
-                    handleOnDrop={handleOnDrop}
+                    handleOnDrop={native?.enabled ? native.drop : handleOnDrop}
                     displayProperties={displayProperties}
                     enableIssueQuickAdd={enableIssueQuickAdd}
                     showEmptyGroup={showEmptyGroup}
@@ -162,7 +225,7 @@ export const List = observer(function List(props: IList) {
                     disableIssueCreation={disableIssueCreation}
                     addIssuesToView={addIssuesToView}
                     isCompletedCycle={isCompletedCycle}
-                    loadMoreIssues={loadMoreIssues}
+                    loadMoreIssues={native?.enabled ? native.loadMore : loadMoreIssues}
                     containerRef={containerRef}
                     selectionHelpers={helpers}
                     handleCollapsedGroups={handleCollapsedGroups}
@@ -173,6 +236,7 @@ export const List = observer(function List(props: IList) {
               </div>
 
               <IssueBulkOperationsRoot selectionHelpers={helpers} />
+              <NativeListBulkTools helpers={helpers} />
             </>
           )}
         </MultipleSelectGroup>

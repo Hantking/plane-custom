@@ -65,6 +65,9 @@ class SavedView(models.Model):
     name = models.CharField(max_length=100)
     shared = models.BooleanField(default=False)
     config = models.JSONField(default=dict)
+    schema_version = models.PositiveSmallIntegerField(default=1)
+    revision = models.PositiveIntegerField(default=1)
+    locked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -82,6 +85,8 @@ class NativeLayoutPreference(models.Model):
     property_order = models.JSONField(default=list)
     visible = models.JSONField(default=list)
     column_widths = models.JSONField(default=dict)
+    query_config = models.JSONField(default=dict)
+    schema_version = models.PositiveSmallIntegerField(default=1)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

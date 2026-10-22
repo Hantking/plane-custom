@@ -7,6 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { AxiosInstance, AxiosRequestConfig } from "axios";
 import { create } from "axios";
+import { nativeListReadParams } from "./native-list-query-context";
 
 export abstract class APIService {
   protected baseURL: string;
@@ -36,8 +37,10 @@ export abstract class APIService {
   }
 
   get(url: string, params = {}, config: AxiosRequestConfig = {}) {
+    const options = params as AxiosRequestConfig;
     return this.axiosInstance.get(url, {
-      ...params,
+      ...options,
+      ...(options.params ? { params: nativeListReadParams(url, options.params) } : {}),
       ...config,
     });
   }

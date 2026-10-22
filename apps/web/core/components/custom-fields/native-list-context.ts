@@ -1,0 +1,29 @@
+import { createContext, useContext } from "react";
+import type { IIssueDisplayProperties, TIssue } from "@plane/types";
+import type { ViewConfig } from "./service";
+import type { NativeField } from "./native-display-helpers";
+import type { GroupDropLocation } from "@/components/issues/issue-layouts/utils";
+
+export type NativeListState = {
+  enabled: boolean;
+  columns: string[];
+  query: ViewConfig;
+  busy: boolean;
+  customGroup?: NativeField;
+  patch: (patch: Partial<ViewConfig>) => Promise<void>;
+  reload: () => Promise<unknown>;
+  updateStandard: (patch: Partial<IIssueDisplayProperties>) => void;
+  updateIssue: (project: string | null, id: string, data: Partial<TIssue>) => Promise<void>;
+  drop: (source: GroupDropLocation, destination: GroupDropLocation) => Promise<void>;
+  moveRow: (group: string, id: string, delta: number) => void;
+  canReorder: boolean;
+  createDefaults: (group?: string) => Partial<TIssue>;
+  loadMore: (group?: string) => void;
+  operation: <T>(operation: string, extra?: object) => Promise<T>;
+  exportCSV: (mode: string) => Promise<void>;
+  isExpanded: (id: string, level: number) => boolean;
+  onExpand: (id: string, expanded: boolean) => void;
+  canEditProject: (id: string) => boolean;
+};
+export const NativeListContext = createContext<NativeListState | null>(null);
+export const useNativeList = () => useContext(NativeListContext);

@@ -59,12 +59,77 @@ def convert_value(old, new, value):
     return normalize(new, value)
 
 
+def rewrite_config(source, field, *, previous=None, deleting=False):
+    config, key = copy.deepcopy(source), str(field.id)
+    if not isinstance(config, dict):
+        return source
+
+    def rewrite(node):
+        if not isinstance(node, dict):
+            return None
+        if "op" in node:
+            children = [updated for child in node.get("children", []) if (updated := rewrite(child)) is not None]
+            return {**node, "children": children} if children else None
+        if node.get("field") != key:
+            return node
+        if deleting:
+            return None
+        op = node.get("operator", "eq")
+        try:
+            if previous.kind == "multiselect" and field.kind == "select" and op in ("contains_any", "contains_all"):
+                op = "eq"
+            if previous.kind == "select" and field.kind == "multiselect" and op == "eq":
+                op = "contains_any"
+            if op not in OPERATORS[field.kind]:
+                return None
+            node["operator"] = op
+            if op not in ("empty", "not_empty"):
+                raw = node.get("value")
+                if previous.kind == "multiselect" and isinstance(raw, str):
+                    raw = [raw]
+                node["value"] = json_value(convert_value(previous, field, raw))
+            return node
+        except (ValidationError, KeyError, TypeError, ValueError):
+            return None
+
+    if "filters" in config:
+        config["filters"] = [
+            updated for condition in config.get("filters", []) if (updated := rewrite(condition)) is not None
+        ]
+    if "filter_tree" in config:
+        config["filter_tree"] = rewrite(config["filter_tree"]) or {"op": "and", "children": []}
+    if deleting and "columns" in config:
+        config["columns"] = [column for column in config.get("columns", []) if column != key]
+    if config.get("group_by") == key and (deleting or field.kind not in {"select", "multiselect", "boolean"}):
+        config["group_by"] = ""
+    if str(config.get("order_by", "")).lstrip("-") == key and (deleting or field.kind == "multiselect"):
+        config["order_by"] = "-created_at"
+    if "sorts" in config:
+        config["sorts"] = [
+            sort
+            for sort in config["sorts"]
+            if sort.get("field", "").removeprefix("custom:") != key or (not deleting and field.kind != "multiselect")
+        ]
+    if "calculations" in config:
+        config["calculations"] = [
+            item
+            for item in config["calculations"]
+            if item.get("field") != key
+            or (not deleting and (field.kind == "number" or item.get("operation") == "count"))
+        ]
+    return config
+
+
 def rewrite_views(field, *, previous=None, deleting=False, native_delete=False):
     key = str(field.id)
-    if native_delete:
-        for preference in NativeLayoutPreference.objects.select_for_update().filter(
-            workspace_id=field.project.workspace_id
-        ):
+    for preference in NativeLayoutPreference.objects.select_for_update().filter(
+        workspace_id=field.project.workspace_id
+    ):
+        config = rewrite_config(preference.query_config, field, previous=previous, deleting=deleting)
+        if config != preference.query_config:
+            preference.query_config = config
+            preference.save(update_fields=["query_config", "updated_at"])
+        if native_delete:
             order = [item for item in preference.property_order if item != "custom:" + key]
             visible = [item for item in preference.visible if item != key]
             widths = {item: width for item, width in preference.column_widths.items() if item != "custom:" + key}
@@ -77,43 +142,11 @@ def rewrite_views(field, *, previous=None, deleting=False, native_delete=False):
                 preference.column_widths = widths
                 preference.save(update_fields=["property_order", "visible", "column_widths", "updated_at"])
     for view in SavedView.objects.select_for_update().filter(project_id=field.project_id):
-        config = copy.deepcopy(view.config)
-        if not isinstance(config, dict):
-            continue
-        conditions = []
-        for condition in config.get("filters", []):
-            if condition.get("field") != key:
-                conditions.append(condition)
-                continue
-            if deleting:
-                continue
-            op = condition.get("operator", "eq")
-            try:
-                if previous.kind == "multiselect" and field.kind == "select" and op in ("contains_any", "contains_all"):
-                    op = "eq"
-                if previous.kind == "select" and field.kind == "multiselect" and op == "eq":
-                    op = "contains_any"
-                if op not in OPERATORS[field.kind]:
-                    continue
-                condition["operator"] = op
-                if op not in ("empty", "not_empty"):
-                    raw = condition.get("value")
-                    if previous.kind == "multiselect" and isinstance(raw, str):
-                        raw = [raw]
-                    condition["value"] = json_value(convert_value(previous, field, raw))
-                conditions.append(condition)
-            except (ValidationError, KeyError, TypeError, ValueError):
-                continue
-        config["filters"] = conditions
-        if deleting:
-            config["columns"] = [column for column in config.get("columns", []) if column != key]
-        if config.get("group_by") == key and (deleting or field.kind not in {"select", "multiselect", "boolean"}):
-            config["group_by"] = ""
-        if str(config.get("order_by", "")).lstrip("-") == key and (deleting or field.kind == "multiselect"):
-            config["order_by"] = "-created_at"
+        config = rewrite_config(view.config, field, previous=previous, deleting=deleting)
         if config != view.config:
             view.config = config
-            view.save(update_fields=["config"])
+            view.revision += 1
+            view.save(update_fields=["config", "revision"])
 
 
 @transaction.atomic
@@ -166,6 +199,6 @@ def update_definition(instance, validated_data):
     instance.save()
     if not instance.active and previous.active:
         rewrite_views(instance, deleting=True)
-    elif changing_kind:
+    elif changing_kind or target.options != previous.options:
         rewrite_views(instance, previous=previous)
     return instance

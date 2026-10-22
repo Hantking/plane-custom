@@ -8,6 +8,8 @@ Base oficial: `makeplane/plane`, release em `upstream.json`. Branch de customiza
 
 ## Utilização
 
+A evolução da **Lista nativa por colunas**, com consultas, presets, subtarefas, operações em lote e CSV, está detalhada em [NATIVE-LIST.md](NATIVE-LIST.md), incluindo contratos, limites e matriz de validação.
+
 Na página de tarefas do projeto, abra **Campos e visualizações**. Administradores podem cadastrar campos de texto, número decimal, data, sim/não, seleção única, seleção múltipla e URL. Na gestão é possível editar o tipo, arquivar/reativar ou excluir definitivamente um campo. Opções têm IDs estáveis; opções em uso não são removidas isoladamente e campos arquivados mantêm os dados.
 
 Os valores aparecem na criação e nos detalhes das tarefas e nas colunas da tabela nativa do projeto. Na página **Campos e visualizações**, é possível filtrar com E/OU, ordenar por campos tipados, escolher colunas, salvar Views privadas/compartilhadas e agrupar listas/Kanban por seleção ou sim/não. Cada grupo é paginado no servidor; arrastar cartões ou usar o seletor do cartão muda o valor do campo. Campos numéricos/texto/data podem ser filtrados e ordenados; não geram grupos arbitrários de Kanban.
@@ -18,7 +20,7 @@ Os campos estão incorporados aos layouts **Planilha, Lista, Kanban, Calendário
 
 Também são suportadas as Views padrão do workspace: Todos os itens, Atribuídos, Criados e Inscrições, cada uma com preferências independentes.
 
-Na planilha, campos personalizados podem ficar entre as propriedades padrão. Na lista e no Kanban, a mesma ordem é usada nas propriedades dos cartões. Calendário e Gantt mostram os campos de forma compacta nos cartões/linhas e barras, preservando as datas usadas pelo layout. Título/identificador permanecem fixos na posição nativa.
+Na Planilha e na Lista, campos personalizados podem ficar entre as propriedades padrão, com cabeçalhos alinhados e larguras independentes por layout. No Kanban, a ordem é usada nas propriedades dos cartões. Calendário e Gantt mostram os campos de forma compacta nos cartões/linhas e barras, preservando as datas usadas pelo layout. Título/identificador permanecem fixos na posição nativa.
 
 Visibilidade dos campos personalizados e ordem são preferências pessoais salvas no servidor, separadas por usuário, projeto/módulo/ciclo/View e layout. A visibilidade das propriedades padrão continua usando o mecanismo original do Plane. As Views de workspace carregam apenas projetos autorizados; colunas de diferentes projetos são qualificadas pelo identificador do projeto.
 
@@ -36,7 +38,7 @@ A borda também pode receber foco pelo teclado: **←/→** ajustam 10 px, **Shi
 
 As larguras são preferências pessoais, separadas pelo mesmo usuário/contexto da Planilha, e persistem no servidor após recarregar ou entrar novamente. Ajustar uma coluna preserva as larguras das demais, a ordem e a visibilidade. A migração aditiva `0004_nativelayoutpreference_column_widths` adiciona apenas um campo JSON à tabela de preferências.
 
-Os filtros/Views personalizados estão nessa página dedicada, não no menu de filtros padrão de todas as telas oficiais. Isso concentra os pontos de integração e reduz conflitos upstream. Fórmulas, campos de usuário, dashboards agregados e integração automática com APIs externas/importadores continuam fora deste módulo.
+Filtros/Views personalizados estão disponíveis na página dedicada e na barra da Lista nativa. Fórmulas, campos de usuário, dashboards agregados e integração automática com APIs externas/importadores continuam fora deste módulo.
 
 Campos obrigatórios são validados na criação nativa da tarefa e ao limpar um campo. Tarefas existentes não são bloqueadas em alterações não relacionadas. Quick-add sem os campos obrigatórios deve utilizar o formulário completo. Os rascunhos mantêm o comportamento oficial e preenchem os campos quando convertidos em tarefas pelo formulário.
 
@@ -63,7 +65,7 @@ A migração aditiva `0002_value_option_values_alter_field_kind_and_more` adicio
 - Sessão/permissões do Plane, incluindo limitação de convidados às próprias tarefas.
 - Valores tipados, filtros antes de paginação, histórico e alterações atômicas com criação/edição nativa.
 - Campos de projetos antigos não são expostos quando uma tarefa é transferida a outro projeto; os valores permanecem preservados no banco.
-- O backend customizado deriva da imagem oficial do mesmo release e adiciona o módulo e três pontos de integração. API, worker, beat e migrator devem usar esse mesmo digest.
+- O backend customizado deriva da imagem oficial do mesmo release e inclui os módulos e pontos de integração enumerados em `hentis/Dockerfile.backend`. API, worker, beat e migrator devem usar esse mesmo digest.
 - Frontend compilado a partir desta branch com o Dockerfile oficial.
 
 ## Atualizações
@@ -81,7 +83,7 @@ O repositório de deployment continua separado em `Hantking/plane`. Ele deve con
 export SECRET_KEY=test-key
 export REDIS_URL=redis://127.0.0.1:6379
 export DATABASE_URL=postgresql://postgres:password@localhost:5432/plane
-python manage.py test plane.custom_fields --settings=plane.custom_fields.test_settings --noinput
+python manage.py test plane.custom_fields plane.ai --settings=plane.ai.test_settings --noinput
 ```
 
 Execute o comando acima em `apps/api` com as dependências da API. Para frontend, na raiz: `pnpm install --frozen-lockfile`, `pnpm exec turbo run build --filter='web^...'`, `pnpm --filter web check:types`, `pnpm --filter web build`.

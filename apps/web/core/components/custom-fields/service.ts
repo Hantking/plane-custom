@@ -2,11 +2,45 @@ import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 import { mutate as revalidateCache } from "swr";
 
-function refreshNativeCaches(definitions = false) {
-  const matches = (key: unknown) =>
-    Array.isArray(key) && (key[0] === "hentis-native-batch" || (definitions && key[0] === "hentis-native-display"));
-  const refresh = definitions ? revalidateCache(matches, undefined, { revalidate: true }) : revalidateCache(matches);
-  return refresh.catch((error: unknown) => console.error("Falha ao atualizar as propriedades nativas", error));
+async function refreshNativeCaches(
+  workspace: string,
+  project: string,
+  definitions = false,
+  issue?: string,
+  error?: string
+) {
+  const matches = (key: unknown) => {
+    if (!Array.isArray(key)) return false;
+    if (key[0] === "hentis-native-display") return key[2] === workspace;
+    if (["hentis-native-batch", "hentis-native-summary"].includes(key[0]))
+      return typeof key[1] === "string" && key[1].split("/")[2] === workspace;
+    return (
+      ["hentis-fields", "hentis-values", "hentis-items", "hentis-views"].includes(key[0]) &&
+      key[1] === workspace &&
+      key[2] === project
+    );
+  };
+  const refresh = revalidateCache(matches);
+  if (typeof window !== "undefined")
+    window.dispatchEvent(
+      new CustomEvent("hentis-fields-changed", { detail: { workspace, project, definitions, issue, error } })
+    );
+  return refresh.catch((failure: unknown) => console.error("Falha ao atualizar as propriedades nativas", failure));
+}
+
+const pendingFields = new Set<string>();
+const fieldListeners = new Set<() => void>();
+export const fieldMutationKey = (workspace: string, project: string, issue: string, field: string) =>
+  [workspace, project, issue, field].join("/");
+export const isFieldSaving = (key: string) => pendingFields.has(key);
+export const subscribeFieldSaves = (listener: () => void) => {
+  fieldListeners.add(listener);
+  return () => {
+    fieldListeners.delete(listener);
+  };
+};
+function notifySaves() {
+  for (const listener of fieldListeners) listener();
 }
 
 export type FieldValue = string | boolean | string[] | null;
@@ -24,7 +58,30 @@ export type CustomField = {
 };
 export type FieldMeta = { fields: CustomField[]; can_manage: boolean; can_edit: boolean };
 export type Condition = { id: string; field: string; operator: string; value?: FieldValue };
+export type FilterTree = Condition | { op: "and" | "or" | "not"; children: FilterTree[]; id?: string };
+export type SortCriterion = { field: string; direction: "asc" | "desc"; nulls: "first" | "last" };
 export type ViewConfig = {
+  schema_version?: number;
+  filter_tree?: FilterTree;
+  sorts?: SortCriterion[];
+  search_hidden?: boolean;
+  subtasks?: "collapsed" | "expanded" | "separate";
+  collapsed_groups?: string[];
+  view_id?: string;
+  calculations?: { field: string; operation: "count" | "sum" | "avg" | "min" | "max" }[];
+  manual?: boolean;
+  manual_order?: Record<string, string[]>;
+  native_group?:
+    | "inherit"
+    | "none"
+    | "state"
+    | "priority"
+    | "assignees"
+    | "labels"
+    | "cycle"
+    | "module"
+    | "project"
+    | "created_by";
   filters: Condition[];
   match: "all" | "any";
   group_by: string;
@@ -34,7 +91,16 @@ export type ViewConfig = {
   search: string;
   priority: string;
 };
-export type SavedView = { id: string; name: string; shared: boolean; owner_id: string; config: ViewConfig };
+export type SavedView = {
+  id: string;
+  name: string;
+  shared: boolean;
+  owner_id: string;
+  config: ViewConfig;
+  revision: number;
+  locked: boolean;
+  schema_version: number;
+};
 export type CustomItem = {
   id: string;
   name: string;
@@ -47,6 +113,9 @@ export type Group = { key: string; label: string; count: number; results: Custom
 export type ItemResults = { results?: CustomItem[]; groups?: Group[]; count: number; page: number; has_more?: boolean };
 
 class FieldsService extends APIService {
+  async refresh(workspace: string, project: string) {
+    await refreshNativeCaches(workspace, project);
+  }
   constructor() {
     super(API_BASE_URL);
   }
@@ -59,17 +128,19 @@ class FieldsService extends APIService {
   async definition(workspace: string, project: string, field: Partial<CustomField>) {
     const base = this.path(workspace, project);
     const response = await (field.id ? this.patch(`${base}definitions/${field.id}/`, field) : this.post(base, field));
-    void refreshNativeCaches(true);
+    void refreshNativeCaches(workspace, project, true);
     return response.data;
   }
   async deleteDefinition(workspace: string, project: string, id: string) {
     await this.delete(`${this.path(workspace, project)}definitions/${id}/`);
-    void refreshNativeCaches(true);
+    void refreshNativeCaches(workspace, project, true);
   }
   async moveSelection(workspace: string, project: string, issue: string, field: string, from: string, to: string) {
-    return (
+    const response = (
       await this.patch(`${this.path(workspace, project)}issues/${issue}/`, { selection_move: { field, from, to } })
     ).data;
+    await refreshNativeCaches(workspace, project, false, issue);
+    return response;
   }
   async values(
     workspace: string,
@@ -81,10 +152,26 @@ class FieldsService extends APIService {
   }> {
     return (await this.get(`${this.path(workspace, project)}issues/${issue}/`)).data;
   }
-  async save(workspace: string, project: string, issue: string, values: FieldValues) {
-    const response = await this.patch(`${this.path(workspace, project)}issues/${issue}/`, { values });
-    await refreshNativeCaches();
-    return response.data;
+  async save(workspace: string, project: string, issue: string, values: FieldValues, expected?: FieldValues) {
+    const keys = Object.keys(values).map((field) => fieldMutationKey(workspace, project, issue, field));
+    if (keys.some((key) => pendingFields.has(key))) throw new Error("Salvamento em andamento nesta célula. Aguarde.");
+    for (const key of keys) pendingFields.add(key);
+    notifySaves();
+    try {
+      const response = await this.patch(`${this.path(workspace, project)}issues/${issue}/`, {
+        values,
+        ...(expected ? { expected } : {}),
+      });
+      await refreshNativeCaches(workspace, project, false, issue);
+      return response.data;
+    } catch (failure) {
+      if ((failure as { response?: { status?: number } }).response?.status === 409)
+        await refreshNativeCaches(workspace, project, false, issue, fieldError(failure));
+      throw failure;
+    } finally {
+      for (const key of keys) pendingFields.delete(key);
+      notifySaves();
+    }
   }
   async batch(workspace: string, project: string, issues: string[]): Promise<Record<string, FieldValues>> {
     const chunks = Array.from({ length: Math.ceil(issues.length / 100) }, (_, i) =>
@@ -113,6 +200,10 @@ class FieldsService extends APIService {
   }
   async deleteView(workspace: string, project: string, id: string) {
     await this.delete(`${this.path(workspace, project)}views/${id}/`);
+  }
+  async updateView(workspace: string, project: string, view: SavedView, data: Partial<SavedView>) {
+    return (await this.patch(`${this.path(workspace, project)}views/${view.id}/`, { ...data, revision: view.revision }))
+      .data as SavedView;
   }
 }
 export const fieldsService = new FieldsService();

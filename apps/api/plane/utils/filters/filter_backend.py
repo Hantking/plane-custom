@@ -39,6 +39,11 @@ class ComplexFilterBackend(filters.BaseFilterBackend):
                 normalized = self._normalize_filter_data(filter_data, "filter_data")
                 return self._apply_json_filter(queryset, normalized, view)
 
+            if request.query_params.get("hentis_query"):
+                from plane.custom_fields.query import native_query_from_request
+
+                queryset = native_query_from_request(request, queryset, view)
+
             filter_string = request.query_params.get(self.filter_param, None)
             if not filter_string:
                 return queryset

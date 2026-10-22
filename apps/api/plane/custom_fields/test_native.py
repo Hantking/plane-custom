@@ -303,7 +303,7 @@ class NativeLayoutTests(TestCase):
                 self.assertEqual(response.status_code, 400)
         self.assertEqual(NativeLayoutPreference.objects.count(), 0)
         response = self.client.patch(
-            self.path + "native-display/", {**self.context(layout="list"), "widths": {"title": 300}}, format="json"
+            self.path + "native-display/", {**self.context(layout="kanban"), "widths": {"title": 300}}, format="json"
         )
         self.assertEqual(response.status_code, 400)
 

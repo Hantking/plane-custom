@@ -41,11 +41,13 @@ function ColumnWidthsState({
   children: ReactNode;
 }) {
   const root = useRef<HTMLDivElement | null>(null);
+  const nativeRef = useRef(native);
+  nativeRef.current = native;
   const previews = useRef<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const widths = native?.display.data?.preference.widths;
-  const enabled = !!native?.display.request && !!native.display.data && native.layout === "spreadsheet";
+  const enabled = !!native?.display.request && !!native.display.data && ["spreadsheet", "list"].includes(native.layout);
   const width = useCallback((key: string) => previews.current[key] ?? savedColumnWidth(key, widths), [widths]);
   const preview = useCallback(
     (key: string, value: number | null) => {
@@ -61,18 +63,19 @@ function ColumnWidthsState({
   );
   const save = useCallback(
     async (key: string, value: number | null) => {
-      if (!enabled || !native?.display.request) return;
+      const current = nativeRef.current;
+      if (!enabled || !current?.display.request) return;
       preview(key, value === null ? defaultColumnWidth(key) : value);
       setSaving(true);
       setError("");
       try {
         const data = await nativeDisplayService.resizeColumn(
-          native.display.workspace,
-          native.display.request,
+          current.display.workspace,
+          current.display.request,
           key,
           value === null ? null : clampColumnWidth(key, value)
         );
-        await native.display.mutate(data, { revalidate: false });
+        await current.display.mutate(data, { revalidate: false });
       } catch (failure) {
         setError(fieldError(failure));
       } finally {
@@ -80,7 +83,7 @@ function ColumnWidthsState({
         setSaving(false);
       }
     },
-    [enabled, native, preview]
+    [enabled, preview]
   );
   const context = useMemo(() => ({ enabled, saving, width, preview, save }), [enabled, saving, width, preview, save]);
   const variables: Record<string, string> = {
@@ -142,7 +145,8 @@ export function ColumnResizeHandle({ columnKey, label }: { columnKey: string; la
     event.stopPropagation();
     const initial = clampColumnWidth(
       columnKey,
-      event.currentTarget.closest("th")?.getBoundingClientRect().width ?? context.width(columnKey)
+      event.currentTarget.closest("th, [role='columnheader']")?.getBoundingClientRect().width ??
+        context.width(columnKey)
     );
     drag.current = {
       pointer: event.pointerId,

@@ -5,6 +5,7 @@ import type { FieldValue } from "./service";
 
 export type Registration = (id: string) => () => void;
 export type NativeContextData = {
+  issueIds: string[];
   display: ReturnType<typeof useNativeDisplay>;
   layout: NativeLayout;
   register: Registration;

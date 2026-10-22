@@ -23,6 +23,7 @@ import { CreateUpdateEpicModal } from "@/components/epic-modal";
 // constants
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import type { TSelectionHelper } from "@/hooks/use-multiple-select";
+import { useNativeList } from "@/components/custom-fields/native-list-context";
 
 interface IHeaderGroupByCard {
   groupID: string;
@@ -37,6 +38,8 @@ interface IHeaderGroupByCard {
   selectionHelpers: TSelectionHelper;
   handleCollapsedGroups: (value: string) => void;
   isEpic?: boolean;
+  isExpanded?: boolean;
+  disabled?: boolean;
 }
 
 export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHeaderGroupByCard) {
@@ -52,6 +55,8 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
     selectionHelpers,
     handleCollapsedGroups,
     isEpic = false,
+    isExpanded,
+    disabled = false,
   } = props;
   // states
   const [isOpen, setIsOpen] = useState(false);
@@ -59,6 +64,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
   // router
   const { workspaceSlug, projectId, moduleId, cycleId } = useParams();
   const storeType = useIssueStoreType();
+  const nativeList = useNativeList();
   // derived values
   const renderExistingIssueModal = moduleId || cycleId;
   const existingIssuesListModalPayload = moduleId ? { module: moduleId.toString() } : { cycle: true };
@@ -111,14 +117,18 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
         </div>
 
         {/* eslint-disable-next-line jsx_a11y/click-events-have-key-events eslint-disable-next-line jsx_a11y/no-static-element-interactions */}
-        <div
+        <button
+          type="button"
+          aria-label={`${isExpanded ? "Recolher" : "Expandir"} grupo ${title}`}
+          aria-expanded={isExpanded}
+          disabled={disabled}
           className="relative flex w-full cursor-pointer flex-row items-center gap-1 overflow-hidden"
           onClick={() => handleCollapsedGroups(groupID)}
         >
-          <div className="line-clamp-1 inline-block truncate font-medium text-primary">{title}</div>
-          <div className="pl-2 text-13 font-medium text-tertiary">{count || 0}</div>
-          <div className="px-2.5"></div>
-        </div>
+          <span className="line-clamp-1 inline-block truncate font-medium text-primary">{title}</span>
+          <span className="pl-2 text-13 font-medium text-tertiary">{count || 0}</span>
+          <span className="px-2.5"></span>
+        </button>
 
         {!disableIssueCreation &&
           (renderExistingIssueModal ? (
@@ -161,7 +171,10 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
         ) : (
           <CreateUpdateIssueModal
             isOpen={isOpen}
-            onClose={() => setIsOpen(false)}
+            onClose={() => {
+              setIsOpen(false);
+              if (nativeList?.enabled) void nativeList.reload();
+            }}
             data={issuePayload}
             storeType={storeType}
           />

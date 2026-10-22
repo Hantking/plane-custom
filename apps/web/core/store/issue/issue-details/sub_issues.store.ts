@@ -19,6 +19,8 @@ import type {
 } from "@plane/types";
 // services
 import { IssueService } from "@/services/issue";
+import { nativeDisplayService } from "@/components/custom-fields/native-service";
+import type { NativeRequest } from "@/components/custom-fields/native-display-helpers";
 // store
 import type { IIssueDetail } from "./root.store";
 import type { IWorkItemSubIssueFiltersStore } from "./sub_issues_filter.store";
@@ -48,6 +50,8 @@ export interface IIssueSubIssuesStoreActions {
 type TSubIssueHelpersKeys = "issue_visibility" | "preview_loader" | "issue_loader";
 type TSubIssueHelpers = Record<TSubIssueHelpersKeys, string[]>;
 export interface IIssueSubIssuesStore extends IIssueSubIssuesStoreActions {
+  fetchSubIssuesBatch: (workspaceSlug: string, context: NativeRequest, ids: string[]) => Promise<string[]>;
+  invalidateBatch: (ids: string[]) => void;
   // observables
   subIssuesStateDistribution: TIssueSubIssuesStateDistributionMap;
   subIssues: TIssueSubIssuesIdMap;
@@ -64,6 +68,7 @@ export interface IIssueSubIssuesStore extends IIssueSubIssuesStoreActions {
 }
 
 export class IssueSubIssuesStore implements IIssueSubIssuesStore {
+  private pendingParents = new Set<string>();
   // observables
   subIssuesStateDistribution: TIssueSubIssuesStateDistributionMap = {};
   subIssues: TIssueSubIssuesIdMap = {};
@@ -161,6 +166,81 @@ export class IssueSubIssuesStore implements IIssueSubIssuesStore {
     return response;
   };
 
+  fetchSubIssuesBatch = async (workspaceSlug: string, context: NativeRequest, ids: string[]) => {
+    const editable = new Set<string>();
+    const parents = [...new Set(ids)].filter((id) => !this.pendingParents.has(id) && this.subIssues[id] === undefined);
+    for (const id of parents) this.pendingParents.add(id);
+    try {
+      for (let offset = 0; offset < parents.length; offset += 100) {
+        // oxlint-disable-next-line no-await-in-loop -- Keep only one bounded batch of parents in flight.
+        const response = await nativeDisplayService.listOperation<{
+          results: (TIssue & { state__group?: keyof TSubIssuesStateDistribution })[];
+          parents: string[];
+          editable_project_ids: string[];
+        }>(
+          workspaceSlug,
+          "children",
+          context,
+          {
+            filters: [],
+            match: "all",
+            group_by: "",
+            sorts: [],
+            order_by: "-created_at",
+            columns: [],
+            layout: "list",
+            search: "",
+            priority: "",
+          },
+          {},
+          { ids: parents.slice(offset, offset + 100) }
+        );
+        this.rootIssueDetailStore.rootIssueStore.issues.addIssue(response.results);
+        for (const project of response.editable_project_ids) editable.add(project);
+        const otherProjects = uniq(
+          response.results
+            .map((issue) => issue.project_id)
+            .filter((id): id is string => !!id && id !== context.project_id)
+        );
+        // oxlint-disable-next-line no-await-in-loop -- Hydrate dependencies before publishing this batch to the store.
+        await this.fetchOtherProjectProperties(workspaceSlug, otherProjects);
+        runInAction(() => {
+          for (const parent of response.parents) {
+            const children = response.results.filter((issue) => issue.parent_id === parent);
+            const distribution: TSubIssuesStateDistribution = {
+              backlog: [],
+              unstarted: [],
+              started: [],
+              completed: [],
+              cancelled: [],
+            };
+            for (const child of children) {
+              const group = child["state__group"];
+              if (group && distribution[group]) distribution[group].push(child.id);
+            }
+            set(
+              this.subIssues,
+              parent,
+              children.map((issue) => issue.id)
+            );
+            set(this.subIssuesStateDistribution, parent, distribution);
+          }
+        });
+      }
+    } finally {
+      for (const id of parents) this.pendingParents.delete(id);
+    }
+    return [...editable];
+  };
+
+  invalidateBatch = (ids: string[]) =>
+    runInAction(() => {
+      for (const id of ids) {
+        delete this.subIssues[id];
+        delete this.subIssuesStateDistribution[id];
+      }
+    });
+
   createSubIssues = async (workspaceSlug: string, projectId: string, parentIssueId: string, issueIds: string[]) => {
     const response = await this.issueService.addSubIssues(workspaceSlug, projectId, parentIssueId, {
       sub_issue_ids: issueIds,
@@ -186,10 +266,10 @@ export class IssueSubIssuesStore implements IIssueSubIssuesStore {
         });
       });
 
-      const issueIds = subIssues.map((issue) => issue.id);
+      const createdIssueIds = subIssues.map((issue) => issue.id);
       update(this.subIssues, [parentIssueId], (issues) => {
-        if (!issues) return issueIds;
-        return concat(issues, issueIds);
+        if (!issues) return createdIssueIds;
+        return concat(issues, createdIssueIds);
       });
     });
 

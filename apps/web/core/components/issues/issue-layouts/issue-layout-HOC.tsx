@@ -53,11 +53,14 @@ export const IssueLayoutHOC = observer(function IssueLayoutHOC(props: Props) {
 
   const issueCount = issues.getGroupIssueCount(undefined, undefined, false);
 
-  if (issues?.getIssueLoader() === "init-loader" || issueCount === undefined) {
+  if (layout !== EIssueLayoutTypes.LIST && (issues?.getIssueLoader() === "init-loader" || issueCount === undefined)) {
     return <ActiveLoader layout={layout} />;
   }
 
-  if (issues.getGroupIssueCount(undefined, undefined, false) === 0 && layout !== EIssueLayoutTypes.CALENDAR) {
+  if (
+    issues.getGroupIssueCount(undefined, undefined, false) === 0 &&
+    ![EIssueLayoutTypes.CALENDAR, EIssueLayoutTypes.LIST].includes(layout)
+  ) {
     return <IssueLayoutEmptyState storeType={storeType} />;
   }
 

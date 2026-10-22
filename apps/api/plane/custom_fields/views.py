@@ -1,9 +1,9 @@
 import json
 
 from django.db import transaction
-from django.db.models import Count, Exists, F, OuterRef, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,9 +11,9 @@ from plane.app.permissions import ROLE, allow_permission
 from plane.authentication.session import BaseSessionAuthentication
 from plane.db.models import Issue, Project, ProjectMember, WorkspaceMember
 
-from .models import Change, Field, SavedView, Value
+from .models import Change, Field, SavedView, NativeLayoutPreference
 from .serializers import FieldSerializer, SavedViewSerializer
-from .services import field_annotation, filter_items, move_selection, save_values, validate_values, values_for
+from .services import field_annotation, move_selection, save_values, validate_values, values_for
 from .conversions import rewrite_views
 
 READ = [ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST]
@@ -128,6 +128,9 @@ class ValuesEndpoint(ProjectEndpoint):
                 move_selection(issue, request.data["selection_move"], request.user.id)
             else:
                 prepared = validate_values(project_id, request.data.get("values"))
+                from .list_api import check_expected
+
+                check_expected(issue, prepared, request.data.get("expected"))
                 save_values(issue, prepared, request.user.id)
         return Response({"values": values_for([issue])[str(issue.id)]})
 
@@ -151,39 +154,12 @@ def serialize_items(query):
 
 
 def view_config(project_id, config):
-    if not isinstance(config, dict) or len(json.dumps(config)) > 20000:
-        raise ValidationError("Configuração de visualização inválida.")
-    allowed = {"filters", "match", "group_by", "order_by", "layout", "columns", "search", "priority"}
-    if set(config) - allowed or config.get("layout", "table") not in ("table", "list", "kanban"):
-        raise ValidationError("Configuração não suportada.")
-    # Reuse filter validation without evaluating the query.
-    filter_items(Issue.issue_objects.none(), project_id, config.get("filters", []), config.get("match", "all"))
-    all_fields = {str(f.id): f for f in Field.objects.filter(project_id=project_id)}
-    fields = {key: field for key, field in all_fields.items() if field.active}
-    if (
-        not isinstance(config.get("columns", []), list)
-        or len(config.get("columns", [])) > 100
-        or any(not isinstance(c, str) or c not in all_fields for c in config.get("columns", []))
-    ):
-        raise ValidationError("Colunas inválidas.")
-    config = {**config, "columns": [key for key in dict.fromkeys(config.get("columns", [])) if key in fields]}
-    group = config.get("group_by")
-    if group and (
-        not isinstance(group, str)
-        or group not in fields
-        or fields[group].kind not in ("select", "multiselect", "boolean")
-    ):
-        raise ValidationError("Agrupamento disponível para seleção única/múltipla e sim/não.")
-    order = config.get("order_by", "-created_at")
-    if not isinstance(order, str) or order.lstrip("-") not in {"created_at", "name", *fields}:
-        raise ValidationError("Ordenação inválida.")
-    if order.lstrip("-") in fields and fields[order.lstrip("-")].kind == "multiselect":
-        raise ValidationError("Seleção múltipla pode ser filtrada e agrupada; escolha outro campo para ordenar.")
-    if not isinstance(config.get("search", ""), str) or len(config.get("search", "")) > 255:
-        raise ValidationError("Busca inválida.")
-    if config.get("priority", "") not in ("", "none", "low", "medium", "high", "urgent"):
-        raise ValidationError("Prioridade inválida.")
-    return config
+    from .query import normalize_query
+
+    result = normalize_query(project_id, config)
+    if result.get("manual") or result.get("manual_order"):
+        raise ValidationError("Ordem manual é uma preferência pessoal da Lista, não configuração compartilhada.")
+    return result
 
 
 class ItemsEndpoint(ProjectEndpoint):
@@ -197,68 +173,27 @@ class ItemsEndpoint(ProjectEndpoint):
         if page < 1 or page > 100000:
             raise ValidationError("Página inválida.")
         config = view_config(project_id, config)
-        query = filter_items(self.items(), project_id, config.get("filters", []), config.get("match", "all"))
-        if config.get("search"):
-            query = query.filter(name__icontains=config["search"])
-        if config.get("priority"):
-            query = query.filter(priority=config["priority"])
-        order = config.get("order_by", "-created_at")
-        if order.lstrip("-") in ("name", "created_at"):
-            query = query.order_by(order, "id")
-        else:
-            _, annotation = field_annotation(project_id, order.lstrip("-"))
-            direction = (
-                F("_hentis_sort").desc(nulls_last=True)
-                if order.startswith("-")
-                else F("_hentis_sort").asc(nulls_last=True)
-            )
-            query = query.annotate(_hentis_sort=annotation).order_by(direction, "id")
+        from .query import apply_query, group_query
+
+        query = apply_query(self.items(), project_id, config)
         group = config.get("group_by")
         size = 25
         if group:
-            field, annotation = field_annotation(project_id, group)
-            if field.kind != "multiselect":
-                query = query.annotate(_hentis_group=annotation)
-            options = (
-                [(str(o["id"]), o["label"]) for o in field.options]
-                if field.kind in ("select", "multiselect")
-                else [("true", "Sim"), ("false", "Não")]
-            )
-            options.append(("__empty__", "Sem valor"))
+            from .query import group_options, compatible_group
 
-            def key_of(value):
-                return "__empty__" if value is None else str(value).lower()
-
-            counts = (
-                {}
-                if field.kind == "multiselect"
-                else {
-                    key_of(row["_hentis_group"]): row["total"]
-                    for row in query.order_by().values("_hentis_group").annotate(total=Count("id"))
-                }
-            )
+            field, _ = field_annotation(project_id, group)
+            options = group_options(field)
             requested = request.query_params.get("group_value")
             groups = []
             if requested is not None and requested not in {key for key, _ in options}:
                 raise ValidationError("Grupo inválido.")
             for key, label in options:
+                if not compatible_group(config["filter_tree"], field, key):
+                    continue
                 if requested is not None and requested != key:
                     continue
-                if field.kind == "multiselect":
-                    values = Value.objects.filter(field=field, issue_id=OuterRef("pk"))
-                    matching = (
-                        values.exclude(option_values=[])
-                        if key == "__empty__"
-                        else values.filter(option_values__contains=[key])
-                    )
-                    selected = query.filter(~Exists(matching)) if key == "__empty__" else query.filter(Exists(matching))
-                    count = selected.count()
-                else:
-                    raw = None if key == "__empty__" else (key == "true" if field.kind == "boolean" else key)
-                    selected = (
-                        query.filter(_hentis_group__isnull=True) if raw is None else query.filter(_hentis_group=raw)
-                    )
-                    count = counts.get(key, 0)
+                selected = group_query(query, project_id, config, field, key)
+                count = selected.count()
                 groups.append(
                     {
                         "key": key,
@@ -271,7 +206,7 @@ class ItemsEndpoint(ProjectEndpoint):
             return Response(
                 {
                     "groups": groups,
-                    "count": query.count() if field.kind == "multiselect" else sum(counts.values()),
+                    "count": query.count(),
                     "page": page,
                 }
             )
@@ -311,16 +246,49 @@ class ViewsEndpoint(ProjectEndpoint):
         project = self.project()
         serializer = SavedViewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        view_config(project.id, serializer.validated_data.get("config", {}))
-        serializer.save(project=project, owner=request.user)
+        if serializer.validated_data.get("locked") and not self.can_manage():
+            raise PermissionDenied("Somente administradores podem bloquear Views.")
+        config = view_config(project.id, serializer.validated_data.get("config", {}))
+        serializer.save(project=project, owner=request.user, config=config, schema_version=2)
         return Response(serializer.data, status=201)
 
 
 class ViewEndpoint(ProjectEndpoint):
     @allow_permission(WRITE)
+    def patch(self, request, slug, project_id, view_id):
+        from .list_api import Conflict
+
+        with transaction.atomic():
+            view = get_object_or_404(SavedView.objects.select_for_update(), project=self.project(), pk=view_id)
+            if view.owner_id != request.user.id and not self.can_manage():
+                return Response({"detail": "Somente o autor ou administrador pode atualizar a View."}, status=403)
+            if request.data.get("revision") != view.revision:
+                raise Conflict("A View mudou. Recarregue antes de salvar.")
+            if view.locked and not self.can_manage():
+                raise PermissionDenied("View bloqueada pelo administrador.")
+            if "locked" in request.data and not self.can_manage():
+                raise PermissionDenied("Somente administradores podem bloquear/desbloquear Views.")
+            data = {key: value for key, value in request.data.items() if key != "revision"}
+            serializer = SavedViewSerializer(view, data=data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            config = view_config(project_id, serializer.validated_data.get("config", view.config))
+            serializer.save(config=config, revision=view.revision + 1, schema_version=2)
+        return Response(serializer.data)
+
+    @allow_permission(WRITE)
     def delete(self, request, slug, project_id, view_id):
         view = get_object_or_404(SavedView, project=self.project(), pk=view_id)
+        if view.locked and not self.can_manage():
+            raise PermissionDenied("View bloqueada pelo administrador.")
         if view.owner_id != request.user.id and not self.can_manage():
             return Response({"detail": "Somente o autor ou administrador pode excluir esta visualização."}, status=403)
-        view.delete()
+        with transaction.atomic():
+            for preference in NativeLayoutPreference.objects.select_for_update().filter(
+                workspace=self.project().workspace, query_config__view_id=str(view.id)
+            ):
+                config = dict(preference.query_config)
+                config.pop("view_id", None)
+                preference.query_config = config
+                preference.save(update_fields=["query_config", "updated_at"])
+            view.delete()
         return Response(status=204)

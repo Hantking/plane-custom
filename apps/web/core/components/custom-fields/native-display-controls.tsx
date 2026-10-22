@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { observer } from "mobx-react";
-import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, ChevronsUp, ChevronsDown } from "lucide-react";
 import { ISSUE_DISPLAY_PROPERTIES } from "@plane/constants";
 import type { IIssueDisplayProperties } from "@plane/types";
 import { useTranslation } from "@plane/i18n";
@@ -128,11 +128,27 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
               </button>
               <button
                 type="button"
+                aria-label={`Mover ${name} ao início`}
+                disabled={busy || index === 0}
+                onClick={() => move(key, rows[0])}
+              >
+                <ChevronsUp className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
                 aria-label={`Mover ${name} para baixo`}
                 disabled={busy || index === rows.length - 1}
                 onClick={() => move(key, rows[index + 1])}
               >
                 <ArrowDown className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Mover ${name} ao fim`}
+                disabled={busy || index === rows.length - 1}
+                onClick={() => move(key, rows[rows.length - 1])}
+              >
+                <ChevronsDown className="h-3 w-3" />
               </button>
             </li>
           );

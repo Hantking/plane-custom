@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { observer } from "mobx-react";
 import { useParams, usePathname } from "next/navigation";
 import useSWR from "swr";
 import { useUser } from "@/hooks/store/user/user-user";
 import { FieldDisplay, FieldInput, displayValue } from "./inputs";
-import { fieldError, fieldsService } from "./service";
+import { fieldError, fieldsService, fieldMutationKey, isFieldSaving, subscribeFieldSaves } from "./service";
 import type { FieldValue } from "./service";
 import { nativeDisplayService } from "./native-service";
 import { NativeFieldsContext, useNativeFieldsContext } from "./native-context";
@@ -78,8 +78,16 @@ function NativeDataProvider({
     () => nativeDisplayService.batch(display.workspace, display.request!, ids)
   );
   const context = useMemo(
-    () => ({ display, layout, register, values: data?.values ?? {}, projects: data?.projects ?? {}, refresh: mutate }),
-    [display, layout, register, data, mutate]
+    () => ({
+      display,
+      layout,
+      register,
+      values: data?.values ?? {},
+      projects: data?.projects ?? {},
+      refresh: mutate,
+      issueIds: ids,
+    }),
+    [display, layout, register, data, mutate, ids]
   );
   return <NativeFieldsContext.Provider value={context}>{children}</NativeFieldsContext.Provider>;
 }
@@ -205,35 +213,59 @@ export function NativeCustomCell({
   issueId,
   fieldId,
   disabled,
+  as: Container = "td",
 }: {
   issueId: string;
   fieldId: string;
   disabled: boolean;
+  as?: "td" | "div";
 }) {
   const context = useNativeFieldsContext();
   const field = context?.display.data?.fields.find((item) => item.id === fieldId);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const cellRef = useRef<HTMLTableCellElement & HTMLDivElement>(null);
+  const project = context?.projects[issueId];
+  const pendingKey = fieldMutationKey(context?.display.workspace ?? "", project ?? "", issueId, fieldId);
+  const pending = useSyncExternalStore(
+    subscribeFieldSaves,
+    () => isFieldSaving(pendingKey),
+    () => false
+  );
   const columnStyle = useTableColumnStyle("custom:" + fieldId);
   if (!context || !field) return null;
-  const project = context.projects[issueId];
   const save = async (value: FieldValue) => {
     if (!project) return;
     setSaving(true);
     setError("");
     try {
-      await fieldsService.save(context.display.workspace, project, issueId, { [fieldId]: value });
+      await fieldsService.save(
+        context.display.workspace,
+        project,
+        issueId,
+        { [fieldId]: value },
+        { [fieldId]: context.values[issueId]?.[fieldId] ?? null }
+      );
     } catch (e) {
       setError(fieldError(e));
+      await context.refresh();
     } finally {
       setSaving(false);
     }
   };
   return (
-    <td
-      className="min-w-44 border-r border-subtle px-2 text-13"
+    <Container
+      ref={cellRef}
+      role={Container === "div" ? "gridcell" : undefined}
+      tabIndex={0}
+      data-list-column={"custom:" + fieldId}
+      aria-label={field.name}
+      className={`relative min-w-44 flex-none border-r border-subtle px-2 text-13 ${Container === "div" ? "flex h-11 items-center" : ""}`}
       style={columnStyle}
       onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) event.stopPropagation();
+      }}
     >
       {project !== field.project_id ? (
         <span className="text-secondary">—</span>
@@ -241,15 +273,20 @@ export function NativeCustomCell({
         <FieldInput
           field={field}
           value={context.values[issueId]?.[fieldId]}
-          disabled={disabled || saving || !context.display.data?.editable_project_ids.includes(project)}
+          disabled={disabled || saving || pending || !context.display.data?.editable_project_ids.includes(project)}
           onChange={(value) => void save(value)}
         />
+      )}
+      {(saving || pending) && (
+        <span role="status" className="text-11 text-secondary">
+          Salvando…
+        </span>
       )}
       {error && (
         <p role="alert" className="text-red-600">
           {error}
         </p>
       )}
-    </td>
+    </Container>
   );
 }

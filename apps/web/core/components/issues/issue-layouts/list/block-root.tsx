@@ -27,6 +27,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 import { HIGHLIGHT_CLASS, getIssueBlockId, isIssueNew } from "../utils";
 import { IssueBlock } from "./block";
 import type { TRenderQuickActions } from "./list-view-types";
+import { useNativeList } from "@/components/custom-fields/native-list-context";
 
 type Props = {
   issueId: string;
@@ -69,7 +70,13 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
     isEpic = false,
   } = props;
   // states
-  const [isExpanded, setExpanded] = useState<boolean>(false);
+  const [legacyExpanded, setLegacyExpanded] = useState<boolean>(false);
+  const native = useNativeList();
+  const isExpanded = native?.enabled ? native.isExpanded(issueId, nestingLevel) : legacyExpanded;
+  const setExpanded: React.Dispatch<React.SetStateAction<boolean>> = (value) => {
+    if (native?.enabled) native.onExpand(issueId, typeof value === "function" ? value(isExpanded) : value);
+    else setLegacyExpanded(value);
+  };
   const [instruction, setInstruction] = useState<"DRAG_OVER" | "DRAG_BELOW" | undefined>(undefined);
   const [isCurrentBlockDragging, setIsCurrentBlockDragging] = useState(false);
   // ref
@@ -131,7 +138,12 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
 
   const subIssues = subIssuesStore.subIssuesByIssueId(issueId);
   return (
-    <div className="relative" ref={issueBlockRef} id={getIssueBlockId(issueId, groupId)}>
+    <div
+      className="relative"
+      style={native?.enabled ? { width: "var(--hentis-table-width)", minWidth: "100%" } : undefined}
+      ref={issueBlockRef}
+      id={getIssueBlockId(issueId, groupId)}
+    >
       <DropIndicator classNames={"absolute top-0 z-[2]"} isVisible={instruction === "DRAG_OVER"} />
       <RenderIfVisible
         key={`${issueId}`}

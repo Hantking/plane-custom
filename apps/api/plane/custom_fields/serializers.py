@@ -89,8 +89,8 @@ class FieldSerializer(serializers.ModelSerializer):
 class SavedViewSerializer(serializers.ModelSerializer):
     class Meta:
         model = SavedView
-        fields = ["id", "name", "shared", "config", "owner_id"]
-        read_only_fields = ["id", "owner_id"]
+        fields = ["id", "name", "shared", "config", "owner_id", "schema_version", "revision", "locked"]
+        read_only_fields = ["id", "owner_id", "schema_version", "revision"]
 
 
 class CustomFieldsSerializerMixin:

@@ -145,44 +145,105 @@ def save_values(issue, prepared, actor_id):
         Change.objects.create(issue=issue, field=field, actor_id=actor_id, old_value=before, new_value=after)
 
 
-def filter_items(queryset, project_id, filters, match="all"):
-    if not isinstance(filters, list) or len(filters) > 30 or match not in ("all", "any"):
-        raise ValidationError("Filtro inválido: máximo 30 condições e match all/any.")
-    fields = {str(f.id): f for f in Field.objects.filter(project_id=project_id, active=True)}
-    combined = Q()
-    for index, item in enumerate(filters):
-        if not isinstance(item, dict) or not isinstance(item.get("field"), str) or item.get("field") not in fields:
-            raise ValidationError("Campo do filtro inexistente ou de outro projeto.")
-        field = fields[item["field"]]
-        op = item.get("operator", "eq")
+def fields_for(project_id, active=True):
+    projects = project_id if isinstance(project_id, (list, tuple, set)) else [project_id]
+    query = Field.objects.filter(project_id__in=projects)
+    return {str(field.id): field for field in (query.filter(active=True) if active else query)}
+
+
+def filter_tree(filters, match="all"):
+    """Upgrade flat v1 filters without changing their AND/OR semantics."""
+    if match not in ("all", "any"):
+        raise ValidationError("Combinação de filtros inválida.")
+    if isinstance(filters, list):
+        if len(filters) > 30:
+            raise ValidationError("Máximo de 30 condições legadas.")
+        return {"op": "and" if match == "all" else "or", "children": filters}
+    if not isinstance(filters, dict):
+        raise ValidationError("Árvore de filtros inválida.")
+    return filters
+
+
+def filter_items(queryset, project_id, filters, match="all", *, occurrence=None):
+    fields = fields_for(project_id)
+    nodes = 0
+    prefix = len(queryset.query.annotations)
+
+    def evaluate(node, depth=0):
+        nonlocal queryset, nodes
+        nodes += 1
+        if nodes > 100 or depth > 5 or not isinstance(node, dict):
+            raise ValidationError("Filtros: máximo 100 nós e profundidade 5.")
+        if "op" in node:
+            op, children = node.get("op"), node.get("children")
+            if set(node) - {"op", "children", "id"} or op not in ("and", "or", "not") or not isinstance(children, list):
+                raise ValidationError("Grupo lógico inválido.")
+            if op == "not" and len(children) != 1:
+                raise ValidationError("NOT exige exatamente uma condição/grupo.")
+            if not children:
+                if depth:
+                    raise ValidationError("Grupos internos não podem estar vazios.")
+                return Q()
+            parts = [evaluate(child, depth + 1) for child in children]
+            combined = parts[0]
+            for part in parts[1:]:
+                combined = combined | part if op == "or" else combined & part
+            return ~combined if op == "not" else combined
+        if (
+            set(node) - {"field", "operator", "value", "id"}
+            or not isinstance(node.get("field"), str)
+            or node["field"] not in fields
+        ):
+            raise ValidationError("Campo do filtro inexistente ou sem acesso.")
+        field = fields[node["field"]]
+        op = node.get("operator", "eq")
         if not isinstance(op, str) or op not in OPERATORS[field.kind]:
             raise ValidationError("Operador não suportado para este tipo de campo.")
-        rows = Value.objects.filter(issue_id=OuterRef("pk"), field=field)
+        value = None
         if op not in ("empty", "not_empty"):
-            raw = item.get("value")
+            raw = node.get("value")
             if field.kind == "multiselect" and isinstance(raw, str):
-                raw = [raw]  # Backward-compatible saved filters from single selection.
+                raw = [raw]
             value = normalize(field, raw)
             if value is None:
-                raise ValidationError("Use o operador empty para valores vazios.")
+                raise ValidationError("Use empty para valores vazios.")
+        if occurrence and occurrence[0] == str(field.id):
+            key = occurrence[1]
+            empty = key in ("__empty__", "None")
+            wanted = (
+                value if isinstance(value, list) else [str(value).lower() if field.kind == "boolean" else str(value)]
+            )
+            accepted = (
+                empty
+                if op == "empty"
+                else not empty
+                if op == "not_empty"
+                else key not in wanted
+                if op == "ne"
+                else key in wanted
+            )
+            return Q(pk__isnull=not accepted) & Q(project_id=field.project_id)
+        rows = Value.objects.filter(issue_id=OuterRef("pk"), field=field)
+        if op in ("empty", "not_empty"):
             if field.kind == "multiselect":
-                if op == "contains_all":
-                    rows = rows.filter(option_values__contains=value)
-                else:
-                    choices = Q()
-                    for key in value:
-                        choices |= Q(option_values__contains=[key])
-                    rows = rows.filter(choices)
-            else:
-                lookup = {"eq": "exact", "ne": "exact", "contains": "icontains"}.get(op, op)
-                rows = rows.filter(**{COLUMNS[field.kind] + "__" + lookup: value})
+                rows = rows.exclude(option_values=[])
         elif field.kind == "multiselect":
-            rows = rows.exclude(option_values=[])
-        alias = f"_hentis_filter_{index}"
+            if op == "contains_all":
+                rows = rows.filter(option_values__contains=value)
+            else:
+                choices = Q()
+                for key in value:
+                    choices |= Q(option_values__contains=[key])
+                rows = rows.filter(choices)
+        else:
+            lookup = {"eq": "exact", "ne": "exact", "contains": "icontains"}.get(op, op)
+            rows = rows.filter(**{COLUMNS[field.kind] + "__" + lookup: value})
+        alias = f"_hentis_filter_{prefix}_{nodes}"
         queryset = queryset.alias(**{alias: Exists(rows)})
-        condition = Q(**{alias: op not in ("ne", "empty")})
-        combined = combined | condition if match == "any" else combined & condition
-    return queryset.filter(combined)
+        return Q(**{alias: op not in ("ne", "empty")}) & Q(project_id=field.project_id)
+
+    condition = evaluate(filter_tree(filters, match))
+    return queryset.filter(condition)
 
 
 @transaction.atomic
