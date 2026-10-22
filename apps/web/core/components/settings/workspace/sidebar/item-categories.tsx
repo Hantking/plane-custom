@@ -61,7 +61,7 @@ export const WorkspaceSettingsSidebarItemCategories = observer(function Workspac
                     href={joinUrlPath(workspaceSlug ?? "", item.href)}
                     isActive={isItemActive}
                     icon={WORKSPACE_SETTINGS_ICONS[item.key]}
-                    label={t(item.i18n_label)}
+                    label={item.key === "ai" ? "Inteligência Artificial" : t(item.i18n_label)}
                   />
                 );
               })}

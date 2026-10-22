@@ -7,7 +7,8 @@
 import React from "react";
 import { observer } from "mobx-react";
 // helpers
-import { formatDateRange, getDate } from "@plane/utils";
+import { renderFormattedDate } from "@plane/utils";
+import { RelativeDate } from "@/components/dates/relative-date";
 
 type Props = {
   startDate: Date | string | null | undefined;
@@ -16,24 +17,20 @@ type Props = {
 };
 
 /**
- * Formats merged date range display with smart formatting
- * - Single date: "Jan 24, 2025"
- * - Same year, same month: "Jan 24 - 28, 2025"
- * - Same year, different month: "Jan 24 - Feb 6, 2025"
- * - Different year: "Dec 28, 2024 - Jan 4, 2025"
+ * Displays each selected endpoint with the shared relative label and its own color.
  */
 export const MergedDateDisplay = observer(function MergedDateDisplay(props: Props) {
   const { startDate, endDate, className = "" } = props;
 
-  // Parse dates
-  const parsedStartDate = getDate(startDate);
-  const parsedEndDate = getDate(endDate);
-
-  const displayText = formatDateRange(parsedStartDate, parsedEndDate);
-
-  if (!displayText) {
+  if (!startDate && !endDate) {
     return null;
   }
 
-  return <span className={className}>{displayText}</span>;
+  return (
+    <span className={className}>
+      {startDate && <RelativeDate value={startDate} normalText={renderFormattedDate(startDate)} />}
+      {startDate && endDate && " – "}
+      {endDate && <RelativeDate value={endDate} normalText={renderFormattedDate(endDate)} />}
+    </span>
+  );
 });

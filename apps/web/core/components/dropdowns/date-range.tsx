@@ -19,6 +19,7 @@ import { Calendar } from "@plane/propel/calendar";
 import { CloseIcon, DueDatePropertyIcon } from "@plane/propel/icons";
 import { ComboDropDown } from "@plane/ui";
 import { cn, renderFormattedDate } from "@plane/utils";
+import { RelativeDate } from "@/components/dates/relative-date";
 // helpers
 // hooks
 import { useUserProfile } from "@/hooks/store/user";
@@ -232,7 +233,13 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
               )}
             >
               {!hideIcon.from && <CalendarDays className="h-3 w-3 flex-shrink-0" />}
-              {dateRange.from ? renderFormattedDate(dateRange.from) : renderPlaceholder ? placeholder.from : ""}
+              {dateRange.from ? (
+                <RelativeDate value={dateRange.from} normalText={renderFormattedDate(dateRange.from)} />
+              ) : renderPlaceholder ? (
+                placeholder.from
+              ) : (
+                ""
+              )}
             </span>
             <ArrowRight className="h-3 w-3 flex-shrink-0" />
             <span
@@ -242,7 +249,13 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
               )}
             >
               {!hideIcon.to && <DueDatePropertyIcon className="h-3 w-3 flex-shrink-0" />}
-              {dateRange.to ? renderFormattedDate(dateRange.to) : renderPlaceholder ? placeholder.to : ""}
+              {dateRange.to ? (
+                <RelativeDate value={dateRange.to} normalText={renderFormattedDate(dateRange.to)} />
+              ) : renderPlaceholder ? (
+                placeholder.to
+              ) : (
+                ""
+              )}
             </span>
             {isClearable && !disabled && hasDisplayedDates && (
               <CloseIcon
@@ -291,6 +304,7 @@ export const DateRangeDropdown = observer(function DateRangeDropdown(props: Prop
   return (
     <ComboDropDown
       as="div"
+      role="group"
       ref={dropdownRef}
       tabIndex={tabIndex}
       className={cn("h-full", className)}

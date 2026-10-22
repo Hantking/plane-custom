@@ -1,5 +1,9 @@
 # Campos personalizados Hentis para Plane CE
 
+## Plane AI
+
+O módulo de IA integrado (conexões compatíveis com Chat Completions, contexto autorizado, conversas, ferramentas, escrita, memória e automações) está documentado em [PLANE-AI.md](PLANE-AI.md). Configuração sem segredos: [plane-ai.env.example](plane-ai.env.example).
+
 Base oficial: `makeplane/plane`, release em `upstream.json`. Branch de customização: `hentis/custom-fields`.
 
 ## Utilização
@@ -19,6 +23,10 @@ Na planilha, campos personalizados podem ficar entre as propriedades padrão. Na
 Visibilidade dos campos personalizados e ordem são preferências pessoais salvas no servidor, separadas por usuário, projeto/módulo/ciclo/View e layout. A visibilidade das propriedades padrão continua usando o mecanismo original do Plane. As Views de workspace carregam apenas projetos autorizados; colunas de diferentes projetos são qualificadas pelo identificador do projeto.
 
 Os valores são consultados em lotes, evitando uma chamada por cartão/campo. Convidados continuam limitados às próprias tarefas quando o projeto assim determina. Editar um valor nos detalhes atualiza os layouts nativos; excluir um campo também limpa suas referências nas preferências. A migração `0003_nativelayoutpreference` adiciona somente a tabela dessas preferências.
+
+### Datas relativas
+
+Campos de data e intervalos selecionados mostram **hoje** em `#B69277`, **amanhã**, **ontem**, o dia da semana de 2 a 5 dias no futuro e **há X dias** de 2 a 5 dias no passado. Fora dessa janela, exibem a data normal; datas com mais de 5 dias no passado usam fonte vermelha. Os tooltips mantêm a data completa. A comparação usa dias de calendário no fuso do usuário, preserva valores `YYYY-MM-DD` e se atualiza na virada do dia; os valores salvos continuam sendo datas normais.
 
 ### Largura das colunas da Planilha
 

@@ -28,6 +28,7 @@ import {
   useWorkspaceNavigationPreferences,
 } from "@/hooks/use-navigation-preferences";
 import { SidebarItemBase } from "./sidebar-item";
+import { PlaneAIButton } from "@/components/plane-ai/panel";
 
 export const SidebarMenuItems = observer(function SidebarMenuItems() {
   // routers
@@ -97,6 +98,7 @@ export const SidebarMenuItems = observer(function SidebarMenuItems() {
   return (
     <>
       <div className="flex flex-col gap-0.5">
+        <PlaneAIButton />
         {filteredStaticNavigationItems.map((item, _index) => (
           // oxlint-disable-next-line react/no-array-index-key
           <SidebarItemBase key={`static_${_index}`} item={item} />

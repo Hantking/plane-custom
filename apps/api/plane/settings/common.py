@@ -112,6 +112,7 @@ INSTALLED_APPS = [
     "plane.api",
     "plane.authentication",
     "plane.custom_fields.apps.CustomFieldsConfig",
+    "plane.ai.apps.PlaneAIConfig",
     # Third-party things
     "rest_framework",
     "corsheaders",

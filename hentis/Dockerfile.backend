@@ -1,7 +1,9 @@
 ARG UPSTREAM_BACKEND=makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef
 FROM ${UPSTREAM_BACKEND}
-# The three integration seams are merged against the same upstream release.
+# Custom integration seams are merged against the same upstream release.
 COPY apps/api/plane/custom_fields /code/plane/custom_fields
+COPY apps/api/plane/ai /code/plane/ai
+COPY apps/api/plane/celery.py /code/plane/celery.py
 COPY apps/api/plane/settings/common.py /code/plane/settings/common.py
 COPY apps/api/plane/app/urls/__init__.py /code/plane/app/urls/__init__.py
 COPY apps/api/plane/app/serializers/issue.py /code/plane/app/serializers/issue.py

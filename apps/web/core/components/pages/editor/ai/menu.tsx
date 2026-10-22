@@ -4,7 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+import { PlaneAIEditorButton, usePlaneAI } from "@/components/plane-ai/panel";
 import type { LucideIcon } from "lucide-react";
 import { CornerDownRight, RefreshCcw, Sparkles, TriangleAlert } from "lucide-react";
 // plane editor
@@ -66,6 +67,8 @@ const TONES_LIST = [
 
 export function EditorAIMenu(props: Props) {
   const { editorRef, isOpen, onClose, workspaceId, workspaceSlug } = props;
+  const planeAI = usePlaneAI();
+  const planeEditorRef = useMemo(() => ({ current: editorRef }), [editorRef]);
   // states
   const [activeTask, setActiveTask] = useState<AI_EDITOR_TASKS | null>(null);
   const [response, setResponse] = useState<string | undefined>(undefined);
@@ -140,6 +143,14 @@ export function EditorAIMenu(props: Props) {
       setResponse(undefined);
     }
   }, [isOpen]);
+
+  if (planeAI?.enabled) {
+    return (
+      <div className="max-w-xs rounded border border-subtle bg-surface-1 p-2 shadow-raised-200">
+        <PlaneAIEditorButton editorRef={planeEditorRef} />
+      </div>
+    );
+  }
 
   return (
     <div

@@ -4,6 +4,9 @@ import type { CustomField, FieldValue, SelectOption } from "./service";
 import { fieldInputClass } from "./service";
 import { optionBadgeStyle } from "./option-colors";
 import { selectionValues } from "./selection-values";
+import { RelativeDate } from "@/components/dates/relative-date";
+import { DateDropdown } from "@/components/dropdowns/date";
+import { renderFormattedPayloadDate } from "@plane/utils";
 
 export function OptionBadge({ option }: { option: SelectOption }) {
   return (
@@ -18,6 +21,7 @@ export function OptionBadge({ option }: { option: SelectOption }) {
 }
 
 export function FieldDisplay({ field, value }: { field: CustomField; value: FieldValue | undefined }) {
+  if (field.kind === "date" && typeof value === "string" && value) return <RelativeDate value={value} />;
   if (field.kind === "multiselect") {
     const selected = selectionValues(field, value);
     return selected.length ? (
@@ -134,12 +138,28 @@ export function FieldInput({
       </select>
     );
   }
+  if (field.kind === "date") {
+    return (
+      <DateDropdown
+        ariaLabel={field.name}
+        value={typeof value === "string" ? value : null}
+        onChange={(date) => onChange(date ? (renderFormattedPayloadDate(date) ?? null) : null)}
+        disabled={disabled}
+        placeholder={field.name}
+        buttonVariant="transparent-with-text"
+        buttonContainerClassName="w-full"
+        buttonClassName={`${fieldInputClass} min-h-8 w-full`}
+        optionsClassName="z-[100]"
+        showTooltip
+      />
+    );
+  }
   return (
     <input
       aria-label={field.name}
       className={`${fieldInputClass} w-full`}
       disabled={disabled}
-      type={field.kind === "date" ? "date" : field.kind === "number" ? "number" : field.kind === "url" ? "url" : "text"}
+      type={field.kind === "number" ? "number" : field.kind === "url" ? "url" : "text"}
       step={field.kind === "number" ? "0.000001" : undefined}
       maxLength={10000}
       value={draft}

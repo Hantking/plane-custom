@@ -4,7 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import { forwardRef } from "react";
+import { forwardRef, useRef, useCallback } from "react";
+import { PlaneAIEditorButton } from "@/components/plane-ai/panel";
 // plane imports
 import { RichTextEditorWithRef } from "@plane/editor";
 import type { EditorRefApi, IRichTextEditorProps, TFileHandler } from "@plane/editor";
@@ -52,6 +53,15 @@ export const RichTextEditor = forwardRef(function RichTextEditor(
     disabledExtensions: additionalDisabledExtensions = [],
     ...rest
   } = props;
+  const localRef = useRef<EditorRefApi | null>(null);
+  const assignRef = useCallback(
+    (value: EditorRefApi | null) => {
+      localRef.current = value;
+      if (typeof ref === "function") ref(value);
+      else if (ref) ref.current = value;
+    },
+    [ref]
+  );
   // store hooks
   const { getUserDetails } = useMember();
   // editor flaggings
@@ -72,34 +82,39 @@ export const RichTextEditor = forwardRef(function RichTextEditor(
   });
 
   return (
-    <RichTextEditorWithRef
-      ref={ref}
-      disabledExtensions={[...richTextEditorExtensions.disabled, ...(additionalDisabledExtensions ?? [])]}
-      editable={editable}
-      flaggedExtensions={richTextEditorExtensions.flagged}
-      fileHandler={getEditorFileHandlers({
-        projectId,
-        uploadFile: editable ? props.uploadFile : async () => "",
-        duplicateFile: editable ? props.duplicateFile : async () => "",
-        workspaceId,
-        workspaceSlug,
-      })}
-      getEditorMetaData={getEditorMetaData}
-      mentionHandler={{
-        searchCallback: async (query) => {
-          const res = await fetchMentions(query);
-          if (!res) throw new Error("Failed in fetching mentions");
-          return res;
-        },
-        renderComponent: EditorMentionsRoot,
-        getMentionedEntityDetails: (id) => ({
-          display_name: getUserDetails(id)?.display_name ?? "",
-        }),
-      }}
-      extendedEditorProps={{}}
-      {...rest}
-      containerClassName={cn("relative pb-3 pl-3", containerClassName)}
-    />
+    <div className="min-w-0">
+      {editable && (
+        <PlaneAIEditorButton editorRef={localRef} scope={projectId ? { kind: "project", id: projectId } : undefined} />
+      )}
+      <RichTextEditorWithRef
+        ref={assignRef}
+        disabledExtensions={[...richTextEditorExtensions.disabled, ...(additionalDisabledExtensions ?? [])]}
+        editable={editable}
+        flaggedExtensions={richTextEditorExtensions.flagged}
+        fileHandler={getEditorFileHandlers({
+          projectId,
+          uploadFile: editable ? props.uploadFile : async () => "",
+          duplicateFile: editable ? props.duplicateFile : async () => "",
+          workspaceId,
+          workspaceSlug,
+        })}
+        getEditorMetaData={getEditorMetaData}
+        mentionHandler={{
+          searchCallback: async (query) => {
+            const res = await fetchMentions(query);
+            if (!res) throw new Error("Failed in fetching mentions");
+            return res;
+          },
+          renderComponent: EditorMentionsRoot,
+          getMentionedEntityDetails: (id) => ({
+            display_name: getUserDetails(id)?.display_name ?? "",
+          }),
+        }}
+        extendedEditorProps={{}}
+        {...rest}
+        containerClassName={cn("relative pb-3 pl-3", containerClassName)}
+      />
+    </div>
   );
 });
 

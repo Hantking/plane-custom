@@ -22,12 +22,14 @@ import { useUserProfile } from "@/hooks/store/user";
 import { useDropdown } from "@/hooks/use-dropdown";
 // components
 import { DropdownButton } from "./buttons";
+import { RelativeDate } from "@/components/dates/relative-date";
 // constants
 import { BUTTON_VARIANTS_WITH_TEXT } from "./constants";
 // types
 import type { TDropdownProps } from "./types";
 
 type Props = TDropdownProps & {
+  ariaLabel?: string;
   clearIconClassName?: string;
   defaultOpen?: boolean;
   optionsClassName?: string;
@@ -46,6 +48,7 @@ type Props = TDropdownProps & {
 
 export const DateDropdown = observer(function DateDropdown(props: Props) {
   const {
+    ariaLabel,
     buttonClassName = "",
     buttonContainerClassName,
     buttonVariant,
@@ -123,6 +126,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
   const comboButton = (
     <button
       type="button"
+      aria-label={ariaLabel}
       className={cn(
         "clickable block h-full max-w-full outline-none",
         {
@@ -147,7 +151,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
         {!hideIcon && icon}
         {BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && (
           <span className={cn("flex-grow truncate text-left text-body-xs-medium", labelClassName)}>
-            {value ? renderFormattedDate(value, formatToken) : placeholder}
+            {value ? <RelativeDate value={value} normalText={renderFormattedDate(value, formatToken)} /> : placeholder}
           </span>
         )}
         {isClearable && !disabled && isDateSelected && (
@@ -167,6 +171,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
   return (
     <ComboDropDown
       as="div"
+      role="group"
       ref={dropdownRef}
       tabIndex={tabIndex}
       className={cn("h-full", className)}

@@ -48,7 +48,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libpq-dev
       - run: pip install -r requirements/base.txt
         working-directory: apps/api
-      - run: python manage.py test plane.custom_fields --settings=plane.custom_fields.test_settings --noinput && python manage.py makemigrations --check --dry-run
+      - run: python manage.py test plane.custom_fields plane.ai --settings=plane.ai.test_settings --noinput && python manage.py makemigrations --check --dry-run
         working-directory: apps/api
   web-test:
     needs: [resolve, backend-test]
@@ -62,7 +62,7 @@ jobs:
           node-version: '22'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/option-colors.test.ts ../../hentis/tests/selection-values.test.ts ../../hentis/tests/native-display.test.ts ../../hentis/tests/table-widths.test.ts
+      - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/option-colors.test.ts ../../hentis/tests/selection-values.test.ts ../../hentis/tests/native-display.test.ts ../../hentis/tests/table-widths.test.ts ../../hentis/tests/plane-ai-writing.test.ts ../../hentis/tests/relative-dates.test.ts
       - run: pnpm exec turbo run build --filter='web^...'
       - run: pnpm --filter web check:types
       - run: pnpm --filter web build

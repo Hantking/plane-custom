@@ -9,6 +9,7 @@ import { AuthenticationWrapper } from "@/lib/wrappers/authentication-wrapper";
 import { WorkspaceContentWrapper } from "@/components/workspace/content-wrapper";
 import { AppRailVisibilityProvider } from "@/lib/app-rail";
 import { GlobalModals } from "@/components/common/modal/global";
+import { PlaneAIProvider } from "@/components/plane-ai/panel";
 import { WorkspaceAuthWrapper } from "@/layouts/auth-layout/workspace-wrapper";
 import type { Route } from "./+types/layout";
 
@@ -19,10 +20,12 @@ export default function WorkspaceLayout(props: Route.ComponentProps) {
     <AuthenticationWrapper>
       <WorkspaceAuthWrapper>
         <AppRailVisibilityProvider>
-          <WorkspaceContentWrapper>
-            <GlobalModals workspaceSlug={workspaceSlug} />
-            <Outlet />
-          </WorkspaceContentWrapper>
+          <PlaneAIProvider workspaceSlug={workspaceSlug}>
+            <WorkspaceContentWrapper>
+              <GlobalModals workspaceSlug={workspaceSlug} />
+              <Outlet />
+            </WorkspaceContentWrapper>
+          </PlaneAIProvider>
         </AppRailVisibilityProvider>
       </WorkspaceAuthWrapper>
     </AuthenticationWrapper>

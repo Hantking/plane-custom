@@ -45,6 +45,7 @@ import { PageContentLoader } from "../loaders/page-content-loader";
 import { PageEditorHeaderRoot } from "./header";
 import { PageContentBrowser } from "./summary";
 import { EditorAIMenu } from "./ai/menu";
+import { PlaneAIEditorButton } from "@/components/plane-ai/panel";
 
 export type TEditorBodyConfig = {
   fileHandler: TFileHandler;
@@ -272,6 +273,9 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
               <PageEditorHeaderRoot page={page} projectId={projectId} />
             </div>
           </div>
+          {isContentEditable && (
+            <PlaneAIEditorButton editorRef={editorForwardRef} scope={{ kind: "page", id: pageId }} />
+          )}
           <CollaborativeDocumentEditorWithRef
             editable={isContentEditable}
             id={pageId}
