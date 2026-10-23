@@ -46,6 +46,8 @@ openpyxl==3.1.2
 python-json-logger==4.0.0
 # html parser
 beautifulsoup4==4.12.3
+# report Markdown rendering
+mistune==3.1.3
 # analytics
 posthog==3.5.0
 # crypto

@@ -2,7 +2,7 @@
 
 ## Plane AI
 
-O módulo de IA integrado (conexões compatíveis com Chat Completions, contexto autorizado, conversas, ferramentas, escrita, memória e automações) está documentado em [PLANE-AI.md](PLANE-AI.md). Configuração sem segredos: [plane-ai.env.example](plane-ai.env.example).
+O módulo de IA integrado oferece chat expansível, catálogo de modelos do provedor, seletor unificado de modelos, busca contextual, relatórios com tabelas/CSV, ferramentas, escrita, memória e automações. Configuração e operação em [PLANE-AI.md](PLANE-AI.md); evidências em [PLANE-AI-VALIDATION.md](PLANE-AI-VALIDATION.md). Configuração sem segredos: [plane-ai.env.example](plane-ai.env.example).
 
 Base oficial: `makeplane/plane`, release em `upstream.json`. Branch de customização: `hentis/custom-fields`.
 

@@ -1,5 +1,6 @@
 ARG UPSTREAM_BACKEND=makeplane/plane-backend:v1.4.2@sha256:90032ce088708889b60c00d491897916f4deb882facda27db59fd10fb68729ef
 FROM ${UPSTREAM_BACKEND}
+RUN pip install --no-cache-dir mistune==3.1.3
 # Custom integration seams are merged against the same upstream release.
 COPY apps/api/plane/custom_fields /code/plane/custom_fields
 COPY apps/api/plane/ai /code/plane/ai

@@ -132,6 +132,41 @@ def schema():
         {
             "type": "function",
             "function": {
+                "name": "report_workspace",
+                "description": (
+                    "Compute a full authorized report with exact totals and a table, not sampled task counts. "
+                    "Use for progress, workload, deadlines and period comparisons. "
+                    "Dates are YYYY-MM-DD in the user's timezone. Overview is a current snapshot; "
+                    "use changed/completed/created for date periods."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {
+                            "type": "string",
+                            "enum": [
+                                "overview",
+                                "overdue",
+                                "blocked",
+                                "changed",
+                                "completed",
+                                "created",
+                                "upcoming",
+                                "workload",
+                            ],
+                        },
+                        "group_by": {"type": "string", "enum": ["project", "assignee", "state", "priority"]},
+                        "start": {"type": "string", "description": "Inclusive ISO date; omit for the current week."},
+                        "end": {"type": "string", "description": "Inclusive ISO date; omit for today."},
+                    },
+                    "required": ["kind", "group_by"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
                 "name": "search_workspace",
                 "description": "Read authorized work with backend-calculated metrics. Use real IDs and cite sources.",
                 "parameters": {
@@ -415,6 +450,8 @@ def execute(access, action):
         elif operation in {"create_page", "update_page"}:
             payload = {"name": data["name"]} if "name" in data else {}
             if operation == "create_page":
+                from .report_documents import safe_markdown
+
                 serializer = PageSerializer(
                     data=payload,
                     context={
@@ -422,7 +459,7 @@ def execute(access, action):
                         "owned_by_id": access.user.id,
                         "description_json": {},
                         "description_binary": None,
-                        "description_html": html(data.get("text", "")),
+                        "description_html": safe_markdown(data.get("text", "")),
                     },
                 )
             else:

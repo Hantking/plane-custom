@@ -14,7 +14,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from plane.authentication.session import BaseSessionAuthentication
 from .models import Policy, Connection, Conversation, Run, Memory, Automation
-from .serializers import ConnectionSerializer, PolicySerializer, MemorySerializer, AutomationSerializer
+from .serializers import (
+    CatalogSerializer,
+    ConnectionSerializer,
+    PolicySerializer,
+    MemorySerializer,
+    AutomationSerializer,
+)
 from .security import Access, enabled
 from .orchestrator import ensure_connection, get_access
 from .providers import adapter, model_config, ProviderError
@@ -143,7 +149,9 @@ class AIEndpoint(APIView):
         if resource == "bootstrap":
             access = Access(request.user, slug, require_enabled=False)
             policy, _ = Policy.objects.get_or_create(workspace=access.workspace)
-            connections = Connection.objects.filter(workspace=access.workspace, enabled=True, purpose="chat")
+            connections = Connection.objects.filter(workspace=access.workspace, enabled=True, purpose="chat").order_by(
+                "created_at", "id"
+            )
             return Response(
                 {
                     "enabled": enabled() and policy.enabled,
@@ -154,6 +162,12 @@ class AIEndpoint(APIView):
                         if access.member.role in c.allowed_roles
                     ],
                     "projects": list(access.projects().values("id", "name")[:100]),
+                    "writable_projects": list(
+                        access.projects()
+                        .filter(pk__in=access.memberships.filter(role__gte=15).values("project_id"))
+                        .order_by("name")
+                        .values("id", "name")[:100]
+                    ),
                 }
             )
         access = self.access(request, slug)
@@ -217,6 +231,10 @@ class AIEndpoint(APIView):
             return Response(visible)
         if resource == "runs" and pk:
             run = self.run(access, pk)
+            if command == "report-document":
+                from .report_documents import report_document
+
+                return Response(report_document(run, request.query_params.get("report_id")))
             if command == "events":
 
                 async def stream():
@@ -260,6 +278,43 @@ class AIEndpoint(APIView):
     def post(self, request, slug, resource, pk=None, command=None):
         access = self.access(request, slug)
         data = request.data
+        if resource == "catalog":
+            access.admin()
+            serializer = CatalogSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            values = serializer.validated_data
+            saved = (
+                get_object_or_404(Connection, workspace=access.workspace, pk=values["connection_id"])
+                if values.get("connection_id")
+                else None
+            )
+            from .security import encrypt
+
+            if (
+                saved
+                and values.get("base_url", saved.base_url).rstrip("/") != saved.base_url.rstrip("/")
+                and "api_key" not in values
+            ):
+                raise ValidationError(
+                    "Ao alterar o endereço do provedor, informe a credencial dessa conexão novamente."
+                )
+            connection = Connection(
+                workspace=access.workspace,
+                base_url=values.get("base_url", saved.base_url if saved else ""),
+                encrypted_key=encrypt(values["api_key"])
+                if "api_key" in values
+                else saved.encrypted_key
+                if saved
+                else "",
+                purpose=values["purpose"],
+                protocol="chat_completions",
+                timeout_seconds=15,
+            )
+            try:
+                models = adapter(connection).catalog()
+            except ProviderError as exc:
+                raise ValidationError(str(exc))
+            return Response({"models": models, "count": len(models)})
         if resource == "connections":
             access.admin()
             if not pk:
@@ -350,6 +405,10 @@ class AIEndpoint(APIView):
             return Response({"id": str(run.id), "status": run.status}, status=202)
         if resource == "runs" and pk:
             run = self.run(access, pk)
+            if command == "report-page":
+                from .report_documents import publish_report
+
+                return Response(publish_report(access, run, data), status=201)
             if command == "cancel":
                 with transaction.atomic():
                     current = Run.objects.select_for_update().get(pk=run.pk)

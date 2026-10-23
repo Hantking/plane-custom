@@ -76,12 +76,31 @@ class ChatCompletions:
         self.connection = connection
 
     def models(self):
+        return [item["id"] for item in self.catalog()]
+
+    def catalog(self):
+        from .catalog import describe_model
+
         with request(self.connection, "GET", "models") as response:
             raw = response.read(1_000_001)
         if len(raw) > 1_000_000:
             raise ProviderError("Lista de modelos excede o limite.")
         try:
-            return [item["id"] for item in json.loads(raw).get("data", [])[:200] if isinstance(item.get("id"), str)]
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                raise ValueError()
+            items = data.get("data", [])
+            if not isinstance(items, list):
+                raise ValueError()
+            result, seen = [], set()
+            for item in items[:1000]:
+                if not isinstance(item, dict):
+                    continue
+                model = describe_model(item, self.connection)
+                if model and model["id"] not in seen:
+                    seen.add(model["id"])
+                    result.append(model)
+            return result
         except (ValueError, KeyError, TypeError):
             raise ProviderError("Formato de listagem de modelos incompatível.") from None
 

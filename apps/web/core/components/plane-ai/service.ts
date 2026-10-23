@@ -9,13 +9,38 @@ export type AIModel = {
   output_parameter?: "max_tokens" | "max_completion_tokens" | "none";
 };
 export type AIConnection = { id: string; name: string; models: AIModel[]; default_model: string };
+export type AICatalogModel = {
+  id: string;
+  name: string;
+  description: string;
+  context_tokens: number | null;
+  capability_source: "provider" | "profile" | "unknown";
+  configuration: AIModel;
+};
 export type AIBootstrap = {
   enabled: boolean;
   admin: boolean;
   connections: AIConnection[];
   projects: { id: string; name: string }[];
+  writable_projects?: { id: string; name: string }[];
 };
 export type AISource = { kind: string; id: string; title: string; url: string };
+export type AIReportDocument = { title: string; html: string; filename: string };
+export type AIReport = {
+  id: string;
+  title: string;
+  kind: string;
+  group_by: string;
+  metrics: { total: number; completed: number; overdue: number; in_progress: number; completion_percent: number };
+  period: { from: string; to: string } | null;
+  as_of: string;
+  timezone: string;
+  columns: string[];
+  rows: (string | number)[][];
+  row_ids: string[];
+  truncated: boolean;
+  definition: string;
+};
 export type AIRun = {
   id: string;
   conversation_id: string;
@@ -34,6 +59,8 @@ export type AIRun = {
     metrics?: Record<string, unknown>;
     truncated?: boolean;
     timezone?: string;
+    reports?: AIReport[];
+    activity?: string;
   };
   actions: {
     id: string;
@@ -72,10 +99,15 @@ export const planeAI = new PlaneAIService();
 export function aiError(error: unknown) {
   const response = error as { response?: { data?: unknown } };
   const detail = response.response?.data;
-  return detail
-    ? typeof detail === "string"
-      ? detail
-      : JSON.stringify(detail)
-    : "Não foi possível concluir a solicitação. Verifique a conexão e tente novamente.";
+  return (
+    errorMessages(detail).slice(0, 5).join(" ") ||
+    "Não foi possível concluir a solicitação. Verifique a conexão e tente novamente."
+  );
+}
+function errorMessages(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(errorMessages);
+  if (value && typeof value === "object") return Object.values(value).flatMap(errorMessages);
+  return [];
 }
 export const aiInputClass = "w-full rounded border border-subtle bg-surface-1 p-2 text-13 text-primary";

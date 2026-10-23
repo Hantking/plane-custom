@@ -11,17 +11,27 @@ Pontos reutilizados: sessões `BaseSessionAuthentication`; modelos de workspace/
 1. Compile backend/frontend com este código. O Dockerfile Hentis inclui `plane.ai` e o agendamento Celery atualizado.
 2. Defina as variáveis de `hentis/plane-ai.env.example` no **backend/API, worker, beat-worker e migrator**. No Compose do Easypanel, adicionar só uma variável ao painel não a injeta no contêiner: o arquivo Compose também deve referenciá-la.
 3. Gere `PLANE_AI_ENCRYPTION_KEY` uma vez, conforme o exemplo. Mantenha a mesma chave em todos os processos e guarde-a junto ao backup dos segredos. As API keys são criptografadas por Fernet no banco. Perder a chave exige cadastrar novamente as credenciais. Para rotação, recifre as conexões com a chave antiga antes de substituí-la; não existe rotação automática nesta versão.
-4. Inclua os hosts exatos dos provedores em `PLANE_AI_ALLOWED_HOSTS`. Não há domínio/modelo de provedor predefinido. HTTPS é obrigatório por padrão. Endpoints privados/locais exigem também `PLANE_AI_ALLOW_PRIVATE_ENDPOINTS=1`; endereços link-local/metadados continuam bloqueados.
+4. Inclua os hosts exatos dos provedores em `PLANE_AI_ALLOWED_HOSTS` (por exemplo, `openrouter.ai,api.openai.com,api.groq.com`, conforme as conexões usadas). A interface oferece presets de endereço, mas a autorização de rede continua configurada no servidor. HTTPS é obrigatório por padrão. Endpoints privados/locais exigem também `PLANE_AI_ALLOW_PRIVATE_ENDPOINTS=1`; endereços link-local/metadados continuam bloqueados.
 5. Faça backup e execute o migrator normal (`python manage.py migrate`). As migrações `plane_ai.0001_initial` e `0002_run_attempts_run_automation_policy` criam somente tabelas do módulo.
 6. Reinicie API, worker e beat. No workspace, abra **Configurações → Inteligência Artificial** e habilite a política. Somente administradores podem configurar conexões/política.
 
-### Cadastrar conexões e modelos
+### Conectar e escolher modelos automaticamente
+
+1. Escolha **OpenRouter**, **OpenAI**, **Groq** ou **Outro provedor**. OpenRouter permite disponibilizar famílias como GPT, Claude e Gemini através da mesma conexão compatível.
+2. Informe a chave e clique em **Conectar e carregar modelos**. A API consulta o catálogo real do provedor **antes de salvar**; não é necessário digitar IDs de modelo para iniciar a conexão.
+3. Use a busca ou os filtros de famílias e marque os modelos que sua equipe poderá usar. A primeira descoberta sugere até três modelos com ferramentas quando disponíveis. O catálogo pode ter até 1000 modelos; cada conexão habilita no máximo 30.
+4. Escolha o modelo padrão, salve e use **Testar conexão**. Ao editar uma conexão, o catálogo é carregado automaticamente e os modelos/configurações existentes são preservados.
+5. Parâmetros de geração, capacidades individuais, IDs manuais, embeddings, permissões e limites ficam em **Opções avançadas**.
+
+O catálogo utiliza metadados do provedor quando disponíveis e perfis editáveis para famílias conhecidas. Perfis são sugestões de compatibilidade, não comprovação de todas as capacidades. Modelos desconhecidos recebem capacidades conservadoras. A credencial já salva não volta ao navegador; trocar o endereço exige informá-la novamente.
+
+### Configuração avançada de conexões e modelos
 
 - Informe nome, Base URL **incluindo o prefixo da API**, credencial opcional e finalidade `Conversa`.
-- Adicione identificadores manuais de modelos; selecione o padrão e os papéis autorizados. É possível cadastrar várias conexões e vários modelos em cada conexão.
+- Se o provedor não oferecer catálogo, adicione identificadores manuais em **Opções avançadas**; selecione o padrão e os papéis autorizados. É possível cadastrar várias conexões e vários modelos em cada conexão.
 - Marque por modelo somente as capacidades realmente suportadas: streaming, tools, system, structured, embeddings, multimodal. Configure `max_tokens`, `max_completion_tokens` ou não enviar parâmetro de saída, conforme o protocolo do modelo.
 - Parâmetros opcionais aceitos: `temperature`, `top_p`, `frequency_penalty`, `presence_penalty`, `seed`, `stop`, `reasoning_effort`. São enviados somente quando configurados naquele modelo. Não são enviados cabeçalhos/campos arbitrários.
-- **Listar modelos** usa `GET /models` quando disponível. A listagem não descobre capacidades: cada modelo precisa de configuração e **Testar**. O teste envia uma pequena chamada real, com streaming/tools/system conforme declarados; informa se observou uma tool call. Aceitar um schema não comprova que o modelo o executará corretamente.
+- O catálogo usa `GET /models`. Metadados como `supported_parameters` e janela de contexto são aproveitados quando presentes; para famílias conhecidas, a interface inicia com um perfil de compatibilidade. **Testar conexão** envia uma pequena chamada real com as capacidades configuradas; informa se observou uma tool call. Aceitar um schema não comprova que o modelo o executará corretamente.
 - **Embeddings** são uma conexão de finalidade separada. O botão Testar faz uma chamada real `POST /embeddings` e verifica o vetor. Eles não são necessários nem usados para indexação nesta versão; a recuperação funciona integralmente por busca lexical autorizada.
 - O protocolo implementado é **Chat Completions**. `providers.ADAPTERS` é o ponto de extensão para outros protocolos; Responses não é anunciado como implementado.
 
@@ -29,10 +39,18 @@ API key é um campo de entrada write-only: administradores digitam a credencial 
 
 ## Usar
 
-- **Plane AI** na navegação abre um painel lateral com conexão/modelo, escopo, histórico, fontes, período, métricas e resultados reais das ferramentas.
+- **Plane AI** abre um chat amplo, expansível, com sugestões de busca/relatórios, histórico lateral e respostas Markdown com listas, links e tabelas. Enter envia; Shift+Enter quebra linha. Fechar e reabrir preserva a conversa atual.
+- O seletor no compositor reúne modelos de todas as conexões autorizadas, com busca por modelo, família e provedor. A escolha é lembrada por usuário/workspace no navegador. **Automático** usa o modelo padrão da primeira conexão habilitada, em ordem de cadastro; não significa roteamento por benchmark. Uma escolha explícita removida/desautorizada não é substituída silenciosamente.
+- Trocar de modelo entre mensagens preserva a conversa e o contexto autorizado. Cada resposta identifica o modelo usado; fontes e resultados das ferramentas aparecem na conversa. **Copiar** e **Salvar resposta** exportam o texto.
 - O escopo inicial acompanha a rota da tarefa, projeto ou página; também é possível selecionar workspace/projeto. Uma conversa preserva seu escopo; selecione **Nova conversa** para mudar.
 - Perguntas sobre atrasos, bloqueios, mudanças na semana, ciclo atual e prioridades utilizam filtros/contagens/datas do backend. A semana começa na segunda-feira, no fuso do usuário. Itens concluídos/cancelados não contam como atraso. Bloqueios são dependências `blocked_by` ainda abertas e acessíveis.
 - Respostas listam fontes reais e o período. Resultados são limitados e a interface sinaliza truncamento. Zero resultados nos relatórios gera uma resposta factual do backend, sem pedir ao modelo que invente dados.
+- Relatórios de progresso, atrasos, bloqueios, mudanças, conclusões, tarefas criadas, próximos prazos e carga por responsável usam contagens SQL sobre todos os itens autorizados. A ferramenta `report_workspace` permite escolher período e agrupamento por projeto, responsável, estado ou prioridade. Visão geral é um retrato atual; mudanças/conclusões/criações e prazos possuem períodos explícitos.
+- Cartões de relatório mostram totais e tabelas calculadas pelo backend, com exportação CSV. A tabela exibe até 100 grupos; o total não é calculado pela amostra. Em carga por responsável, tarefas com vários responsáveis aparecem em cada pessoa, com aviso para não somar as linhas como total único.
+- **Exportar PDF** fica disponível nos cartões de relatório e ao final da resposta concluída. O arquivo A4 usa o gerador de PDF nativo do Plane e inclui análise formatada, tabelas, período/fuso, modelo e fontes com links. A ação no cartão seleciona aquele relatório; a ação da resposta inclui todos os relatórios daquela mensagem.
+- **Criar página no Plane** permite escolher título, projeto e visibilidade. O padrão é uma página privada; é possível compartilhar com o projeto. A página é criada pelo serializer nativo, com conteúdo editável e link direto. A ação é explícita na interface e funciona também para modelos sem tool calling.
+- PDF e página usam o **snapshot salvo na conversa**, sem chamar novamente o modelo nem recalcular os números. O backend revalida autoria, acesso às fontes e conclusão da resposta em cada exportação; criar página também exige permissão de escrita no projeto escolhido. Repetir a mesma solicitação de publicação não duplica a página.
+- Busca lexical também reconhece nomes/identificadores de projetos, responsáveis e etiquetas, além de títulos, descrições e comentários. Expressões usuais de busca são descartadas antes de selecionar os termos relevantes.
 - O painel aceita escrita livre: descrições, critérios de aceite, planos, checklists, resumos de discussões, relatórios, traduções e notas de versão. Nos editores, **Plane AI · escrever / seleção** envia o texto selecionado ou o documento, abre uma prévia e oferece **Inserir**, **Substituir** ou **Descartar**. A aplicação é recusada se o documento/seleção mudar desde a solicitação. O editor existente persiste a alteração pelo fluxo normal.
 - Texto gerado nunca é inserido como HTML arbitrário: é escapado. A descrição da tarefa mantém HTML/JSON coerentes e invalida o cache binário anterior.
 - Cancelamento é cooperativo: o backend fecha a chamada ao observar cancelamento e interrompe novas ferramentas. Uma conexão não-streaming pode aguardar seu timeout antes de reconhecer cancelamento. Ações já confirmadas não são desfeitas.
@@ -83,7 +101,9 @@ Idempotência: chave UUID única por mensagem/conversa, lock de execução e loc
 
 ## APIs do módulo
 
-Prefixo `/api/workspaces/{slug}/ai/`: bootstrap, `settings/`, `connections/` (+ `/{id}/test/`, `/{id}/models/`), `conversations/`, `runs/` (+ `/{id}/events/`, `cancel/`, `retry/`, `approve/`, `reject/`), `memories/`, `automations/`, `metrics/`. Operações administrativas/privadas são verificadas no servidor; IDs adivinhados não concedem acesso.
+Prefixo `/api/workspaces/{slug}/ai/`: bootstrap, `settings/`, `catalog/` (POST administrativo, sem persistência da credencial temporária), `connections/` (+ `/{id}/test/`, `/{id}/models/`), `conversations/`, `runs/` (+ `/{id}/events/`, `cancel/`, `retry/`, `approve/`, `reject/`, `report-document/` GET e `report-page/` POST), `memories/`, `automations/`, `metrics/`. Operações administrativas/privadas são verificadas no servidor; IDs adivinhados não concedem acesso. O bootstrap informa `writable_projects` para a escolha de destino da página.
+
+O renderizador de documentos usa `mistune==3.1.3`, fixado nos requirements da API e instalado pelo Dockerfile backend Hentis. Markdown é escapado/sanitizado com o validador nativo de HTML; imagens remotas não são incorporadas aos documentos de relatório. Nenhuma nova tabela/migração foi adicionada para exportação ou publicação: o registro usa `Action` e as páginas nativas.
 
 ## Testes e evidências
 

@@ -6,6 +6,13 @@ CAPABILITIES = {"streaming", "tools", "structured", "system", "embeddings", "mul
 PARAMETERS = {"temperature", "top_p", "frequency_penalty", "presence_penalty", "seed", "stop", "reasoning_effort"}
 
 
+class CatalogSerializer(serializers.Serializer):
+    connection_id = serializers.UUIDField(required=False)
+    base_url = serializers.URLField(required=False, max_length=2000)
+    api_key = serializers.CharField(required=False, allow_blank=True, max_length=10000, write_only=True)
+    purpose = serializers.ChoiceField(choices=["chat", "embedding"], default="chat")
+
+
 class ConnectionSerializer(serializers.ModelSerializer):
     api_key = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=10000)
     has_api_key = serializers.SerializerMethodField()

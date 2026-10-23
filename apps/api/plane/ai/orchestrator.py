@@ -18,6 +18,13 @@ Only act when the current user explicitly requests a change and execution is ena
 Use exact authorized identifiers. Ask a question when a person, project or task is ambiguous.
 Never claim that a write succeeded without a successful tool result. Never claim a notification was delivered.
 For writing requests produce plain text suitable for an editor preview, not HTML or executable markup.
+For chat answers use clear Markdown: headings, concise lists and tables when useful.
+Search proactively with search_workspace; use report_workspace for exact progress, workload, deadlines,
+or date-range reports. Every model has the same authorized workspace context. Never treat a sample as a full report.
+For follow-up questions reuse the conversation context, refine the search and cite clickable sources.
+Completed responses and report cards expose Export PDF and Create Plane page controls. When asked for
+a PDF, point to the PDF control; never claim that a download happened. Page creation can also use the
+existing page tool when the user explicitly enables execution; only claim success after a tool result.
 """
 
 
@@ -78,7 +85,14 @@ def detect_report(prompt):
     ]:
         if any(word in text for word in words):
             return report
-    return "search"
+    return (
+        "overview"
+        if any(
+            word in text
+            for word in ["relatório", "relatorio", "resumo", "progresso", "visão geral", "overview", "report"]
+        )
+        else "search"
+    )
 
 
 def bounded_messages(run, context, policy, tool_schema):
@@ -164,11 +178,27 @@ def run_generation(identifier):
         access = get_access(run)
         policy = ensure_connection(access, run.connection, run.model)
         context, sources = retrieve(access, run.conversation.scope, run.prompt, detect_report(run.prompt))
+        initial_reports = []
+        if context["report"] in {"overview", "overdue", "blocked", "changed"}:
+            from .reports import build_report, prompt_report
+
+            report, references = build_report(access, run.conversation.scope, prompt_report(run.prompt, context))
+            initial_reports.append(report)
+            context["metrics"]["matching"] = report["metrics"]["total"]
+            context["metrics"]["report_completed"] = report["metrics"]["completed"]
+            context["metrics"]["report_completion_percent"] = report["metrics"]["completion_percent"]
+            if report["period"]:
+                context["period"] = report["period"]
+            context["reports"] = [
+                {**report, "rows": report["rows"][:8], "truncated": report["truncated"] or len(report["rows"]) > 8}
+            ]
+            sources = list({(s["kind"], s["id"]): s for s in sources + references}.values())
         if context["report"] != "search" and context["metrics"]["matching"] == 0 and not run.allow_actions:
             run.sources = sources
             run.context_summary = {
                 key: context[key] for key in ["scope", "report", "period", "metrics", "timezone", "truncated"]
             }
+            run.context_summary["reports"] = initial_reports
             run.response = (
                 "Não encontrei itens autorizados que correspondam a este relatório. "
                 "Não há evidência para listar tarefas ou estimar resultados. "
@@ -181,7 +211,9 @@ def run_generation(identifier):
         can_tools = model_config(run.connection, run.model)["capabilities"]["tools"]
         schemas = tools.schema() if can_tools else []
         if not run.allow_actions:
-            schemas = [schema for schema in schemas if schema["function"]["name"] == "search_workspace"]
+            schemas = [
+                schema for schema in schemas if schema["function"]["name"] in {"search_workspace", "report_workspace"}
+            ]
         messages, sent_context = bounded_messages(run, context, policy, schemas)
         run.sources = sources
         run.context_summary = {
@@ -191,6 +223,8 @@ def run_generation(identifier):
             "metrics": context["metrics"],
             "truncated": sent_context["truncated"],
             "timezone": context["timezone"],
+            "reports": initial_reports,
+            "activity": "Contexto do workspace preparado",
         }
         run.save(update_fields=["sources", "context_summary", "updated_at"])
 
@@ -237,7 +271,25 @@ def run_generation(identifier):
                         raise ValueError()
                 except (ValueError, TypeError):
                     raise ValidationError("O modelo propôs argumentos inválidos.")
-                if function.get("name") == "search_workspace":
+                if function.get("name") == "report_workspace":
+                    from .reports import build_report
+
+                    if set(arguments) - {"kind", "group_by", "start", "end"}:
+                        raise ValidationError("Parâmetros de relatório inválidos.")
+                    result, refs = build_report(access, run.conversation.scope, arguments)
+                    reports = run.context_summary.setdefault("reports", [])
+                    run.context_summary["reports"] = [report for report in reports if report["id"] != result["id"]] + [
+                        result
+                    ]
+                    run.context_summary["activity"] = "Relatório calculado com dados do workspace"
+                    run.sources = list({(s["kind"], s["id"]): s for s in run.sources + refs}.values())
+                    run.save(update_fields=["sources", "context_summary", "updated_at"])
+                    result = json.loads(json.dumps(result))
+                    tool_budget = max(1000, (run.connection.context_tokens - run.connection.output_tokens) // 4)
+                    while result["rows"] and len(json.dumps(result).encode()) > tool_budget:
+                        result["rows"].pop()
+                        result["truncated"] = True
+                elif function.get("name") == "search_workspace":
                     if (
                         set(arguments) - {"query", "report"}
                         or not isinstance(arguments.get("query", ""), str)
@@ -259,7 +311,8 @@ def run_generation(identifier):
                             result[key].pop()
                             result["truncated"] = True
                     run.sources = list({(s["kind"], s["id"]): s for s in run.sources + refs}.values())
-                    run.save(update_fields=["sources", "updated_at"])
+                    run.context_summary["activity"] = "Fontes do workspace consultadas"
+                    run.save(update_fields=["sources", "context_summary", "updated_at"])
                 elif function.get("name") == "plane_action" and run.allow_actions:
                     operation = arguments.get("operation")
                     data = arguments.get("arguments")

@@ -20,7 +20,7 @@ from plane.db.models import (
 from plane.custom_fields.models import Field
 from plane.custom_fields.services import values_for
 
-REPORTS = {"search", "overdue", "blocked", "changed", "cycle", "priorities"}
+REPORTS = {"search", "overview", "overdue", "blocked", "changed", "cycle", "priorities"}
 
 
 def issue_url(slug, issue):
@@ -95,14 +95,53 @@ def retrieve(access, scope, query="", report="search", limit=20):
     elif report == "cycle":
         active = Cycle.objects.filter(project_id__in=projects.values("id"), start_date__lte=now, end_date__gte=now)
         filtered = issues.filter(issue_cycle__cycle_id__in=active.values("id"))
-    elif query.strip() and scope["kind"] not in {"issue", "page"}:
+    elif report == "search" and query.strip() and scope["kind"] not in {"issue", "page"}:
         # Preserve exact identifiers and meaningful words without sending the workspace wholesale.
-        terms = re.findall(r"[\w-]{3,}", query, re.UNICODE)[:8]
-        stop = {"que", "como", "para", "uma", "this", "what", "the", "quais", "projeto", "tarefas", "está", "onde"}
-        conditions, comment_conditions, identifiers = Q(), Q(), Q()
+        stop = {
+            "que",
+            "como",
+            "para",
+            "uma",
+            "this",
+            "what",
+            "the",
+            "quais",
+            "projeto",
+            "tarefas",
+            "está",
+            "onde",
+            "buscar",
+            "busque",
+            "encontre",
+            "procure",
+            "sobre",
+            "mostre",
+            "mostrar",
+            "informe",
+            "preciso",
+            "quero",
+            "workspace",
+            "todos",
+            "todas",
+            "meus",
+            "minhas",
+            "documentos",
+            "páginas",
+            "informações",
+            "detalhes",
+            "faça",
+            "faca",
+            "por",
+            "favor",
+        }
+        terms = [term for term in re.findall(r"[\w-]{3,}", query, re.UNICODE) if term.lower() not in stop][:8]
+        conditions, page_conditions, comment_conditions, identifiers = Q(), Q(), Q(), Q()
         for term in terms:
             if term.lower() not in stop:
                 conditions |= Q(name__icontains=term) | Q(description_stripped__icontains=term)
+                conditions |= Q(project__name__icontains=term) | Q(project__identifier__iexact=term)
+                conditions |= Q(assignees__display_name__icontains=term) | Q(labels__name__icontains=term)
+                page_conditions |= Q(name__icontains=term) | Q(description_stripped__icontains=term)
                 comment_conditions |= Q(comment_stripped__icontains=term)
                 match = re.fullmatch(r"(.+)-(\d+)", term)
                 if match:
@@ -116,7 +155,7 @@ def retrieve(access, scope, query="", report="search", limit=20):
         if conditions:
             matching_comments = access.comments().filter(comment_conditions).values("issue_id")
             filtered = issues.filter(conditions | identifiers | Q(pk__in=matching_comments))
-            pages = pages.filter(conditions)
+            pages = pages.filter(page_conditions).distinct()
     metrics = {
         "total": issues.count(),
         "completed": issues.filter(state__group="completed").count(),

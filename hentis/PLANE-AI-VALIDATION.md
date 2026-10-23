@@ -1,5 +1,44 @@
 # Evidências de validação — Plane AI
 
+## PDF e páginas de relatório — 23/10/2026
+
+- **137 testes de backend aprovados**, incluindo nove novos casos de exportação/publicação: snapshot imutável, HTML/tabelas/fontes, projeto autorizado, propriedade da conversa, revogação, convidado, visibilidade, repetição idempotente e bloqueio de conteúdo executável.
+- Typecheck e build web aprovados; a interface reutiliza o gerador `PDFDocument`/`@react-pdf/renderer` já empregado na exportação nativa de páginas, carregado sob demanda.
+- Chromium autenticado baixou um PDF real de **28247 bytes e duas páginas**. O arquivo foi aberto com um parser PDF; a extração confirmou **Tarefas: 60**, **Atrasadas: 3**, nome do projeto, análise e fontes.
+- A ação de criação de página foi exercitada no chat: título personalizado, projeto selecionado e visibilidade privada. O link abriu a página no editor nativo, com a análise e as tabelas de 60 tarefas/3 atrasadas presentes no conteúdo editável.
+- O ambiente isolado não executa o serviço colaborativo `live`; o editor exibiu conteúdo e campos editáveis, mas o ensaio não comprova autosave/sincronização colaborativa em produção. Os erros globais de hidratação já registrados continuam sendo uma limitação do ambiente.
+- O backend usa os serializers/modelos nativos `Page`/`ProjectPage` e registra `create_report_page` em `Action`; nenhum CRUD paralelo ou migração nova. A credencial do provedor não participa dos documentos.
+- Documento PDF/página é obtido do snapshot autorizado no servidor, sem nova inferência. Publicar novamente com a mesma chave retorna a página existente; mudar os parâmetros com a mesma chave retorna 409.
+
+## Reformulação do chat e catálogo — 23/10/2026
+
+Referência de experiência: [ClickUp Brain](https://clickup.com/lp/brain), com foco no chat, seleção de modelos e relatórios com contexto. Alterações locais sobre a base `2ef087c994185210ad9c9defcf8079fd6dc38c0d`.
+
+| Verificação              | Resultado                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend completo         | **128 testes aprovados** em PostgreSQL real; inclui catálogo, preservação de credencial, permissões, relatórios completos, períodos e ferramentas de leitura       |
+| Frontend completo        | **56 testes aprovados**; inclui seleção/remoção de modelos, padrão automático, catálogo, CSV e renderização Markdown real                                          |
+| TypeScript, build e lint | Typecheck e build web aprovados; OxLint dos componentes/testes novos com zero avisos/erros; Ruff aprovado                                                          |
+| Banco                    | `makemigrations --check --dry-run`: nenhuma nova migração necessária                                                                                               |
+| Catálogo no navegador    | Chromium + sessão real + API Django: descoberta de três modelos antes de salvar, habilitação de Gemini e troca do padrão, gravação e teste da conexão              |
+| Chat no navegador        | Claude e GPT em mensagens da mesma conversa, modelo preservado ao recarregar, fontes e Markdown/tabelas renderizados, fechar/reabrir preservando as duas mensagens |
+| Relatório real           | Banco isolado com 60 tarefas e 3 atrasadas; cartão mostrou esses totais e tabela por projeto, calculados pelo backend antes da amostragem                          |
+| Layout responsivo        | Conferência em 1440 px e 390 px, sem overflow horizontal do diálogo; histórico em sobreposição no mobile                                                           |
+
+O catálogo e o transporte de geração do ensaio usam um **servidor HTTP de contrato local**, não um modelo comercial. As tarefas, sessões, permissões, relatórios e persistência usam a aplicação e o PostgreSQL reais. Isso comprova integração e apresentação; homologação de inferência e capacidades exige a conexão do usuário com seu provedor.
+
+O ensaio também reproduziu os erros globais de hidratação React 418/423 já registrados na validação da Lista. A reformulação não foi implantada no servidor de produção.
+
+### Mudanças de experiência
+
+- Conectar provedor → carregar catálogo → pesquisar/filtrar famílias → habilitar modelos → escolher padrão → salvar/testar. IDs manuais e parâmetros JSON ficam em opções avançadas.
+- Um único seletor no chat reúne todos os modelos autorizados. Automático utiliza o padrão da primeira conexão habilitada; seleções explícitas removidas não fazem fallback silencioso.
+- Chat amplo/expansível com sugestões, histórico, respostas Markdown, fontes, copiar/salvar resposta e resultados de ações com nomes legíveis.
+- `report_workspace` agrega todos os itens autorizados por projeto/responsável/estado/prioridade, com período, contagens únicas e CSV. O relatório de mês anterior continua funcionando mesmo se a amostra da semana atual estiver vazia.
+- Renderer Markdown atualizado para a versão compatível com a cadeia `mdast-util-to-hast` fixada no projeto. Teste real verifica tabelas e bloqueio de HTML executável/URLs JavaScript.
+
+## Entrega inicial — 21/10/2026
+
 Data: **21/10/2026**. Base: Plane CE `v1.4.2`, customização Hentis. Ambiente isolado ARM64, PostgreSQL 17; produção/CI do projeto usam PostgreSQL 15. Dados e credenciais de produção não foram utilizados.
 
 ## Resultados locais

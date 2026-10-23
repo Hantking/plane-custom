@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams } from "react-router";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
+import { Check, CheckCircle2, ChevronRight, Loader2, Plug, Search, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { planeAI, aiError, aiInputClass } from "./service";
-import type { AIConnection, AIModel } from "./service";
+import type { AICatalogModel, AIConnection, AIModel } from "./service";
+import { catalogSelection, modelFamily, providerPresets, toggleModel } from "./model-helpers";
 
 type Connection = AIConnection & {
   base_url: string;
@@ -23,36 +25,32 @@ type Policy = {
   workspace_daily_limit: number;
   retention_days: number;
 };
-const CAPS = ["streaming", "tools", "structured", "system", "embeddings", "multimodal"] as const;
-type DraftModel = AIModel & { _key: string };
-type DraftConnection = Omit<Connection, "id" | "models"> & { models: DraftModel[] };
-const EMPTY_MODEL = (): DraftModel => ({
-  _key: crypto.randomUUID(),
-  id: "",
+type Draft = Omit<Connection, "id" | "has_api_key">;
+const empty = (): Draft => ({
+  name: "OpenRouter",
+  base_url: providerPresets[0].url,
+  protocol: "chat_completions",
+  purpose: "chat",
+  models: [],
+  default_model: "",
+  context_tokens: 24000,
+  output_tokens: 2000,
+  timeout_seconds: 90,
+  allowed_roles: [15, 20],
+  enabled: true,
+});
+const fallbackModel = (id: string): AIModel => ({
+  id,
   capabilities: {
     streaming: false,
     tools: false,
-    structured: false,
     system: true,
+    structured: false,
     embeddings: false,
     multimodal: false,
   },
   parameters: {},
   output_parameter: "max_tokens",
-});
-const emptyConnection = (): DraftConnection => ({
-  name: "",
-  base_url: "",
-  has_api_key: false,
-  protocol: "chat_completions",
-  purpose: "chat",
-  models: [EMPTY_MODEL()],
-  default_model: "",
-  context_tokens: 16000,
-  output_tokens: 1000,
-  timeout_seconds: 60,
-  allowed_roles: [15, 20],
-  enabled: true,
 });
 
 export function PlaneAISettings() {
@@ -61,422 +59,653 @@ export function PlaneAISettings() {
   const connections = useSWR(["ai-connections", workspaceSlug], () =>
     planeAI.read<Connection[]>(workspaceSlug, "connections/")
   );
-  const metrics = useSWR(["ai-metrics", workspaceSlug], () =>
-    planeAI.read<Record<string, unknown>>(workspaceSlug, "metrics/")
-  );
   const [draftPolicy, setPolicy] = useState<Policy | null>(null);
-  const [draft, setDraft] = useState(emptyConnection());
+  const [draft, setDraft] = useState(empty);
+  const [provider, setProvider] = useState<string>("openrouter");
   const [editing, setEditing] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [replaceKey, setReplaceKey] = useState(false);
+  const [catalog, setCatalog] = useState<AICatalogModel[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [query, setQuery] = useState("");
+  const [family, setFamily] = useState("");
+  const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [manual, setManual] = useState("");
+  const catalogRequest = useRef(0);
   const currentPolicy = draftPolicy ?? policy.data;
-  const updateModel = (index: number, value: Partial<AIModel>) =>
-    setDraft((current) => ({
-      ...current,
-      models: current.models.map((m, i) => (i === index ? { ...m, ...value } : m)),
-    }));
-  const save = async () => {
-    setSaving(true);
+  const refresh = async () => {
+    await connections.mutate();
+    await mutate((key: unknown) => Array.isArray(key) && key[0] === "plane-ai" && key[1] === workspaceSlug);
+  };
+  const discover = async (value = draft, id = editing, key = apiKey, replace = replaceKey) => {
+    const request = ++catalogRequest.current;
+    setBusy("catalog");
+    setError("");
     setMessage("");
     try {
-      const { has_api_key: _hasKey, ...payload } = draft;
-      const data = {
-        ...payload,
-        models: payload.models.map(({ _key, ...model }) => model),
-        ...(replaceKey || !editing ? { api_key: apiKey } : {}),
-      };
-      if (editing) await planeAI.update(workspaceSlug, `connections/${editing}/`, data);
-      else await planeAI.create(workspaceSlug, "connections/", data);
-      await connections.mutate();
-      setDraft(emptyConnection());
-      setEditing("");
-      setApiKey("");
-      setReplaceKey(false);
-      setMessage("Conexão salva. Teste cada modelo antes de disponibilizá-lo à equipe.");
+      const result = await planeAI.create<{ models: AICatalogModel[] }>(workspaceSlug, "catalog/", {
+        base_url: value.base_url,
+        purpose: value.purpose,
+        ...(id ? { connection_id: id } : {}),
+        ...(!id || replace ? { api_key: key } : {}),
+      });
+      if (request !== catalogRequest.current) return;
+      setCatalog(result.models);
+      setLoaded(true);
+      setFamily("");
+      const models = catalogSelection(result.models, value.models);
+      setDraft((current) => ({
+        ...current,
+        models,
+        default_model: models.some((model) => model.id === current.default_model)
+          ? current.default_model
+          : (models[0]?.id ?? ""),
+      }));
+      setMessage(
+        result.models.length
+          ? `${result.models.length} modelos encontrados. Escolha quais ficarão disponíveis no chat.`
+          : "O provedor não retornou modelos para esta finalidade. Você pode informar um ID em Opções avançadas."
+      );
     } catch (failure) {
-      setMessage(aiError(failure));
+      if (request === catalogRequest.current) setError(aiError(failure));
     } finally {
-      setSaving(false);
+      if (request === catalogRequest.current) setBusy("");
     }
   };
+  const reset = () => {
+    catalogRequest.current++;
+    setEditing("");
+    setDraft(empty());
+    setProvider("openrouter");
+    setApiKey("");
+    setReplaceKey(false);
+    setCatalog([]);
+    setLoaded(false);
+    setQuery("");
+    setFamily("");
+    setError("");
+    setMessage("");
+  };
+  const save = async () => {
+    setBusy("save");
+    setError("");
+    try {
+      const data = { ...draft, ...(!editing || replaceKey ? { api_key: apiKey } : {}) };
+      if (editing) await planeAI.update(workspaceSlug, `connections/${editing}/`, data);
+      else await planeAI.create(workspaceSlug, "connections/", data);
+      await refresh();
+      reset();
+      setMessage("Conexão salva. Os modelos escolhidos já estão disponíveis no seletor do chat.");
+    } catch (failure) {
+      setError(aiError(failure));
+    } finally {
+      setBusy("");
+    }
+  };
+  const test = async (connection: Connection, model = connection.default_model) => {
+    setBusy(connection.id);
+    setError("");
+    setMessage("");
+    try {
+      const result = await planeAI.create<{ tool_call_observed: boolean }>(
+        workspaceSlug,
+        `connections/${connection.id}/test/`,
+        { model }
+      );
+      setMessage(
+        `Conexão funcionando com ${model}.${result.tool_call_observed ? " O modelo também respondeu com uma chamada de ferramenta." : " Resposta de teste recebida."}`
+      );
+    } catch (failure) {
+      setError(aiError(failure));
+    } finally {
+      setBusy("");
+    }
+  };
+  const models = [
+    ...catalog,
+    ...draft.models
+      .filter((model) => !catalog.some((item) => item.id === model.id))
+      .map((model) => ({
+        id: model.id,
+        name: model.id,
+        description: "Modelo já habilitado nesta conexão",
+        context_tokens: null,
+        capability_source: "unknown" as const,
+        configuration: model,
+      })),
+  ];
+  const visible = models.filter(
+    (model) =>
+      (!family || modelFamily(model.id) === family) &&
+      `${model.id} ${model.name}`.toLowerCase().includes(query.toLowerCase())
+  );
+  const choose = (model: AIModel) =>
+    setDraft((current) => ({ ...current, ...toggleModel(current.models, model, current.default_model) }));
   return (
-    <main className="size-full space-y-6 overflow-y-auto p-6 text-13 text-primary">
-      <h1 className="text-xl font-semibold">Inteligência Artificial · Plane AI</h1>
-      {metrics.data && (
-        <details className="max-w-3xl rounded border border-subtle p-3">
-          <summary>Uso, latência e falhas · últimos 30 dias</summary>
-          <pre className="overflow-auto text-11">{JSON.stringify(metrics.data, null, 2)}</pre>
-        </details>
-      )}
-      <p className="text-secondary">
-        Conexões são chamadas somente pelo backend. As credenciais são criptografadas e nunca retornam nesta tela. A
-        instalação deve definir PLANE_AI_ENABLED, PLANE_AI_ENCRYPTION_KEY e PLANE_AI_ALLOWED_HOSTS.
-      </p>
-      {(message || policy.error || connections.error) && (
-        <p role="status" className="rounded border border-subtle p-3 whitespace-pre-wrap">
-          {message || aiError(policy.error ?? connections.error)}
-        </p>
-      )}
-      {currentPolicy && (
-        <section className="max-w-3xl space-y-3 rounded border border-subtle p-4">
-          <h2 className="font-semibold">Política do workspace</h2>
-          <label className="flex gap-2">
-            <input
-              type="checkbox"
-              checked={currentPolicy.enabled}
-              onChange={(e) => setPolicy({ ...currentPolicy, enabled: e.target.checked })}
-            />
-            Habilitar Plane AI neste workspace
-          </label>
-          <label className="block">
-            Instruções compartilhadas
-            <textarea
-              className={aiInputClass}
-              rows={3}
-              value={currentPolicy.instructions}
-              maxLength={6000}
-              onChange={(e) => setPolicy({ ...currentPolicy, instructions: e.target.value })}
-            />
-          </label>
-          {(
-            [
-              ["user_daily_limit", "Solicitações diárias por usuário"],
-              ["workspace_daily_limit", "Solicitações diárias no workspace"],
-              ["retention_days", "Retenção de conversas (dias)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label className="block" key={key}>
-              {label}
-              <input
-                className={aiInputClass}
-                type="number"
-                min={1}
-                value={currentPolicy[key]}
-                onChange={(e) => setPolicy({ ...currentPolicy, [key]: Number(e.target.value) })}
-              />
-            </label>
-          ))}
-          <Button
-            onClick={async () => {
-              try {
-                await planeAI.update(workspaceSlug, "settings/", currentPolicy);
-                await policy.mutate();
-                setMessage("Política salva. Recarregue o workspace para atualizar a navegação.");
-              } catch (failure) {
-                setMessage(aiError(failure));
-              }
-            }}
-          >
-            Salvar política
-          </Button>
-        </section>
-      )}
-      <section className="max-w-3xl space-y-3">
-        <h2 className="font-semibold">Conexões cadastradas</h2>
-        {connections.data?.map((connection) => (
-          <div key={connection.id} className="space-y-2 rounded border border-subtle p-3">
-            <p>
-              <strong>{connection.name}</strong> · {connection.enabled ? "Ativa" : "Desativada"} · {connection.purpose}{" "}
-              · {connection.has_api_key ? "Credencial configurada" : "Sem credencial"}
-            </p>
-            <p>{connection.base_url}</p>
-            <p>Modelos: {connection.models.map((m) => m.id).join(", ")}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const { id, ...value } = connection;
-                  setEditing(id);
-                  setDraft({
-                    ...value,
-                    models: value.models.map((model) => Object.assign({}, model, { _key: crypto.randomUUID() })),
-                  });
-                  setApiKey("");
-                  setReplaceKey(false);
-                }}
-              >
-                Editar
-              </Button>
-              {connection.models.map((model) => (
-                <Button
-                  key={model.id}
-                  variant="secondary"
-                  onClick={async () => {
-                    setMessage("Testando protocolo e capacidades declaradas…");
-                    try {
-                      const result = await planeAI.create<Record<string, unknown>>(
-                        workspaceSlug,
-                        `connections/${connection.id}/test/`,
-                        { model: model.id }
-                      );
-                      setMessage(JSON.stringify(result, null, 2));
-                    } catch (failure) {
-                      setMessage(aiError(failure));
+    <main className="size-full overflow-y-auto bg-surface-1 p-4 text-13 text-primary md:p-8">
+      <div className="mx-auto max-w-5xl space-y-7">
+        <header className="space-y-2">
+          <div className="flex items-center gap-2 text-accent-primary">
+            <Sparkles size={20} />
+            <span className="font-semibold">Plane AI</span>
+          </div>
+          <h1 className="text-2xl font-semibold">Seus modelos. O contexto do seu trabalho.</h1>
+          <p className="max-w-2xl text-secondary">
+            Conecte um provedor, carregue seu catálogo e escolha os modelos. Sua equipe troca de modelo no chat para
+            buscar informações, analisar projetos e gerar relatórios.
+          </p>
+        </header>
+        {(error || policy.error || connections.error) && (
+          <p role="alert" className="rounded-lg border border-danger-strong bg-layer-1 p-3 text-danger-primary">
+            {error || aiError(policy.error ?? connections.error)}
+          </p>
+        )}
+        {message && (
+          <p role="status" className="flex items-start gap-2 rounded-lg border border-subtle bg-layer-1 p-3">
+            <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-accent-primary" />
+            {message}
+          </p>
+        )}
+        {currentPolicy && (
+          <section className="rounded-xl border border-subtle p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">IA no workspace</h2>
+                <p className="text-secondary">Defina as instruções e os limites da sua equipe.</p>
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={currentPolicy.enabled}
+                  onChange={(event) => setPolicy({ ...currentPolicy, enabled: event.target.checked })}
+                />
+                Habilitar Plane AI
+              </label>
+            </div>
+            <details className="mt-3">
+              <summary className="cursor-pointer text-secondary">Instruções, limites e retenção</summary>
+              <div className="mt-3 space-y-3">
+                <label className="block">
+                  Instruções do workspace
+                  <textarea
+                    className={aiInputClass}
+                    rows={3}
+                    maxLength={6000}
+                    value={currentPolicy.instructions}
+                    onChange={(event) => setPolicy({ ...currentPolicy, instructions: event.target.value })}
+                  />
+                </label>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {(
+                    [
+                      ["user_daily_limit", "Solicitações por usuário/dia"],
+                      ["workspace_daily_limit", "Solicitações do workspace/dia"],
+                      ["retention_days", "Retenção em dias"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key}>
+                      {label}
+                      <input
+                        type="number"
+                        min={1}
+                        className={aiInputClass}
+                        value={currentPolicy[key]}
+                        onChange={(event) => setPolicy({ ...currentPolicy, [key]: Number(event.target.value) })}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </details>
+            <Button
+              className="mt-3"
+              variant="secondary"
+              onClick={async () => {
+                try {
+                  await planeAI.update(workspaceSlug, "settings/", currentPolicy);
+                  await policy.mutate();
+                  await refresh();
+                  setPolicy(null);
+                  setMessage("Política do workspace atualizada.");
+                } catch (failure) {
+                  setError(aiError(failure));
+                }
+              }}
+            >
+              Salvar política
+            </Button>
+          </section>
+        )}
+        {!!connections.data?.length && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Conexões da equipe</h2>
+            <div className="grid gap-3 md:grid-cols-2">
+              {connections.data.map((connection) => (
+                <article key={connection.id} className="space-y-3 rounded-xl border border-subtle p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <strong className="flex items-center gap-2">
+                      <Plug size={17} />
+                      {connection.name}
+                    </strong>
+                    <span className="text-11 text-secondary">{connection.enabled ? "Ativa" : "Desativada"}</span>
+                  </div>
+                  <p className="truncate text-11 text-secondary">{connection.base_url}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {connection.models.map((model) => (
+                      <span key={model.id} className="rounded bg-layer-1 px-2 py-1 text-11">
+                        {model.id}
+                        {model.id === connection.default_model ? " · padrão" : ""}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="secondary"
+                      disabled={!!busy}
+                      onClick={() => {
+                        const { id, has_api_key: _key, ...value } = connection;
+                        setEditing(id);
+                        setDraft(value);
+                        setApiKey("");
+                        setReplaceKey(false);
+                        setCatalog([]);
+                        setLoaded(false);
+                        setQuery("");
+                        setError("");
+                        setMessage("");
+                        setProvider(providerPresets.find((item) => item.url === value.base_url)?.id ?? "custom");
+                        void discover(value, id, "", false);
+                      }}
+                    >
+                      Editar modelos
+                    </Button>
+                    <Button variant="secondary" disabled={!!busy} onClick={() => void test(connection)}>
+                      Testar conexão
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={!!busy}
+                      onClick={async () => {
+                        try {
+                          await planeAI.remove(workspaceSlug, `connections/${connection.id}/`);
+                          await refresh();
+                        } catch (failure) {
+                          setError(aiError(failure));
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+          className="space-y-5 rounded-xl border border-subtle p-5"
+          aria-label="Configurar conexão de IA"
+        >
+          <fieldset disabled={!!busy} className="space-y-5">
+            <h2 className="text-lg font-semibold">{editing ? `Editar ${draft.name}` : "Conectar provedor"}</h2>
+            {!editing && (
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {providerPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    aria-pressed={provider === preset.id}
+                    className={`rounded-lg border p-3 text-left ${provider === preset.id ? "border-accent-strong bg-layer-1" : "border-subtle"}`}
+                    onClick={() => {
+                      setProvider(preset.id);
+                      setDraft({ ...empty(), name: preset.id === "custom" ? "" : preset.name, base_url: preset.url });
+                      setCatalog([]);
+                      setLoaded(false);
+                      setError("");
+                      setApiKey("");
+                      setFamily("");
+                    }}
+                  >
+                    <span className="flex justify-between font-semibold">
+                      {preset.name}
+                      {provider === preset.id && <Check size={15} />}
+                    </span>
+                    <span className="mt-1 block text-11 text-secondary">{preset.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid gap-3 md:grid-cols-2">
+              <label>
+                Nome da conexão
+                <input
+                  required
+                  className={aiInputClass}
+                  value={draft.name}
+                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                />
+              </label>
+              <label>
+                Base URL
+                <input
+                  required
+                  type="url"
+                  className={aiInputClass}
+                  value={draft.base_url}
+                  placeholder="https://seu-provedor/v1"
+                  onChange={(event) => {
+                    setDraft({ ...draft, base_url: event.target.value, models: [], default_model: "" });
+                    setCatalog([]);
+                    setLoaded(false);
+                    if (editing) {
+                      setReplaceKey(true);
+                      setApiKey("");
                     }
                   }}
-                >
-                  Testar {model.id}
-                </Button>
-              ))}
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  try {
-                    const result = await planeAI.create<{ models: string[]; notice: string }>(
-                      workspaceSlug,
-                      `connections/${connection.id}/models/`,
-                      {}
-                    );
-                    setMessage(`${result.notice}\n${result.models.join("\n")}`);
-                  } catch (failure) {
-                    setMessage(aiError(failure));
-                  }
-                }}
-              >
-                Listar modelos
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  try {
-                    await planeAI.remove(workspaceSlug, `connections/${connection.id}/`);
-                    await connections.mutate();
-                  } catch (failure) {
-                    setMessage(aiError(failure));
-                  }
-                }}
-              >
-                Excluir
-              </Button>
+                />
+              </label>
             </div>
-          </div>
-        ))}
-      </section>
-      <form
-        className="max-w-3xl space-y-4 rounded border border-subtle p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <h2 className="font-semibold">{editing ? "Editar conexão" : "Nova conexão"}</h2>
-        <label className="block">
-          Nome
-          <input
-            required
-            className={aiInputClass}
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </label>
-        <label className="block">
-          Base URL (inclua o prefixo da API)
-          <input
-            required
-            type="url"
-            className={aiInputClass}
-            value={draft.base_url}
-            placeholder="https://seu-endpoint/caminho-api"
-            onChange={(e) => setDraft({ ...draft, base_url: e.target.value })}
-          />
-        </label>
-        {editing && (
-          <label className="flex gap-2">
-            <input type="checkbox" checked={replaceKey} onChange={(e) => setReplaceKey(e.target.checked)} />
-            Substituir credencial (vazia remove a credencial)
-          </label>
-        )}
-        <label className="block">
-          API key (opcional)
-          <input
-            type="password"
-            autoComplete="new-password"
-            disabled={!!editing && !replaceKey}
-            className={aiInputClass}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          Protocolo
-          <input readOnly className={aiInputClass} value="Chat Completions" />
-        </label>
-        <label className="block">
-          Finalidade
-          <select
-            className={aiInputClass}
-            value={draft.purpose}
-            onChange={(e) => setDraft({ ...draft, purpose: e.target.value })}
-          >
-            <option value="chat">Conversa</option>
-            <option value="embedding">Embeddings separados (opcional; busca lexical ativa)</option>
-          </select>
-        </label>
-        <p className="text-secondary">
-          A integração atual aceita somente texto. Embeddings, multimodal e saídas estruturadas são capacidades
-          declaradas, mas não são enviados nem usados automaticamente. Responses requer um adaptador futuro.
-        </p>
-        {draft.models.map((model, index) => (
-          <fieldset key={model._key} className="space-y-2 rounded border border-subtle p-3">
-            <legend>Modelo {index + 1}</legend>
+            {editing && (
+              <label className="flex gap-2">
+                <input type="checkbox" checked={replaceKey} onChange={(event) => setReplaceKey(event.target.checked)} />
+                Alterar a chave desta conexão
+              </label>
+            )}
             <label className="block">
-              Identificador manual
+              Chave da API
               <input
-                required
+                type="password"
+                autoComplete="new-password"
+                disabled={!!editing && !replaceKey}
+                placeholder={editing && !replaceKey ? "Credencial existente preservada" : "Chave do provedor"}
                 className={aiInputClass}
-                value={model.id}
-                onChange={(e) => updateModel(index, { id: e.target.value })}
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
               />
             </label>
-            <div className="flex flex-wrap gap-3">
-              {CAPS.map((capability) => (
-                <label className="flex gap-1" key={capability}>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" disabled={!!busy || !draft.base_url} onClick={() => void discover()}>
+                {busy === "catalog" ? <Loader2 size={15} className="animate-spin" /> : <Plug size={15} />}
+                {loaded ? "Atualizar catálogo" : "Conectar e carregar modelos"}
+              </Button>
+              <span className="text-11 text-secondary">
+                O catálogo usa sua credencial, sem precisar salvar a conexão primeiro.
+              </span>
+            </div>
+            {(loaded || models.length > 0) && (
+              <section className="space-y-3 border-t border-subtle pt-4" aria-label="Catálogo de modelos">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Escolha os modelos do chat</h3>
+                  <span className="text-11 text-secondary">{draft.models.length}/30 habilitados</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Search size={16} />
+                  <input
+                    aria-label="Buscar modelos disponíveis"
+                    className={aiInputClass}
+                    placeholder="Buscar GPT, Claude, Gemini, Llama…"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {["", ...new Set(models.map((model) => modelFamily(model.id)))].map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      aria-pressed={family === name}
+                      onClick={() => setFamily(name)}
+                      className={`rounded-full border px-3 py-1 text-11 ${family === name ? "border-accent-strong bg-layer-1" : "border-subtle"}`}
+                    >
+                      {name || "Todos"}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid max-h-96 gap-2 overflow-y-auto md:grid-cols-2">
+                  {visible.map((model) => {
+                    const selected = draft.models.some((item) => item.id === model.id);
+                    return (
+                      <label
+                        key={model.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${selected ? "border-accent-strong bg-layer-1" : "border-subtle"}`}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={`Habilitar ${model.name}`}
+                          checked={selected}
+                          disabled={!selected && draft.models.length >= 30}
+                          onChange={() =>
+                            choose(draft.models.find((item) => item.id === model.id) ?? model.configuration)
+                          }
+                        />
+                        <span className="min-w-0">
+                          <strong className="block truncate">{model.name}</strong>
+                          <span className="block truncate text-11 text-secondary">{model.id}</span>
+                          <span className="mt-1 block text-11 text-secondary">
+                            {model.configuration.capabilities.tools
+                              ? "Busca e ações com ferramentas"
+                              : "Conversa e contexto do workspace"}
+                            {model.context_tokens ? ` · ${Math.round(model.context_tokens / 1000)}k contexto` : ""}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {!visible.length && <p className="text-secondary">Nenhum modelo corresponde à busca.</p>}
+                <label className="block">
+                  Modelo padrão
+                  <select
+                    required
+                    aria-label="Modelo padrão da conexão"
+                    className={aiInputClass}
+                    value={draft.default_model}
+                    onChange={(event) => setDraft({ ...draft, default_model: event.target.value })}
+                  >
+                    <option value="">Selecione um modelo</option>
+                    {draft.models.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {models.find((item) => item.id === model.id)?.name ?? model.id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <p className="text-11 text-secondary">
+                  Capacidades usam metadados do provedor quando disponíveis e perfis de compatibilidade para famílias
+                  conhecidas. Teste a conexão; ajustes individuais ficam nas opções avançadas.
+                </p>
+              </section>
+            )}
+            <details className="border-t border-subtle pt-3">
+              <summary className="flex cursor-pointer items-center gap-2 text-secondary">
+                <Settings2 size={15} />
+                Opções avançadas
+                <ChevronRight size={13} />
+              </summary>
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {(
+                    [
+                      ["context_tokens", "Janela de contexto"],
+                      ["output_tokens", "Limite de saída"],
+                      ["timeout_seconds", "Timeout em segundos"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key}>
+                      {label}
+                      <input
+                        className={aiInputClass}
+                        type="number"
+                        min={1}
+                        value={draft[key]}
+                        onChange={(event) => setDraft({ ...draft, [key]: Number(event.target.value) })}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {(
+                    [
+                      [20, "Administradores"],
+                      [15, "Membros"],
+                      [5, "Convidados"],
+                    ] as const
+                  ).map(([role, label]) => (
+                    <label key={role} className="flex gap-2">
+                      <input
+                        type="checkbox"
+                        checked={draft.allowed_roles.includes(role)}
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            allowed_roles: event.target.checked
+                              ? [...draft.allowed_roles, role]
+                              : draft.allowed_roles.filter((item) => item !== role),
+                          })
+                        }
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <label className="flex gap-2">
                   <input
                     type="checkbox"
-                    checked={!!model.capabilities[capability]}
-                    onChange={(e) =>
-                      updateModel(index, { capabilities: { ...model.capabilities, [capability]: e.target.checked } })
-                    }
+                    checked={draft.enabled}
+                    onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })}
                   />
-                  {capability}
+                  Conexão ativa
                 </label>
-              ))}
+                <label className="block">
+                  Finalidade
+                  <select
+                    className={aiInputClass}
+                    value={draft.purpose}
+                    onChange={(event) => {
+                      setDraft({ ...draft, purpose: event.target.value, models: [], default_model: "" });
+                      setCatalog([]);
+                      setLoaded(false);
+                    }}
+                  >
+                    <option value="chat">Conversa</option>
+                    <option value="embedding">Embeddings</option>
+                  </select>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    aria-label="ID manual de modelo"
+                    className={aiInputClass}
+                    value={manual}
+                    onChange={(event) => setManual(event.target.value)}
+                    placeholder="Modelo não listado pelo provedor"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!manual.trim() || draft.models.some((item) => item.id === manual.trim())}
+                    onClick={() => {
+                      choose(fallbackModel(manual.trim()));
+                      setManual("");
+                    }}
+                  >
+                    Adicionar ID
+                  </Button>
+                </div>
+                {draft.models.map((model) => (
+                  <details key={model.id} className="rounded-lg border border-subtle p-3">
+                    <summary className="cursor-pointer font-medium">{model.id}</summary>
+                    <div className="mt-3 space-y-3">
+                      <div className="flex flex-wrap gap-3">
+                        {Object.keys(model.capabilities).map((capability) => {
+                          const key = capability as keyof AIModel["capabilities"];
+                          return (
+                            <label key={key} className="flex gap-1">
+                              <input
+                                type="checkbox"
+                                checked={model.capabilities[key]}
+                                onChange={(event) =>
+                                  setDraft({
+                                    ...draft,
+                                    models: draft.models.map((item) =>
+                                      item.id === model.id
+                                        ? {
+                                            ...item,
+                                            capabilities: { ...item.capabilities, [key]: event.target.checked },
+                                          }
+                                        : item
+                                    ),
+                                  })
+                                }
+                              />
+                              {key}
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <label className="block">
+                        Parâmetro de saída
+                        <select
+                          className={aiInputClass}
+                          value={model.output_parameter ?? "max_tokens"}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              models: draft.models.map((item) =>
+                                item.id === model.id
+                                  ? { ...item, output_parameter: event.target.value as AIModel["output_parameter"] }
+                                  : item
+                              ),
+                            })
+                          }
+                        >
+                          <option>max_tokens</option>
+                          <option>max_completion_tokens</option>
+                          <option value="none">Não enviar</option>
+                        </select>
+                      </label>
+                      <label className="block">
+                        Parâmetros de geração (JSON)
+                        <textarea
+                          className={aiInputClass}
+                          rows={2}
+                          defaultValue={JSON.stringify(model.parameters ?? {})}
+                          onBlur={(event) => {
+                            try {
+                              const parameters = JSON.parse(event.target.value) as Record<string, unknown>;
+                              setDraft({
+                                ...draft,
+                                models: draft.models.map((item) =>
+                                  item.id === model.id ? { ...item, parameters } : item
+                                ),
+                              });
+                            } catch {
+                              setError("JSON de parâmetros inválido.");
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
+            <div className="flex gap-2 border-t border-subtle pt-4">
+              <Button type="submit" disabled={!!busy || !draft.models.length || !draft.default_model}>
+                {busy === "save" && <Loader2 size={15} className="animate-spin" />}Salvar conexão e modelos
+              </Button>
+              <Button type="button" variant="secondary" disabled={!!busy} onClick={reset}>
+                Nova conexão
+              </Button>
             </div>
-            <label className="block">
-              Parâmetro de limite de saída
-              <select
-                className={aiInputClass}
-                value={model.output_parameter ?? "max_tokens"}
-                onChange={(e) =>
-                  updateModel(index, { output_parameter: e.target.value as AIModel["output_parameter"] })
-                }
-              >
-                <option>max_tokens</option>
-                <option>max_completion_tokens</option>
-                <option value="none">Não enviar</option>
-              </select>
-            </label>
-            <label className="block">
-              Parâmetros compatíveis (JSON; somente os explicitamente configurados)
-              <textarea
-                key={model._key}
-                className={aiInputClass}
-                defaultValue={JSON.stringify(model.parameters ?? {}, null, 2)}
-                rows={3}
-                onBlur={(e) => {
-                  try {
-                    updateModel(index, { parameters: JSON.parse(e.target.value) as Record<string, unknown> });
-                  } catch {
-                    setMessage("JSON de parâmetros inválido.");
-                  }
-                }}
-              />
-            </label>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={draft.models.length === 1}
-              onClick={() => setDraft({ ...draft, models: draft.models.filter((_, i) => i !== index) })}
-            >
-              Remover modelo
-            </Button>
           </fieldset>
-        ))}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setDraft({ ...draft, models: [...draft.models, EMPTY_MODEL()] })}
-        >
-          Adicionar modelo
-        </Button>
-        <label className="block">
-          Modelo padrão
-          <select
-            required
-            className={aiInputClass}
-            value={draft.default_model}
-            onChange={(e) => setDraft({ ...draft, default_model: e.target.value })}
-          >
-            <option value="">Selecione</option>
-            {draft.models.map((m) => (
-              <option key={m._key} value={m.id}>
-                {m.id}
-              </option>
-            ))}
-          </select>
-        </label>
-        {(
-          [
-            ["context_tokens", "Janela de contexto (tokens)"],
-            ["output_tokens", "Limite de saída (tokens)"],
-            ["timeout_seconds", "Timeout (segundos)"],
-          ] as const
-        ).map(([key, label]) => (
-          <label className="block" key={key}>
-            {label}
-            <input
-              type="number"
-              min={1}
-              required
-              className={aiInputClass}
-              value={draft[key]}
-              onChange={(e) => setDraft({ ...draft, [key]: Number(e.target.value) })}
-            />
-          </label>
-        ))}
-        <div className="flex gap-3">
-          {(
-            [
-              [20, "Administradores"],
-              [15, "Membros"],
-              [5, "Convidados"],
-            ] as const
-          ).map(([role, label]) => (
-            <label key={role} className="flex gap-1">
-              <input
-                type="checkbox"
-                checked={draft.allowed_roles.includes(role)}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    allowed_roles: e.target.checked
-                      ? [...draft.allowed_roles, role]
-                      : draft.allowed_roles.filter((r) => r !== role),
-                  })
-                }
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        <label className="flex gap-2">
-          <input
-            type="checkbox"
-            checked={draft.enabled}
-            onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })}
-          />
-          Conexão ativa
-        </label>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>
-            Salvar conexão
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              setEditing("");
-              setDraft(emptyConnection());
-              setApiKey("");
-              setReplaceKey(false);
-            }}
-          >
-            Limpar formulário
-          </Button>
-        </div>
-      </form>
+        </form>
+      </div>
     </main>
   );
 }

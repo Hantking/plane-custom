@@ -33,7 +33,7 @@ class ProtocolTests(SimpleTestCase):
             def do_GET(self):
                 self.send_response(200)
                 self.end_headers()
-                self.wfile.write(b'{"data":[{"id":"manual-one"},{"id":"manual-two"}]}')
+                self.wfile.write(json.dumps({"data": cls.catalog_data}).encode())
 
             def do_POST(self):
                 payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -72,6 +72,7 @@ class ProtocolTests(SimpleTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        type(self).catalog_data = [{"id": "manual-one"}, {"id": "manual-two"}]
         type(self).http_status = 200
         type(self).truncated = False
         self.environment = patch.dict(
@@ -96,6 +97,45 @@ class ProtocolTests(SimpleTestCase):
                     "capabilities": {"streaming": True, "tools": False, "system": False, "embeddings": True},
                 }
             ],
+        )
+
+    def test_catalog_reads_metadata_and_filters_non_chat_models_over_http(self):
+        type(self).catalog_data = [
+            {
+                "id": "anthropic/claude-sonnet",
+                "name": "Claude Sonnet",
+                "context_length": 200000,
+                "supported_parameters": ["tools", "response_format"],
+                "description": "Available model",
+            },
+            {"id": "anthropic/claude-sonnet"},
+            {"id": "text-embedding-3-small"},
+            {"id": "gpt-image-1"},
+            {"id": "arbitrary", "supported_parameters": []},
+            None,
+        ]
+        models = ChatCompletions(self.connection).catalog()
+        self.assertEqual([model["id"] for model in models], ["anthropic/claude-sonnet", "arbitrary"])
+        self.assertEqual(models[0]["name"], "Claude Sonnet")
+        self.assertEqual(models[0]["capability_source"], "provider")
+        self.assertEqual(models[0]["context_tokens"], 200000)
+        self.assertTrue(models[0]["configuration"]["capabilities"]["tools"])
+        self.assertFalse(models[1]["configuration"]["capabilities"]["tools"])
+        self.assertNotIn("test-key", json.dumps(models))
+
+    def test_catalog_unknown_models_are_conservative_and_reasoning_profile_uses_native_parameter(self):
+        from .catalog import describe_model
+
+        self.connection.base_url = "https://api.openai.com/v1"
+        model = describe_model({"id": "gpt-5-mini"}, self.connection)
+        self.assertEqual(model["configuration"]["output_parameter"], "max_completion_tokens")
+        unknown = describe_model({"id": "private-model"}, self.connection)
+        self.assertEqual(unknown["capability_source"], "unknown")
+        self.assertFalse(unknown["configuration"]["capabilities"]["tools"])
+        self.connection.base_url = "https://openrouter.ai/api/v1"
+        self.assertEqual(
+            describe_model({"id": "openai/gpt-5-mini"}, self.connection)["configuration"]["output_parameter"],
+            "max_tokens",
         )
 
     def test_stream_over_real_http_and_independent_embeddings(self):
