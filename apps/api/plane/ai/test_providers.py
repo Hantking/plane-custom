@@ -123,6 +123,10 @@ class ProtocolTests(SimpleTestCase):
         self.assertFalse(models[1]["configuration"]["capabilities"]["tools"])
         self.assertNotIn("test-key", json.dumps(models))
 
+    def test_full_base_url_in_environment_allows_real_catalog_request(self):
+        with patch.dict(os.environ, {"PLANE_AI_ALLOWED_HOSTS": self.connection.base_url}):
+            self.assertEqual(ChatCompletions(self.connection).models(), ["manual-one", "manual-two"])
+
     def test_catalog_unknown_models_are_conservative_and_reasoning_profile_uses_native_parameter(self):
         from .catalog import describe_model
 

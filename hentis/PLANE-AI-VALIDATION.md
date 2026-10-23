@@ -1,5 +1,12 @@
 # Evidências de validação — Plane AI
 
+## URLs completas no Environment — 23/10/2026
+
+- `PLANE_AI_ALLOWED_HOSTS` aceita URLs completas de API, hostnames antigos ou ambos, separados por vírgulas/quebras de linha. A autorização usa o hostname exato extraído da URL.
+- **146 testes de backend aprovados**: nove novos casos verificam URLs completas, compatibilidade, formatação, URLs inválidas, comparação exata de hosts, controles de HTTP/IP privado e uma consulta real ao catálogo HTTP com a Base URL inteira na variável.
+- Ruff e formatação aprovados. As verificações de rede/IP e o pinning DNS permanecem no mesmo fluxo de requisição.
+- Suporte introduzido após o build `a72b9b5`; requer a imagem que contém este ajuste e novo deploy para funcionar no servidor.
+
 ## PDF e páginas de relatório — 23/10/2026
 
 - **137 testes de backend aprovados**, incluindo nove novos casos de exportação/publicação: snapshot imutável, HTML/tabelas/fontes, projeto autorizado, propriedade da conversa, revogação, convidado, visibilidade, repetição idempotente e bloqueio de conteúdo executável.

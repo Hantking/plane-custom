@@ -48,10 +48,44 @@ def decrypt(value):
         raise ValidationError("Não foi possível decifrar a credencial. Verifique a chave de criptografia.")
 
 
+def allowed_provider_hosts():
+    """Accept legacy hostnames and full API URLs; authorization remains hostname-based."""
+    hosts = set()
+    for entry in os.environ.get("PLANE_AI_ALLOWED_HOSTS", "").replace("\n", ",").split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        if "://" in entry:
+            try:
+                parsed = urlsplit(entry)
+                if (
+                    parsed.scheme not in {"http", "https"}
+                    or not parsed.hostname
+                    or parsed.username
+                    or parsed.password
+                    or parsed.query
+                    or parsed.fragment
+                ):
+                    raise ValueError()
+                # Validate an explicit port even though the allowlist authorizes hosts.
+                parsed.port
+            except ValueError:
+                raise ValidationError(
+                    "PLANE_AI_ALLOWED_HOSTS contém uma URL inválida. Use URLs HTTP/HTTPS sem credenciais ou parâmetros."
+                ) from None
+            hosts.add(parsed.hostname.lower())
+        else:
+            hosts.add(entry.lower())
+    return hosts
+
+
 def provider_address(url):
     """Validate every request and pin its socket to this validated address (no DNS rebinding)."""
-    parsed = urlsplit(url)
-    hosts = {h.strip().lower() for h in os.environ.get("PLANE_AI_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        raise ValidationError("Base URL inválida.") from None
+    hosts = allowed_provider_hosts()
     if (
         parsed.scheme not in {"http", "https"}
         or not parsed.hostname
