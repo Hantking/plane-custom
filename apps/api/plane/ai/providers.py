@@ -9,9 +9,14 @@ from contextlib import contextmanager
 
 from rest_framework.exceptions import ValidationError
 from .security import decrypt, provider_address
+from .tool_transport import normalize_tool_message, visible_assistant_text, ToolEnvelopeError
 
 
 class ProviderError(Exception):
+    pass
+
+
+class ToolProtocolError(ProviderError):
     pass
 
 
@@ -136,6 +141,10 @@ class ChatCompletions:
                         raise ValueError()
                     if cancelled():
                         raise Cancelled()
+                    try:
+                        message = normalize_tool_message(message, tools)
+                    except ToolEnvelopeError as exc:
+                        raise ToolProtocolError(str(exc)) from None
                     return message, safe_usage(data.get("usage", {}))
                 except (ValueError, KeyError, IndexError, TypeError):
                     raise ProviderError("Resposta Chat Completions incompatível.") from None
@@ -166,7 +175,7 @@ class ChatCompletions:
                     if delta.get("content"):
                         content += delta["content"]
                         if on_delta:
-                            on_delta(content)
+                            on_delta(visible_assistant_text(content))
                     for tool in delta.get("tool_calls", []):
                         index = tool["index"]
                         call = calls.setdefault(
@@ -181,6 +190,10 @@ class ChatCompletions:
         message = {"role": "assistant", "content": content}
         if calls:
             message["tool_calls"] = [calls[key] for key in sorted(calls)]
+        try:
+            message = normalize_tool_message(message, tools)
+        except ToolEnvelopeError as exc:
+            raise ToolProtocolError(str(exc)) from None
         return message, safe_usage(usage)
 
 

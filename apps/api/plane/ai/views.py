@@ -11,6 +11,7 @@ from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError, Throttled, APIException
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
 from plane.authentication.session import BaseSessionAuthentication
 from .models import Policy, Connection, Conversation, Run, Memory, Automation
@@ -115,9 +116,19 @@ def create_run(
         return run
 
 
+class EventStreamRenderer(JSONRenderer):
+    media_type = "text/event-stream"
+    format = "event-stream"
+
+
 class AIEndpoint(APIView):
     authentication_classes = [BaseSessionAuthentication]
     permission_classes = [IsAuthenticated]
+
+    def get_renderers(self):
+        if self.kwargs.get("resource") == "runs" and self.kwargs.get("command") == "events":
+            return [EventStreamRenderer(), JSONRenderer()]
+        return super().get_renderers()
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)

@@ -1,5 +1,15 @@
 # Evidências de validação — Plane AI
 
+## Relatórios de implantação por cliente e eventos SSE
+
+- Reprodução do pedido “crie o resumo final da implantação do cliente En do Couto e Luciano do Couto, crie como relatório” em dados isolados, com uma descrição antiga e comentário mais recente sobre reunião/FDC. O transporte HTTP de teste devolve os mesmos envelopes textuais `<tool_call><function=search_workspace>…` do incidente; eles são convertidos em buscas reais e não aparecem como resposta.
+- O relatório considera somente a implantação e subtarefas relacionadas. Um conjunto de três tarefas foi separado de 60 tarefas sem relação, e a página foi criada automaticamente com o link no chat, sem habilitar ferramentas gerais. O conteúdo da página usa Markdown seguro, fontes e tabelas do snapshot.
+- Resolvido o HTTP 406 que ocorria quando o navegador solicitava os eventos com `Accept: text/event-stream`; negociação agora retorna 200/stream. No ensaio, um evento de erro de conexão foi simulado durante a geração e a conclusão chegou com o link da página, sem alerta permanente ou reabertura manual.
+- Casos automatizados incluem o pedido exato, preservação do comentário recente/descrição antiga no contexto, fontes restritas, publicação privada, reentrega sem duplicação, homônimos com seleção posterior por identificador, ausência de registros, modelo sem ferramentas, correção de formato, resposta vazia e negação de escrita para convidado.
+- **160 testes de backend e 57 de frontend aprovados**. Typecheck, build web, Ruff e OxLint aprovados; nenhuma migração pendente. O teste SSE usa o cabeçalho real do EventSource e verifica 200/stream e negação para outro usuário.
+- O provedor HTTP do ensaio é uma fixture de protocolo e a geração assíncrona usa uma thread de teste. Isso verifica busca, integração, persistência e UI; não comprova qualidade factual de inferência no provedor do usuário nem equivale a criar o relatório com os dados de produção do cliente.
+- Suporte introduzido após o build `e1fd90f`; exige a imagem com esta correção e novo deploy para corrigir novas execuções no servidor. Respostas antigas com estatísticas genéricas devem ser refeitas.
+
 ## URLs completas no Environment — 23/10/2026
 
 - `PLANE_AI_ALLOWED_HOSTS` aceita URLs completas de API, hostnames antigos ou ambos, separados por vírgulas/quebras de linha. A autorização usa o hostname exato extraído da URL.

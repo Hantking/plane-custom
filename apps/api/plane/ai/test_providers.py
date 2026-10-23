@@ -44,6 +44,18 @@ class ProtocolTests(SimpleTestCase):
                     self.wfile.write(b'{"error":"secret-provider-body-must-not-be-exposed"}')
                 elif self.path.endswith("/embeddings"):
                     self.wfile.write(b'{"data":[{"embedding":[0.1,0.2,0.3]}]}')
+                elif cls.message_override:
+                    if payload.get("stream"):
+                        text = cls.message_override["content"]
+                        for fragment in [text[:4], text[4:25], text[25:]]:
+                            self.wfile.write(
+                                b"data: "
+                                + json.dumps({"choices": [{"delta": {"content": fragment}}]}).encode()
+                                + b"\n\n"
+                            )
+                        self.wfile.write(b"data: [DONE]\n\n")
+                    else:
+                        self.wfile.write(json.dumps({"choices": [{"message": cls.message_override}]}).encode())
                 elif payload.get("stream"):
                     chunks = [
                         {"choices": [{"delta": {"content": "Resposta "}}]},
@@ -72,6 +84,7 @@ class ProtocolTests(SimpleTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        type(self).message_override = None
         type(self).catalog_data = [{"id": "manual-one"}, {"id": "manual-two"}]
         type(self).http_status = 200
         type(self).truncated = False
@@ -98,6 +111,24 @@ class ProtocolTests(SimpleTestCase):
                 }
             ],
         )
+
+    def test_textual_tool_envelopes_are_executed_as_calls_and_not_streamed_as_answer(self):
+        from .tools import schema
+
+        text = (
+            "<tool_call><function=search_workspace><parameter=query>Luciano do Couto</parameter></function></tool_call>"
+        )
+        type(self).message_override = {"role": "assistant", "content": text}
+        self.connection.models[0]["capabilities"]["tools"] = True
+        for streaming in [True, False]:
+            self.connection.models[0]["capabilities"]["streaming"] = streaming
+            deltas = []
+            message, _ = ChatCompletions(self.connection).complete(
+                "manual-one", [{"role": "user", "content": "Relatório"}], tools=schema(), on_delta=deltas.append
+            )
+            self.assertEqual(message["content"], "")
+            self.assertEqual(message["tool_calls"][0]["function"]["name"], "search_workspace")
+            self.assertNotIn("<tool", "".join(deltas))
 
     def test_catalog_reads_metadata_and_filters_non_chat_models_over_http(self):
         type(self).catalog_data = [

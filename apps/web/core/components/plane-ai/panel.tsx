@@ -63,6 +63,7 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
   const [runs, setRuns] = useState<AIRun[]>([]);
   const [activeRun, setActiveRun] = useState("");
   const [error, setError] = useState("");
+  const [connectionNotice, setConnectionNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [allowActions, setAllowActions] = useState(false);
   const [tab, setTab] = useState("chat");
@@ -125,10 +126,13 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
   );
   useEffect(() => {
     if (!activeRun || !isOpen) return;
+    let disposed = false;
     const events = planeAI.events(workspaceSlug, activeRun);
     events.addEventListener("message", (event) => {
+      if (disposed) return;
       const run = JSON.parse(event.data) as AIRun;
       replaceRun(run);
+      setConnectionNotice("");
       if (!["queued", "running", "cancelling"].includes(run.status)) {
         setActiveRun("");
         events.close();
@@ -137,48 +141,70 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
       }
     });
     events.addEventListener("error", () => {
-      events.close();
+      if (disposed) return;
+      setConnectionNotice("Reconectando à resposta em andamento…");
       void planeAI
         .read<AIRun>(workspaceSlug, `runs/${activeRun}/`)
         .then((run) => {
+          if (disposed) return run;
           replaceRun(run);
-          if (["queued", "running", "cancelling"].includes(run.status))
-            setError(
-              "A conexão foi interrompida. A resposta pode continuar em andamento; abra a conversa novamente para acompanhar."
-            );
-          else setActiveRun("");
+          if (!["queued", "running", "cancelling"].includes(run.status)) {
+            setActiveRun("");
+            setConnectionNotice("");
+            events.close();
+            void mutateHistory();
+            refreshResults(run);
+          }
           return run;
         })
         .catch((failure) => {
-          setRuns([]);
-          setActiveRun("");
-          setError(aiError(failure));
+          if (disposed) return;
+          const status = (failure as { response?: { status: number } }).response?.status;
+          if (status === 403 || status === 404) {
+            events.close();
+            setRuns([]);
+            setActiveRun("");
+            setConnectionNotice("");
+            setError(aiError(failure));
+          }
         });
     });
-    return () => events.close();
+    return () => {
+      disposed = true;
+      events.close();
+    };
   }, [activeRun, isOpen, workspaceSlug, mutateHistory, refreshResults, replaceRun]);
   useEffect(() => {
     if (stickToBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [runs]);
   useEffect(() => {
+    let disposed = false;
     const check = () => {
-      if (document.hidden || !conversationId || !isOpen) return;
+      if (disposed || document.hidden || !conversationId || !isOpen) return;
       void planeAI
         .read<AIConversation>(workspaceSlug, `conversations/${conversationId}/`)
         .then((value) => {
+          if (disposed) return value;
           setRuns(value.runs ?? []);
+          setConnectionNotice("");
           setActiveRun(value.runs?.find((run) => ["queued", "running", "cancelling"].includes(run.status))?.id ?? "");
           return value;
         })
         .catch((failure) => {
-          setRuns([]);
-          setActiveRun("");
-          setError(aiError(failure));
+          if (disposed) return;
+          const status = (failure as { response?: { status: number } }).response?.status;
+          if (status === 403 || status === 404) {
+            setRuns([]);
+            setActiveRun("");
+            setConnectionNotice("");
+            setError(aiError(failure));
+          } else setConnectionNotice("Reconectando à conversa…");
         });
     };
     document.addEventListener("visibilitychange", check);
     const timer = window.setInterval(check, 15000);
     return () => {
+      disposed = true;
       document.removeEventListener("visibilitychange", check);
       window.clearInterval(timer);
     };
@@ -198,6 +224,7 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
       setConversation("");
       setRuns([]);
       setError("");
+      setConnectionNotice("");
       setAllowActions(false);
       setTab("chat");
       setActiveRun("");
@@ -564,6 +591,11 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
                     void send();
                   }}
                 >
+                  {connectionNotice && (
+                    <p role="status" className="px-2 text-11 text-secondary">
+                      {connectionNotice}
+                    </p>
+                  )}
                   {error && (
                     <p role="alert" className="rounded-lg bg-layer-1 p-2 text-13 text-danger-primary">
                       {error}
@@ -626,7 +658,10 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-11 text-secondary">
-                    <label className="flex items-center gap-2">
+                    <label
+                      className="flex items-center gap-2"
+                      title="Autoriza ferramentas gerais de edição. Pedidos explícitos de criar ou salvar relatórios já podem criar uma página privada quando o projeto é identificado."
+                    >
                       <input
                         type="checkbox"
                         disabled={!model?.capabilities.tools || !!activeRun}

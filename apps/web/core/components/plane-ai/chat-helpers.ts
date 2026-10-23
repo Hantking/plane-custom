@@ -46,6 +46,13 @@ export const actionNames: Record<string, string> = {
   create_report_page: "Relatório salvo como página",
 };
 
+export function displayAIResponse(value: string) {
+  return value
+    .replace(/<tool_call>[\s\S]*?<\/tool_call>/g, "")
+    .replace(/<(?:tool_call|function=)[\s\S]*$/, "")
+    .trim();
+}
+
 function safeCSV(value: string | number) {
   let text = String(value);
   if (typeof value !== "number" && /^[\s]*[=+@-]/.test(text)) text = "'" + text;

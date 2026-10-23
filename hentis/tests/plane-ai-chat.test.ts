@@ -7,7 +7,7 @@ import {
   resolveModel,
   toggleModel,
 } from "../../apps/web/core/components/plane-ai/model-helpers";
-import { chatStarters, reportCSV } from "../../apps/web/core/components/plane-ai/chat-helpers";
+import { chatStarters, displayAIResponse, reportCSV } from "../../apps/web/core/components/plane-ai/chat-helpers";
 import type { AICatalogModel, AIConnection, AIModel, AIReport } from "../../apps/web/core/components/plane-ai/service";
 
 const model = (id: string, tools = true): AIModel => ({
@@ -112,4 +112,11 @@ test("chat starters are actionable prompts for search, reports and writing", () 
   assert.equal(new Set(chatStarters.map((item) => item.title)).size, chatStarters.length);
   assert.ok(chatStarters.some((item) => item.prompt.includes("carga de trabalho")));
   assert.ok(chatStarters.some((item) => item.prompt.includes("fontes")));
+});
+
+test("historical provider tool markup is not displayed as the assistant answer", () => {
+  const call = "<tool_call><function=search_workspace><parameter=query>Cliente</parameter></function></tool_call>";
+  assert.equal(displayAIResponse(call + call), "");
+  assert.equal(displayAIResponse("Resposta final.\n" + call), "Resposta final.");
+  assert.equal(displayAIResponse("Buscando… <tool_call><function="), "Buscando…");
 });

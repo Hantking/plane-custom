@@ -35,7 +35,10 @@ def absolute_url(value):
     if not isinstance(value, str):
         return ""
     if value.startswith("/") and not value.startswith("//"):
-        value = urljoin(settings.WEB_URL.rstrip("/") + "/", value.lstrip("/"))
+        base = getattr(settings, "WEB_URL", None)
+        if not base:
+            return value
+        value = urljoin(base.rstrip("/") + "/", value.lstrip("/"))
     try:
         return value if urlsplit(value).scheme in {"https", "http"} else ""
     except ValueError:

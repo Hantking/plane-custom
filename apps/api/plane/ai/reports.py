@@ -47,7 +47,7 @@ class ReportRequest(serializers.Serializer):
     end = serializers.DateField(required=False)
 
 
-def build_report(access, scope, arguments):
+def build_report(access, scope, arguments, focus=None):
     if set(arguments) - {"kind", "group_by", "start", "end"}:
         raise serializers.ValidationError("Parâmetros de relatório inválidos.")
     serializer = ReportRequest(data=arguments)
@@ -81,6 +81,9 @@ def build_report(access, scope, arguments):
             pk__in=ProjectPage.objects.filter(page=page, deleted_at__isnull=True).values("project_id")
         )
         issues = issues.none()
+    if focus:
+        issues = issues.filter(pk__in=focus["issue_ids"])
+        projects = projects.filter(pk__in=focus["project_ids"])
     kind = spec["kind"]
     completed = Q(state__group="completed")
     open_state = ~Q(state__group__in=["completed", "cancelled"])

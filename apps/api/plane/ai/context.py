@@ -4,7 +4,7 @@ import json
 import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Case, When, Value as Literal, IntegerField
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from plane.db.models import (
@@ -20,7 +20,7 @@ from plane.db.models import (
 from plane.custom_fields.models import Field
 from plane.custom_fields.services import values_for
 
-REPORTS = {"search", "overview", "overdue", "blocked", "changed", "cycle", "priorities"}
+REPORTS = {"search", "customer", "overview", "overdue", "blocked", "changed", "cycle", "priorities"}
 
 
 def issue_url(slug, issue):
@@ -31,7 +31,7 @@ def page_url(slug, page, project_id):
     return f"/{slug}/projects/{project_id}/pages/{page.id}"
 
 
-def retrieve(access, scope, query="", report="search", limit=20):
+def retrieve(access, scope, query="", report="search", limit=20, focus=None):
     scope = access.scope(scope)
     if report not in REPORTS:
         raise ValidationError("Relatório desconhecido.")
@@ -63,6 +63,10 @@ def retrieve(access, scope, query="", report="search", limit=20):
             pk__in=ProjectPage.objects.filter(page=page, deleted_at__isnull=True).values("project_id")
         )
         issues = issues.none()
+    if focus:
+        issues = issues.filter(pk__in=focus["issue_ids"])
+        pages = pages.filter(pk__in=focus["page_ids"])
+        projects = projects.filter(pk__in=focus["project_ids"])
     sources, records = [], []
 
     def source(kind, identifier, title, url):
@@ -169,13 +173,19 @@ def retrieve(access, scope, query="", report="search", limit=20):
     metrics["report_completion_percent"] = (
         round(100 * metrics["report_completed"] / metrics["matching"], 2) if metrics["matching"] else 0
     )
-    if report != "search":
+    if report not in {"search", "customer"}:
         pages = pages.none()
+    selection = filtered.distinct()
+    if focus:
+        selection = selection.annotate(
+            _focus_root=Case(
+                When(pk__in=focus["root_ids"], then=Literal(0)), default=Literal(1), output_field=IntegerField()
+            )
+        )
     selected = list(
-        filtered.distinct()
-        .select_related("project", "state")
+        selection.select_related("project", "state")
         .prefetch_related("assignees", "labels")
-        .order_by("target_date", "-updated_at")[:limit]
+        .order_by(*(["_focus_root", "target_date", "-updated_at"] if focus else ["target_date", "-updated_at"]))[:limit]
     )
     for issue in selected:
         ref = source(
@@ -188,6 +198,10 @@ def retrieve(access, scope, query="", report="search", limit=20):
             {
                 **ref,
                 "description": (issue.description_stripped or "")[:2200],
+                "created_at": issue.created_at.isoformat(),
+                "updated_at": issue.updated_at.isoformat(),
+                "completed_at": issue.completed_at.isoformat() if issue.completed_at else None,
+                "start_date": str(issue.start_date) if issue.start_date else None,
                 "state": issue.state.name if issue.state else None,
                 "priority": issue.priority,
                 "due": str(issue.target_date) if issue.target_date else None,
@@ -201,18 +215,20 @@ def retrieve(access, scope, query="", report="search", limit=20):
     custom_values = values_for(selected)
     for record in records:
         record["custom_fields"] = custom_values.get(record["id"], {})
+    comment_limit = 100 if focus else 20
+    comment_query = access.comments().filter(issue_id__in=ids)
     comments = list(
-        access.comments()
-        .filter(issue_id__in=ids)
-        .order_by("-created_at")
-        .values("id", "issue_id", "comment_stripped", "created_at")[:20]
+        comment_query.order_by("-created_at").values(
+            "id", "issue_id", "comment_stripped", "created_at", "actor_id", "actor__display_name"
+        )[:comment_limit]
     )
     for comment in comments:
-        comment["comment_stripped"] = comment["comment_stripped"][:1500]
+        comment["comment_stripped"] = comment["comment_stripped"][: 4000 if focus else 1500]
         issue = next(item for item in selected if item.id == comment["issue_id"])
         source("comment", comment["id"], "Comentário · " + issue.name, issue_url(access.workspace.slug, issue))
     activities = list(
-        IssueActivity.objects.filter(issue_id__in=ids, created_at__gte=since, project_id__in=projects.values("id"))
+        IssueActivity.objects.filter(issue_id__in=ids, project_id__in=projects.values("id"))
+        .filter(**({} if focus else {"created_at__gte": since}))
         .order_by("-created_at")
         .values("issue_id", "field", "verb", "created_at")[:30]
     )
@@ -287,6 +303,9 @@ def retrieve(access, scope, query="", report="search", limit=20):
         "relations": relations,
         "lookup": lookup,
         "memories": memories,
-        "truncated": metrics["matching"] > len(records),
+        "truncated": metrics["matching"] > len(records) or comment_query.count() > len(comments),
     }
+    if focus:
+        dates = [issue.created_at for issue in selected] + [comment["created_at"] for comment in comments]
+        context["period"] = {"from": min(dates).isoformat() if dates else now.isoformat(), "to": now.isoformat()}
     return json.loads(json.dumps(context, default=str)), sources
