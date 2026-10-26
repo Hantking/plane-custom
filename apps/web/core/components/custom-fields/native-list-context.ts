@@ -9,6 +9,7 @@ export type NativeListState = {
   columns: string[];
   query: ViewConfig;
   busy: boolean;
+  querySaving: boolean;
   customGroup?: NativeField;
   patch: (patch: Partial<ViewConfig>) => Promise<void>;
   reload: () => Promise<unknown>;

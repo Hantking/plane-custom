@@ -172,10 +172,12 @@ export function MultiSortEditor({
   value,
   onChange,
   fields,
+  disabled = false,
 }: {
   value: SortCriterion[];
   onChange: (value: SortCriterion[]) => void;
   fields: CustomField[];
+  disabled?: boolean;
 }) {
   const options = [
     ...nativeSortFields,
@@ -184,7 +186,7 @@ export function MultiSortEditor({
   const update = (index: number, patch: Partial<SortCriterion>) =>
     onChange(value.map((sort, i) => (i === index ? { ...sort, ...patch } : sort)));
   return (
-    <div className="space-y-2">
+    <fieldset disabled={disabled} aria-label="Critérios de ordenação" className="space-y-2">
       {value.map((sort, index) => (
         <div className="flex flex-wrap items-center gap-1" key={sort.field}>
           <span>{index + 1}.</span>
@@ -253,6 +255,6 @@ export function MultiSortEditor({
         Critérios aplicados no servidor antes da paginação, dentro de cada grupo. Seleção única usa a ordem das opções;
         multiselect não oferece sort. Desempate final por UUID.
       </p>
-    </div>
+    </fieldset>
   );
 }

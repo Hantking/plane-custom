@@ -61,6 +61,7 @@ export const NativeListController = observer(function NativeListController({
   const visibleKey = JSON.stringify(native?.display.data?.preference.visible ?? []);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
+  const reloadGeneration = useRef(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -90,7 +91,9 @@ export const NativeListController = observer(function NativeListController({
   const reload = useCallback(async () => {
     const current = ref.current;
     if (!current.native?.display.request) return;
+    const generation = ++reloadGeneration.current;
     setLoading(true);
+    setError("");
     try {
       current.issueDetail.subIssues.invalidateBatch(
         current.native.issueIds.filter((id) =>
@@ -105,12 +108,14 @@ export const NativeListController = observer(function NativeListController({
         { canGroup: true, perPageCount: queryRef.current.group_by ? 25 : 100 },
         current.props.viewId
       );
+      if (generation !== reloadGeneration.current) return;
       setChildrenEpoch((value) => value + 1);
       await refreshCache(
         (key: unknown) =>
           Array.isArray(key) && key[0] === "hentis-native-summary" && key[1] === current.native?.display.identity
       );
       requestAnimationFrame(() => {
+        if (generation !== reloadGeneration.current) return;
         const focus = pendingFocus.current;
         if (!focus) return;
         const element = document.querySelector<HTMLElement>(
@@ -124,9 +129,9 @@ export const NativeListController = observer(function NativeListController({
         pendingFocus.current = null;
       });
     } catch (failure) {
-      setError(fieldError(failure));
+      if (generation === reloadGeneration.current) setError(fieldError(failure));
     } finally {
-      setLoading(false);
+      if (generation === reloadGeneration.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
@@ -369,6 +374,7 @@ export const NativeListController = observer(function NativeListController({
       columns,
       query,
       busy: saving || loading || nativeLoading,
+      querySaving: saving,
       customGroup,
       patch,
       reload,

@@ -176,16 +176,26 @@ export function NativeListToolbar({ props, summary }: { props: IList; summary?: 
             <MultiSortEditor
               value={draft.sorts ?? []}
               fields={fields}
+              disabled={list.querySaving}
               onChange={(sorts) => setDraft({ ...draft, sorts })}
             />
             <div className="flex flex-wrap gap-2">
-              <Button disabled={list.busy} onClick={() => void apply({ sorts: draft.sorts, manual: false })}>
-                Aplicar ordem
+              <Button disabled={list.querySaving} onClick={() => void apply({ sorts: draft.sorts, manual: false })}>
+                {list.querySaving ? "Aplicando ordem…" : "Aplicar ordem"}
               </Button>
-              <Button variant="secondary" disabled={list.busy} onClick={() => void apply({ sorts: [], manual: true })}>
+              <Button
+                variant="secondary"
+                disabled={list.querySaving}
+                onClick={() => void apply({ sorts: [], manual: true })}
+              >
                 Ordem manual pessoal
               </Button>
             </div>
+            {list.busy && !list.querySaving && (
+              <p role="status" className="text-12 text-secondary">
+                Atualizando tarefas. Você pode aplicar a ordenação sem aguardar.
+              </p>
+            )}
             <p className="text-11 text-secondary">A ordem manual é pessoal e independente por visualização e grupo.</p>
           </div>
         </NativeListToolbarPopover>

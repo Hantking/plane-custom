@@ -16,6 +16,7 @@ Os painéis se ajustam à largura da tela, fecham por Escape/clique externo e pr
 
 ### Semântica dos resultados
 
+- No **Ordenar da barra superior**, carregar tarefas ou atualizar contagens não desabilita **Aplicar ordem**. O botão e os critérios ficam protegidos apenas durante o salvamento da consulta, com o texto **Aplicando ordem…**. Atualizações substituídas por uma nova ordenação não devem sobrescrever o estado de carregamento nem apresentar erros de uma requisição anterior.
 - Escolher uma ordem em **Exibir → Ordenar por** substitui os critérios personalizados ativos da mesma Lista, inclusive ao clicar na opção nativa que já estava selecionada. A nova escolha é persistida na consulta pessoal; **Manual** remove os critérios e habilita a ordem pessoal. Filtros, agrupamento e posições manuais são preservados.
 - A API filtra e ordena antes de paginar. A seleção única ordena pela sequência das opções na definição; seleção múltipla não oferece ordenação. Cada critério declara direção e posição dos nulos; o desempate final é o UUID.
 - Agrupar por seleção múltipla pode repetir uma tarefa em vários grupos. Totais, cálculos, seleção global e CSV contam/exportam entidades únicas. O filtro remove ocorrências incompatíveis: filtrar por uma opção não cria automaticamente ocorrências nas demais.
@@ -59,6 +60,7 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 
 ## Validação do cabeçalho — 26/10/2026
 
+- Botão Aplicar da barra superior: reproduzido o bloqueio mantendo uma leitura HTTP pendente no Chromium. Após o ajuste, Aplicar permaneceu habilitado com tarefas/contagens pendentes, bloqueou somente durante o PATCH dos critérios e permitiu alternar decrescente/crescente antes do fim da atualização. Resultado final persistido após reload, sem alerta de requisição substituída. TypeScript, build, lint e 27 testes direcionados aprovados. Ensaio usa API/PostgreSQL isolados com atraso controlado no transporte, sem dados de produção.
 - Ordenação: 46 testes frontend direcionados aprovados, incluindo regressões de substituição dos critérios, prioridade, datas e isolamento por contexto. Navegador com API/PostgreSQL isolados verificou ordem numérica crescente/decrescente, substituição pela opção nativa, persistência após reload e repetição da mesma opção nativa depois de aplicar outro critério personalizado. Typecheck, build e lint aprovados.
 - Refinamento posterior: 44 testes frontend direcionados, TypeScript, build e OxLint aprovados. Navegador com sessão/API/PostgreSQL isolados confirmou os sete tipos sem fundo/borda de formulário, persistência/restauração de texto e booleano, barra junto ao título em 1440/1024 px e barra compacta com 32 px de altura em 390 px. O novo botão Plane AI abre o painel ao lado da busca global nas três larguras. Os erros globais já documentados de hidratação/intake da fixture continuam fora do escopo desse ajuste visual.
 - Typecheck, build web e OxLint aprovados; **25 testes** dos helpers de Lista, exibição e larguras aprovados.
