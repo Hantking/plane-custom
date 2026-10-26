@@ -1,6 +1,7 @@
 import json
 import time
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .context import retrieve
 from .models import Run, Action, Policy, Connection, Automation
@@ -115,11 +116,13 @@ def detect_report(prompt):
 
 def bounded_messages(run, context, policy, tool_schema):
     final_report = bool(context.get("final_report"))
-    reserved = min(
-        run.connection.output_tokens * (4 if final_report else 1),
-        max(run.connection.output_tokens, int(run.connection.context_tokens * 0.4)),
+    context_limit = run.connection.context_tokens
+    output_limit = run.connection.output_tokens or 0
+    reserved = (
+        min(output_limit * (4 if final_report else 1), max(output_limit, int(context_limit * 0.4)))
+        if context_limit else 0
     )
-    budget = int(run.connection.context_tokens * 0.90) - reserved - 300
+    budget = int(context_limit * 0.90) - reserved - 300 if context_limit else None
     original_dossier = context.get("dossier")
     context = json.loads(json.dumps(context))
     retrieval_incomplete = context.get("truncated", False)
@@ -187,7 +190,7 @@ def bounded_messages(run, context, policy, tool_schema):
     messages = build()
 
     def oversized():
-        return request_tokens(messages, tool_schema) > budget
+        return budget is not None and request_tokens(messages, tool_schema) > budget
 
     for entries in context["lookup"].values():
         while entries and oversized():
@@ -235,8 +238,8 @@ def bounded_messages(run, context, policy, tool_schema):
     run.context_summary["evidence_audit"] = audit
     if oversized() or final_report and (retrieval_incomplete or not audit["all_selected_sources_supplied"]):
         raise ValidationError(
-            "As evidências do cliente não cabem integralmente na janela configurada ou excedem o limite de leitura. "
-            "Aumente o contexto ou refine o escopo. Nenhum relatório final incompleto foi publicado."
+            "As evidências do cliente não cabem integralmente na janela de contexto ou excedem o limite de leitura. "
+            "Refine o escopo. Nenhum relatório final incompleto foi publicado."
         )
     context["_audit"] = audit
     return messages, context
@@ -359,7 +362,13 @@ def run_generation(identifier):
         }
         run.save(update_fields=["sources", "context_summary", "updated_at"])
 
+        last_heartbeat = time.monotonic()
+
         def cancelled():
+            nonlocal last_heartbeat
+            if time.monotonic() - last_heartbeat >= 10:
+                Run.objects.filter(pk=run.pk, status="running", cancelled=False).update(updated_at=timezone.now())
+                last_heartbeat = time.monotonic()
             return Run.objects.filter(pk=run.pk, cancelled=True).exists()
 
         def delta(text):
@@ -436,8 +445,11 @@ def run_generation(identifier):
                     run.sources = list({(s["kind"], s["id"]): s for s in run.sources + refs}.values())
                     run.save(update_fields=["sources", "context_summary", "updated_at"])
                     result = json.loads(json.dumps(result))
-                    tool_budget = max(1000, (run.connection.context_tokens - run.connection.output_tokens) // 4)
-                    while result["rows"] and len(json.dumps(result).encode()) > tool_budget:
+                    tool_budget = (
+                        max(1000, (run.connection.context_tokens - (run.connection.output_tokens or 0)) // 4)
+                        if run.connection.context_tokens else None
+                    )
+                    while tool_budget is not None and result["rows"] and len(json.dumps(result).encode()) > tool_budget:
                         result["rows"].pop()
                         result["truncated"] = True
                 elif function.get("name") == "search_workspace":
@@ -458,9 +470,16 @@ def run_generation(identifier):
                         complete=final_report,
                     )
                     result["lookup"] = {}
-                    tool_budget = max(1000, (run.connection.context_tokens - run.connection.output_tokens) // 4)
+                    tool_budget = (
+                        max(1000, (run.connection.context_tokens - (run.connection.output_tokens or 0)) // 4)
+                        if run.connection.context_tokens else None
+                    )
                     for key in ["comments", "activities", "relations", "pages", "issues", "memories", "projects"]:
-                        while result[key] and len(json.dumps(result, ensure_ascii=False).encode()) > tool_budget:
+                        while (
+                            tool_budget is not None
+                            and result[key]
+                            and len(json.dumps(result, ensure_ascii=False).encode()) > tool_budget
+                        ):
                             result[key].pop()
                             result["truncated"] = True
                     run.sources = list({(s["kind"], s["id"]): s for s in run.sources + refs}.values())

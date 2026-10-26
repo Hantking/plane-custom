@@ -8,7 +8,7 @@ from .orchestrator import run_generation
 from .security import Access, enabled
 
 
-@shared_task(name="plane.ai.generate", soft_time_limit=950, time_limit=980)
+@shared_task(name="plane.ai.generate", soft_time_limit=0, time_limit=0)
 def generate(identifier):
     run_generation(identifier)
 

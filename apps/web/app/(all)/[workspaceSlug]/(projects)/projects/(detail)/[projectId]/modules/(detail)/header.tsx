@@ -36,6 +36,7 @@ import {
 } from "@/components/issues/issue-layouts/filters";
 import { ModuleQuickActions } from "@/components/modules";
 import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
+import { NativeListToolbarSlot } from "@/components/custom-fields/native-list-toolbar-slot";
 // hooks
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -131,7 +132,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
         moduleDetails={moduleDetails ?? undefined}
         projectDetails={currentProjectDetails}
       />
-      <Header>
+      <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
         <Header.LeftItem>
           <div className="flex items-center gap-2">
             <Breadcrumbs onBack={router.back} isLoading={loader === "init-loader"}>
@@ -177,7 +178,8 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
             ) : null}
           </div>
         </Header.LeftItem>
-        <Header.RightItem className="items-center">
+        <Header.RightItem className="min-w-0 items-center [&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
+          <NativeListToolbarSlot />
           <div className="hidden gap-2 md:flex">
             <div className="hidden @4xl:flex">
               <LayoutSelection
@@ -242,6 +244,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
                   toggleCreateIssueModal(true, EIssuesStoreType.MODULE);
                 }}
                 data-ph-element={WORK_ITEM_TRACKER_ELEMENTS.HEADER_ADD_BUTTON.MODULE}
+                data-native-list-default-create
               >
                 Add work item
               </Button>

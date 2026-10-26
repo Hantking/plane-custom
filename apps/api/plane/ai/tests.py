@@ -117,6 +117,41 @@ class PlaneAITests(TestCase):
             allow_actions=allow_actions,
         )
 
+    def test_legacy_settings_payload_cannot_restore_removed_connection_limits(self):
+        from .serializers import ConnectionSerializer
+
+        serializer = ConnectionSerializer(data={
+            "name": "Provider managed", "base_url": self.connection.base_url,
+            "models": self.connection.models, "default_model": "first",
+            "context_tokens": 24000, "output_tokens": 2000, "timeout_seconds": 90,
+        })
+        with patch("plane.ai.serializers.provider_address"):
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+        connection = serializer.save(workspace=self.workspace)
+        for field in ["context_tokens", "output_tokens", "timeout_seconds"]:
+            self.assertIsNone(getattr(connection, field))
+            self.assertIsNone(ConnectionSerializer(connection).data[field])
+
+    def test_migration_clears_existing_connection_limits_without_changing_credentials(self):
+        from importlib import import_module
+        from django.apps import apps
+        from django.db import connection as database
+        from types import SimpleNamespace
+
+        self.connection.output_tokens = 2000
+        self.connection.timeout_seconds = 90
+        self.connection.save()
+        previous_models = self.connection.models
+        previous_key = self.connection.encrypted_key
+        migration = import_module("plane.ai.migrations.0003_provider_managed_limits")
+        migration.clear_connection_limits(apps, SimpleNamespace(connection=database))
+        self.connection.refresh_from_db()
+        self.assertIsNone(self.connection.context_tokens)
+        self.assertIsNone(self.connection.output_tokens)
+        self.assertIsNone(self.connection.timeout_seconds)
+        self.assertEqual(self.connection.models, previous_models)
+        self.assertEqual(self.connection.encrypted_key, previous_key)
+
     def action(self, operation, arguments, run=None, ordinal=1):
         return Action.objects.create(
             workspace=self.workspace,

@@ -6,6 +6,12 @@ A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padr
 
 A barra da Lista oferece agrupamento, até cinco critérios de ordenação, filtros AND/OR/NOT, busca, modo de subtarefas, cálculos, presets e CSV. A página **Campos e visualizações** continua responsável pela gestão de definições e também pode editar as consultas salvas.
 
+### Controles no cabeçalho
+
+Os controles ficam na barra superior de visualizações. **Exportar CSV** reúne campos visíveis/todos os campos; **Agrupar**, **Ordenar**, **Filtrar campos**, **Subtarefas**, **Campos** e **Buscar** abrem painéis compactos. Opções ativas recebem destaque. **Personalizar** reúne busca em campos ocultos e cálculos; **Presets** reúne seleção, criação, compartilhamento e gestão das consultas salvas. A explicação dos presets aparece dentro desse menu.
+
+Os painéis se ajustam à largura da tela, fecham por Escape/clique externo e preservam os providers da Lista por portal. A criação contextual fica no mesmo cabeçalho. Ao trocar de layout, a barra da Lista é desmontada e a criação nativa reaparece. No celular os controles usam ícones com nomes acessíveis, sem manter formulários abertos acima da tabela.
+
 ### Semântica dos resultados
 
 - A API filtra e ordena antes de paginar. A seleção única ordena pela sequência das opções na definição; seleção múltipla não oferece ordenação. Cada critério declara direção e posição dos nulos; o desempate final é o UUID.
@@ -47,6 +53,13 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 | Seleção, ações e hierarquia   | Componentes nativos preservados; filhos são carregados em lotes pelo store de subtarefas existente                                                          |
 | Redimensionamento             | Mesmo provider de larguras; cabeçalho/linha compartilham a grade CSS, sem padding externo na linha; wrappers da virtualização cobrem a largura total        |
 | Imagem backend                | `hentis/Dockerfile.backend` inclui os três pontos de integração de filtro/ordem/paginação, além do módulo e serializer                                      |
+
+## Validação do cabeçalho — 26/10/2026
+
+- Typecheck, build web e OxLint aprovados; **25 testes** dos helpers de Lista, exibição e larguras aprovados.
+- Chromium autenticado com API/PostgreSQL isolados: os nove menus abriram e fecharam por Escape em **1440, 1024 e 390 px**, com painéis dentro da largura da tela. A barra foi localizada no slot do cabeçalho, junto às visualizações.
+- Troca Lista → Kanban → Lista confirmou desmontagem/restauração da barra e retorno do botão nativo de criação no Kanban. Screenshots locais conferidos em desktop e celular, incluindo a barra compacta em uma linha no celular.
+- O ensaio mantém os erros globais de hidratação 418/423 já documentados e ausência do estado de intake na fixture (404). A verificação acima é local e não representa deploy em produção.
 
 ## Matriz de evidências locais — 22/10/2026
 

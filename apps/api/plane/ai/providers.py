@@ -5,8 +5,10 @@ import json
 import socket
 import ssl
 import time
+import threading
 from contextlib import contextmanager
 
+from django.db import connections
 from rest_framework.exceptions import ValidationError
 from .security import decrypt, provider_address
 from .tool_transport import normalize_tool_message, visible_assistant_text, ToolEnvelopeError
@@ -42,14 +44,42 @@ def model_config(connection, identifier):
 
 
 @contextmanager
-def request(connection, method, suffix, payload=None):
+def request(connection, method, suffix, payload=None, cancelled=None):
     parsed, address, port = provider_address(connection.base_url)
-    client = http.client.HTTPConnection(parsed.hostname, port, timeout=connection.timeout_seconds)
+    connect_timeout = connection.timeout_seconds or 15
+    client = http.client.HTTPConnection(parsed.hostname, port, timeout=connect_timeout)
+    stopped, cancellation, check_failed = threading.Event(), threading.Event(), threading.Event()
+    watcher = None
+    response = None
     try:
-        sock = socket.create_connection((address, port), timeout=connection.timeout_seconds)
+        sock = socket.create_connection((address, port), timeout=connect_timeout)
         if parsed.scheme == "https":
             sock = ssl.create_default_context().wrap_socket(sock, server_hostname=parsed.hostname)
         client.sock = sock
+        sock.settimeout(connection.timeout_seconds)
+
+        def watch_cancellation():
+            try:
+                while not stopped.wait(1):
+                    if cancelled():
+                        cancellation.set()
+                        break
+                else:
+                    return
+            except Exception:
+                check_failed.set()
+            finally:
+                connections.close_all()
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+
+        if cancelled is not None:
+            if cancelled():
+                raise Cancelled()
+            watcher = threading.Thread(target=watch_cancellation, daemon=True)
+            watcher.start()
         key = decrypt(connection.encrypted_key)
         headers = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Plane-AI"}
         if key:
@@ -70,10 +100,25 @@ def request(connection, method, suffix, payload=None):
             # Provider bodies can contain secrets or echoed prompts; never log or return them.
             raise ProviderError(messages.get(response.status, "Provedor indisponível. Tente novamente mais tarde."))
         yield response
+        if cancellation.is_set():
+            raise Cancelled()
+        if check_failed.is_set():
+            raise ProviderError("Não foi possível verificar o estado da execução.")
+    except ProviderError:
+        if cancellation.is_set():
+            raise Cancelled() from None
+        raise
     except (OSError, ssl.SSLError, http.client.HTTPException):
+        if cancellation.is_set():
+            raise Cancelled() from None
         raise ProviderError("Falha de rede ou tempo de resposta do provedor excedido.") from None
     finally:
+        stopped.set()
+        if response is not None:
+            response.close()
         client.close()
+        if watcher is not None:
+            watcher.join(timeout=2)
 
 
 class ChatCompletions:
@@ -117,7 +162,7 @@ class ChatCompletions:
             messages = [{**message, "role": "user"} if message["role"] == "system" else message for message in messages]
         payload = {"model": model, "messages": messages, **config.get("parameters", {})}
         token_parameter = config.get("output_parameter", "max_tokens")
-        if token_parameter != "none":
+        if token_parameter != "none" and self.connection.output_tokens is not None:
             payload[token_parameter] = self.connection.output_tokens
         if caps["streaming"]:
             payload["stream"] = True
@@ -129,7 +174,7 @@ class ChatCompletions:
     def complete(self, model, messages, tools=None, on_delta=None, cancelled=lambda: False):
         payload = self.payload(model, messages, tools)
         started = time.monotonic()
-        with request(self.connection, "POST", "chat/completions", payload) as response:
+        with request(self.connection, "POST", "chat/completions", payload, cancelled=cancelled) as response:
             if not payload.get("stream"):
                 raw = response.read(2_000_001)
                 if len(raw) > 2_000_000:
@@ -155,7 +200,10 @@ class ChatCompletions:
             while True:
                 if cancelled():
                     raise Cancelled()
-                if time.monotonic() - started > self.connection.timeout_seconds:
+                if (
+                    self.connection.timeout_seconds is not None
+                    and time.monotonic() - started > self.connection.timeout_seconds
+                ):
                     raise ProviderError("Tempo total de geração excedido.")
                 line = response.readline(262145)
                 size += len(line)

@@ -12,9 +12,6 @@ type Connection = AIConnection & {
   has_api_key: boolean;
   protocol: string;
   purpose: string;
-  context_tokens: number;
-  output_tokens: number;
-  timeout_seconds: number;
   allowed_roles: number[];
   enabled: boolean;
 };
@@ -33,9 +30,6 @@ const empty = (): Draft => ({
   purpose: "chat",
   models: [],
   default_model: "",
-  context_tokens: 24000,
-  output_tokens: 2000,
-  timeout_seconds: 90,
   allowed_roles: [15, 20],
   enabled: true,
 });
@@ -529,26 +523,10 @@ export function PlaneAISettings() {
                 <ChevronRight size={13} />
               </summary>
               <div className="mt-4 space-y-4">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {(
-                    [
-                      ["context_tokens", "Janela de contexto"],
-                      ["output_tokens", "Limite de saída"],
-                      ["timeout_seconds", "Timeout em segundos"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <label key={key}>
-                      {label}
-                      <input
-                        className={aiInputClass}
-                        type="number"
-                        min={1}
-                        value={draft[key]}
-                        onChange={(event) => setDraft({ ...draft, [key]: Number(event.target.value) })}
-                      />
-                    </label>
-                  ))}
-                </div>
+                <p className="text-11 text-secondary">
+                  Contexto e saída seguem a capacidade do modelo e as regras do provedor. O Plane não impõe janela,
+                  limite de tokens de saída ou prazo de geração por conexão. Você pode cancelar a execução no chat.
+                </p>
                 <div className="flex flex-wrap gap-4">
                   {(
                     [
@@ -648,27 +626,6 @@ export function PlaneAISettings() {
                           );
                         })}
                       </div>
-                      <label className="block">
-                        Parâmetro de saída
-                        <select
-                          className={aiInputClass}
-                          value={model.output_parameter ?? "max_tokens"}
-                          onChange={(event) =>
-                            setDraft({
-                              ...draft,
-                              models: draft.models.map((item) =>
-                                item.id === model.id
-                                  ? { ...item, output_parameter: event.target.value as AIModel["output_parameter"] }
-                                  : item
-                              ),
-                            })
-                          }
-                        >
-                          <option>max_tokens</option>
-                          <option>max_completion_tokens</option>
-                          <option value="none">Não enviar</option>
-                        </select>
-                      </label>
                       <label className="block">
                         Parâmetros de geração (JSON)
                         <textarea

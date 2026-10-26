@@ -35,7 +35,7 @@ class ConnectionSerializer(serializers.ModelSerializer):
             "allowed_roles",
             "enabled",
         ]
-        read_only_fields = ["id", "has_api_key"]
+        read_only_fields = ["id", "has_api_key", "context_tokens", "output_tokens", "timeout_seconds"]
 
     def get_has_api_key(self, instance):
         return bool(instance.encrypted_key)
@@ -78,15 +78,6 @@ class ConnectionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Parâmetro de limite de saída inválido.")
         if get("default_model") not in ids:
             raise serializers.ValidationError("O modelo padrão deve constar da lista autorizada.")
-        for key, low, high, default in [
-            ("context_tokens", 2000, 128000, 8000),
-            ("output_tokens", 32, 16000, 1000),
-            ("timeout_seconds", 5, 180, 60),
-        ]:
-            if not low <= get(key, default) <= high:
-                raise serializers.ValidationError(f"{key}: limite permitido {low}–{high}.")
-        if get("output_tokens", 1000) >= get("context_tokens", 8000):
-            raise serializers.ValidationError("A saída deve ser menor que a janela de contexto.")
         roles = get("allowed_roles", [15, 20])
         if (
             not isinstance(roles, list)

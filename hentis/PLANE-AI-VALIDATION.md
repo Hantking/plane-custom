@@ -1,5 +1,14 @@
 # Evidências de validação — Plane AI
 
+## Remoção dos limites por conexão — 26/10/2026
+
+- Removidos os controles de janela de contexto, tokens de saída e timeout da interface, incluindo os padrões de 24000/2000/90. A migração `plane_ai.0003_provider_managed_limits` limpa esses valores nas conexões existentes; novos cadastros usam `null`. Payloads de clientes antigos não restauram os limites.
+- Contrato HTTP confirma ausência de `max_tokens` e `max_completion_tokens` nos pedidos ao provedor. A geração não tem prazo total local nem limite de duração da tarefa Celery; abertura TCP/TLS mantém proteção técnica de 15 segundos.
+- Fixture de relatório final com evidência extensa ultrapassa a antiga janela de 24000 tokens estimados, fornece o marcador no final da descrição, registra cobertura integral e publica a página com nove seções.
+- Cancelamento verificado em HTTP real durante espera por cabeçalhos, corpo SSE e corpo JSON sem timeout de leitura. O socket é interrompido e a execução termina como cancelada, sem aguardar resposta do provedor.
+- **181 testes de backend e 57 de frontend aprovados** com PostgreSQL isolado. Typecheck, build web, Ruff, OxLint e `git diff --check` aprovados; `makemigrations --check --dry-run` não detecta alterações sem migração.
+- Validação local com fixture de protocolo/geração. A capacidade e os padrões reais do provedor continuam valendo. Para ativar no servidor, a release precisa incluir esta mudança e aplicar a terceira migração antes de iniciar os processos atualizados.
+
 ## Evidências e relatórios executivos completos
 
 - Cenário de regressão baseado na comparação enviada: registro importado em 18/10, datas de atendimento de junho a outubro no texto, nove comentários, tarefa aberta, campo de etapa antigo e próximo contato antigo versus atualização de 22/10.
@@ -136,7 +145,7 @@ A UI foi integrada às rotas, navegação, store de tarefas e referências dos e
 - Nenhuma credencial de inferência real foi fornecida. O servidor HTTP dos testes é uma fixture de protocolo; não comprova qualidade de um modelo comercial/local.
 - Configurar uma conexão real, testar dois modelos e validar geração/tool calling com o provedor escolhido.
 - A publicação executa o CI ARM64 e gera um manifesto aprovado para consumo no deployment. Confirme o resultado do workflow e o commit/digests do lock antes de implantar.
-- Aplicar as duas migrações `plane_ai`, configurar as quatro variáveis de ambiente, reiniciar API/worker/beat e habilitar a política do workspace.
+- Aplicar as três migrações `plane_ai`, configurar as quatro variáveis de ambiente, reiniciar API/worker/beat e habilitar a política do workspace.
 - Verificar no navegador login, painel/seleção, edição colaborativa, fluxo completo de cancelamento e interface após operações reais.
 - Entrega real pelo RabbitMQ, notificações conforme preferências e testes de carga/recuperação não foram declarados como executados.
 

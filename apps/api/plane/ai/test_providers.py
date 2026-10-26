@@ -3,6 +3,7 @@
 import json
 import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 from uuid import uuid4
@@ -38,8 +39,15 @@ class ProtocolTests(SimpleTestCase):
             def do_POST(self):
                 payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 cls.received.append(payload)
+                cls.request_received.set()
+                if cls.stall:
+                    cls.release_response.wait(10)
                 self.send_response(cls.http_status)
                 self.end_headers()
+                if cls.stall_body:
+                    self.wfile.flush()
+                    cls.response_started.set()
+                    cls.release_response.wait(10)
                 if cls.http_status != 200:
                     self.wfile.write(b'{"error":"secret-provider-body-must-not-be-exposed"}')
                 elif self.path.endswith("/embeddings"):
@@ -98,6 +106,11 @@ class ProtocolTests(SimpleTestCase):
         type(self).catalog_data = [{"id": "manual-one"}, {"id": "manual-two"}]
         type(self).http_status = 200
         type(self).truncated = False
+        type(self).stall = False
+        type(self).stall_body = False
+        type(self).request_received = threading.Event()
+        type(self).response_started = threading.Event()
+        type(self).release_response = threading.Event()
         self.environment = patch.dict(
             os.environ,
             {
@@ -139,6 +152,66 @@ class ProtocolTests(SimpleTestCase):
             self.assertEqual(message["content"], "")
             self.assertEqual(message["tool_calls"][0]["function"]["name"], "search_workspace")
             self.assertNotIn("<tool", "".join(deltas))
+
+    def test_provider_managed_output_omits_both_token_limit_parameters(self):
+        self.connection.timeout_seconds = None
+        for parameter in ["max_tokens", "max_completion_tokens", "none"]:
+            self.connection.models[0]["output_parameter"] = parameter
+            message, _ = ChatCompletions(self.connection).complete(
+                "manual-one", [{"role": "user", "content": "Olá"}]
+            )
+            self.assertEqual(message["content"], "Resposta incremental")
+            self.assertNotIn("max_tokens", self.received[-1])
+            self.assertNotIn("max_completion_tokens", self.received[-1])
+
+    def test_unlimited_request_can_be_cancelled_while_waiting_for_response_headers(self):
+        self.connection.timeout_seconds = None
+        type(self).stall = True
+        cancelled = threading.Event()
+
+        def cancel_after_request():
+            if self.request_received.wait(5):
+                cancelled.set()
+
+        trigger = threading.Thread(target=cancel_after_request)
+        trigger.start()
+        started = time.monotonic()
+        try:
+            with self.assertRaises(Cancelled):
+                ChatCompletions(self.connection).complete(
+                    "manual-one", [{"role": "user", "content": "Olá"}], cancelled=cancelled.is_set
+                )
+            self.assertLess(time.monotonic() - started, 5)
+        finally:
+            self.release_response.set()
+            trigger.join(timeout=5)
+
+    def test_unlimited_stream_and_json_can_be_cancelled_while_waiting_for_the_body(self):
+        self.connection.timeout_seconds = None
+        type(self).stall_body = True
+        for streaming in [True, False]:
+            with self.subTest(streaming=streaming):
+                self.connection.models[0]["capabilities"]["streaming"] = streaming
+                type(self).response_started = threading.Event()
+                type(self).release_response = threading.Event()
+                cancelled = threading.Event()
+
+                def cancel_after_headers():
+                    if self.response_started.wait(5):
+                        cancelled.set()
+
+                trigger = threading.Thread(target=cancel_after_headers)
+                trigger.start()
+                started = time.monotonic()
+                try:
+                    with self.assertRaises(Cancelled):
+                        ChatCompletions(self.connection).complete(
+                            "manual-one", [{"role": "user", "content": "Olá"}], cancelled=cancelled.is_set
+                        )
+                    self.assertLess(time.monotonic() - started, 5)
+                finally:
+                    self.release_response.set()
+                    trigger.join(timeout=5)
 
     def test_catalog_reads_metadata_and_filters_non_chat_models_over_http(self):
         type(self).catalog_data = [

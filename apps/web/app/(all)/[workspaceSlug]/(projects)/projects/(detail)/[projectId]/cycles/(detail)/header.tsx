@@ -39,6 +39,7 @@ import {
   MobileLayoutSelection,
 } from "@/components/issues/issue-layouts/filters";
 import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
+import { NativeListToolbarSlot } from "@/components/custom-fields/native-list-toolbar-slot";
 // hooks
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
 import { useCycle } from "@/hooks/store/use-cycle";
@@ -134,7 +135,7 @@ export const CycleIssuesHeader = observer(function CycleIssuesHeader() {
         onClose={() => setAnalyticsModal(false)}
         cycleDetails={cycleDetails ?? undefined}
       />
-      <Header>
+      <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
         <Header.LeftItem>
           <div className="flex items-center gap-2">
             <Breadcrumbs onBack={router.back} isLoading={loader === "init-loader"}>
@@ -183,7 +184,8 @@ export const CycleIssuesHeader = observer(function CycleIssuesHeader() {
             ) : null}
           </div>
         </Header.LeftItem>
-        <Header.RightItem className="items-center">
+        <Header.RightItem className="min-w-0 items-center [&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
+          <NativeListToolbarSlot />
           <div className="hidden items-center gap-2 md:flex">
             <div className="hidden @4xl:flex">
               <LayoutSelection
@@ -247,6 +249,7 @@ export const CycleIssuesHeader = observer(function CycleIssuesHeader() {
                       toggleCreateIssueModal(true, EIssuesStoreType.CYCLE);
                     }}
                     data-ph-element={WORK_ITEM_TRACKER_ELEMENTS.HEADER_ADD_BUTTON.CYCLE}
+                    data-native-list-default-create
                   >
                     {t("issue.add.label")}
                   </Button>

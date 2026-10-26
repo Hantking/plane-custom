@@ -191,9 +191,11 @@ export function AIChatMessage({
               /{run.context.evidence_audit.sources.filter((source) => !source.excluded_reason).length}.
             </p>
             <p>
-              Entrada estimada: {run.context.evidence_audit.estimated_input_tokens.toLocaleString("pt-BR")} tokens.
-              Janela configurada: {run.context.evidence_audit.configured_context_tokens.toLocaleString("pt-BR")}.
-              Estimativa, não contagem exata do provedor.
+              Entrada estimada: {run.context.evidence_audit.estimated_input_tokens.toLocaleString("pt-BR")} tokens.{" "}
+              Janela:{" "}
+              {run.context.evidence_audit.configured_context_tokens?.toLocaleString("pt-BR") ??
+                "gerenciada pelo provedor"}
+              . Estimativa, não contagem exata do provedor.
             </p>
             {run.context.generation && (
               <p>

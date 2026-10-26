@@ -74,7 +74,7 @@ export type AIRun = {
     evidence_audit?: {
       exact: boolean;
       estimated_input_tokens: number;
-      configured_context_tokens: number;
+      configured_context_tokens: number | null;
       retrieval_complete: boolean;
       sources: { source_id: string; complete: boolean; excluded_reason?: string | null }[];
     };

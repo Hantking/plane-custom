@@ -3,7 +3,6 @@
 import json
 import re
 import unicodedata
-import time
 
 from .evidence import estimated_tokens
 from .providers import ProviderError, ToolProtocolError, Cancelled
@@ -98,7 +97,6 @@ class GenerationSession:
     def __init__(self, run, revalidate, cancelled, on_delta):
         self.run, self.revalidate, self.cancelled, self.on_delta = run, revalidate, cancelled, on_delta
         self.audit = {"complete": False, "calls": 0, "continuations": 0, "segments": [], "token_estimate_exact": False}
-        self.started = time.monotonic()
         run.context_summary["generation"] = self.audit
 
     def _request(self, provider, messages, schemas, delta):
@@ -107,14 +105,12 @@ class GenerationSession:
         self.revalidate()
         if self.audit["calls"] >= 8:
             raise ProviderError("Limite de geração/continuação atingido. Nenhuma página incompleta foi publicada.")
-        if time.monotonic() - self.started + self.run.connection.timeout_seconds > 880:
-            raise ProviderError(
-                "Tempo disponível insuficiente para concluir o relatório. Nenhuma página incompleta foi publicada."
-            )
         estimated = request_tokens(messages, schemas)
-        if estimated + self.run.connection.output_tokens + 300 > int(self.run.connection.context_tokens * 0.92):
+        if self.run.connection.context_tokens and estimated + (self.run.connection.output_tokens or 0) + 300 > int(
+            self.run.connection.context_tokens * 0.92
+        ):
             raise ProviderError(
-                "Janela de contexto insuficiente para concluir o relatório. Aumente o contexto ou refine o escopo."
+                "Janela de contexto insuficiente para concluir o relatório. Refine o escopo."
             )
         self.audit["calls"] += 1
         message, usage = provider.complete(self.run.model, messages, schemas, delta, self.cancelled)

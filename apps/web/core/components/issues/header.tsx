@@ -27,6 +27,7 @@ import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { CountChip } from "@/components/common/count-chip";
 // constants
 import { HeaderFilters } from "@/components/issues/filters";
+import { NativeListToolbarSlot } from "@/components/custom-fields/native-list-toolbar-slot";
 // helpers
 // hooks
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
@@ -67,7 +68,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
   );
 
   return (
-    <Header>
+    <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
       <Header.LeftItem>
         <div className="flex items-center gap-2.5">
           <Breadcrumbs onBack={() => router.back()} isLoading={loader === "init-loader"} className="flex-grow-0">
@@ -109,8 +110,9 @@ export const IssuesHeader = observer(function IssuesHeader() {
           <></>
         )}
       </Header.LeftItem>
-      <Header.RightItem>
+      <Header.RightItem className="min-w-0 [&:has([data-native-list-toolbar])]:w-full [&:has([data-native-list-toolbar])]:flex-wrap md:[&:has([data-native-list-toolbar])]:w-auto [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden [&:has([data-native-list-toolbar])_[data-native-list-default-fields]]:hidden">
         <a
+          data-native-list-default-fields
           className="rounded border border-subtle px-2 py-1 text-13 text-primary"
           href={`/${workspaceSlug}/projects/${projectId}/custom-fields/`}
         >
@@ -124,8 +126,10 @@ export const IssuesHeader = observer(function IssuesHeader() {
             canUserCreateIssue={canUserCreateIssue}
           />
         </div>
+        <NativeListToolbarSlot />
         {canUserCreateIssue && (
           <Button
+            data-native-list-default-create
             variant="primary"
             size="lg"
             onClick={() => {

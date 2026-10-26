@@ -287,6 +287,33 @@ class ExecutiveReportTests(TestCase):
         self.assertIn("janela", run.error)
         self.assertFalse(Page.objects.exists())
 
+    def test_provider_managed_context_preserves_evidence_beyond_the_old_window(self):
+        run = self.report_run()
+        self.connection.context_tokens = None
+        self.connection.output_tokens = None
+        self.connection.timeout_seconds = None
+        self.connection.save()
+        self.root.description_html = "<p>" + "Evidência extensa registrada. " * 3200 + "MARCADOR FINAL INTEGRAL</p>"
+        self.root.save()
+        captured = []
+
+        class Adapter:
+            def complete(self, model, messages, *args):
+                captured.extend(messages)
+                return {"content": REPORT, "_finish_reason": "stop"}, {}
+
+        with patch("plane.ai.orchestrator.adapter", return_value=Adapter()):
+            run_generation(run.id)
+        run.refresh_from_db()
+        self.assertEqual(run.status, "completed", run.error)
+        audit = run.context_summary["evidence_audit"]
+        self.assertGreater(audit["estimated_input_tokens"], 24000)
+        self.assertIsNone(audit["input_budget"])
+        self.assertIsNone(audit["configured_context_tokens"])
+        self.assertTrue(audit["all_selected_sources_supplied"])
+        self.assertIn("MARCADOR FINAL INTEGRAL", json.dumps(captured, ensure_ascii=False))
+        self.assertTrue(Page.objects.exists())
+
     def test_revocation_during_continuation_prevents_publication(self):
         run = self.report_run()
         project = self.project

@@ -116,7 +116,7 @@ export const NativeListController = observer(function NativeListController({
         );
         if (element) element.focus({ preventScroll: true });
         else {
-          document.querySelector<HTMLElement>("[data-native-list-search]")?.focus();
+          document.querySelector<HTMLElement>("[data-native-list-search], [data-native-list-search-trigger]")?.focus();
           setNotice("Alteração salva. O item pode ter mudado de grupo, posição ou saído dos filtros/página atuais.");
         }
         pendingFocus.current = null;

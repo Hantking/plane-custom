@@ -28,6 +28,7 @@ import { SwitcherIcon, SwitcherLabel } from "@/components/common/switcher-label"
 import { DisplayFiltersSelection, FiltersDropdown, LayoutSelection } from "@/components/issues/issue-layouts/filters";
 import { ViewQuickActions } from "@/components/views/quick-actions";
 import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
+import { NativeListToolbarSlot } from "@/components/custom-fields/native-list-toolbar-slot";
 // hooks
 import { useCommandPalette } from "@/hooks/store/use-command-palette";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -121,7 +122,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
     .filter((option) => option !== undefined) as ICustomSearchSelectOption[];
 
   return (
-    <Header>
+    <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
       <Header.LeftItem>
         <Breadcrumbs isLoading={loader === "init-loader"}>
           <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
@@ -164,7 +165,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
           <></>
         )}
       </Header.LeftItem>
-      <Header.RightItem className="items-center">
+      <Header.RightItem className="min-w-0 items-center [&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
         <>
           {!viewDetails.is_locked && (
             <LayoutSelection
@@ -179,6 +180,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
               selectedLayout={activeLayout}
             />
           )}
+          <NativeListToolbarSlot />
           {viewId && <WorkItemFiltersToggle entityType={EIssuesStoreType.PROJECT_VIEW} entityId={viewId} />}
           {!viewDetails.is_locked && (
             <FiltersDropdown title="Display" placement="bottom-end">
@@ -204,6 +206,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
               toggleCreateIssueModal(true, EIssuesStoreType.PROJECT_VIEW);
             }}
             data-ph-element={WORK_ITEM_TRACKER_ELEMENTS.HEADER_ADD_BUTTON.PROJECT_VIEW}
+            data-native-list-default-create
           >
             Add work item
           </Button>

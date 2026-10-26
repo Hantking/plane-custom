@@ -25,6 +25,7 @@ import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 import { SwitcherLabel } from "@/components/common/switcher-label";
 import { DisplayFiltersSelection, FiltersDropdown } from "@/components/issues/issue-layouts/filters";
 import { WorkItemFiltersToggle } from "@/components/work-item-filters/filters-toggle";
+import { NativeListToolbarSlot } from "@/components/custom-fields/native-list-toolbar-slot";
 import { DefaultWorkspaceViewQuickActions } from "@/components/workspace/views/default-view-quick-action";
 import { CreateUpdateWorkspaceViewModal } from "@/components/workspace/views/modal";
 import { WorkspaceViewQuickActions } from "@/components/workspace/views/quick-action";
@@ -107,7 +108,7 @@ export const GlobalIssuesHeader = observer(function GlobalIssuesHeader() {
   return (
     <>
       <CreateUpdateWorkspaceViewModal isOpen={createViewModal} onClose={() => setCreateViewModal(false)} />
-      <Header>
+      <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
         <Header.LeftItem>
           <Breadcrumbs>
             <Breadcrumbs.Item
@@ -135,7 +136,8 @@ export const GlobalIssuesHeader = observer(function GlobalIssuesHeader() {
           </Breadcrumbs>
         </Header.LeftItem>
 
-        <Header.RightItem className="items-center">
+        <Header.RightItem className="min-w-0 items-center [&:has([data-native-list-toolbar])]:flex-wrap">
+          <NativeListToolbarSlot />
           {globalViewId && <WorkItemFiltersToggle entityType={EIssuesStoreType.GLOBAL} entityId={globalViewId} />}
           {!isLocked && (
             <FiltersDropdown title={t("common.display")} placement="bottom-end">
