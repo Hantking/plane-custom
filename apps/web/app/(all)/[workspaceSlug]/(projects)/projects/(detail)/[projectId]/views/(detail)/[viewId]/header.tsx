@@ -122,7 +122,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
     .filter((option) => option !== undefined) as ICustomSearchSelectOption[];
 
   return (
-    <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
+    <Header className="flex-wrap gap-y-2 md:flex-nowrap [&>div:first-child]:max-w-full [&>div:first-child]:min-w-0 [&>div:first-child]:flex-initial md:[&>div:first-child]:max-w-[25%] xl:[&>div:first-child]:max-w-[30%]">
       <Header.LeftItem>
         <Breadcrumbs isLoading={loader === "init-loader"}>
           <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
@@ -165,7 +165,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
           <></>
         )}
       </Header.LeftItem>
-      <Header.RightItem className="min-w-0 items-center [&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
+      <Header.RightItem className="min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
         <>
           {!viewDetails.is_locked && (
             <LayoutSelection

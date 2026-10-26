@@ -4,16 +4,19 @@
 
 A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padrão e os sete tipos de campos personalizados. **Campos** controla visibilidade e ordem; a borda dos cabeçalhos ajusta larguras com mouse ou teclado. As larguras da Lista e da Planilha são independentes.
 
+Na Lista, os editores de campos personalizados têm apresentação inline: fundo transparente, sem a borda de formulário em volta de cada valor, seleções com suas cores e foco de teclado visível. Valores vazios usam um travessão discreto. Texto/número/URL continuam salvando ao sair do campo; seleções e booleanos usam menus. Os formulários e a Planilha mantêm sua apresentação própria.
+
 A barra da Lista oferece agrupamento, até cinco critérios de ordenação, filtros AND/OR/NOT, busca, modo de subtarefas, cálculos, presets e CSV. A página **Campos e visualizações** continua responsável pela gestão de definições e também pode editar as consultas salvas.
 
 ### Controles no cabeçalho
 
-Os controles ficam na barra superior de visualizações. **Exportar CSV** reúne campos visíveis/todos os campos; **Agrupar**, **Ordenar**, **Filtrar campos**, **Subtarefas**, **Campos** e **Buscar** abrem painéis compactos. Opções ativas recebem destaque. **Personalizar** reúne busca em campos ocultos e cálculos; **Presets** reúne seleção, criação, compartilhamento e gestão das consultas salvas. A explicação dos presets aparece dentro desse menu.
+Os controles ficam na linha do título/caminho da página, junto ao nome do projeto, módulo ou visualização. **Exportar CSV** reúne campos visíveis/todos os campos; **Agrupar**, **Ordenar**, **Filtrar campos**, **Subtarefas**, **Campos** e **Buscar** abrem painéis compactos. Opções ativas recebem destaque. **Personalizar** reúne busca em campos ocultos e cálculos; **Presets** reúne seleção, criação, compartilhamento e gestão das consultas salvas. A explicação dos presets aparece dentro desse menu.
 
 Os painéis se ajustam à largura da tela, fecham por Escape/clique externo e preservam os providers da Lista por portal. A criação contextual fica no mesmo cabeçalho. Ao trocar de layout, a barra da Lista é desmontada e a criação nativa reaparece. No celular os controles usam ícones com nomes acessíveis, sem manter formulários abertos acima da tabela.
 
 ### Semântica dos resultados
 
+- Escolher uma ordem em **Exibir → Ordenar por** substitui os critérios personalizados ativos da mesma Lista, inclusive ao clicar na opção nativa que já estava selecionada. A nova escolha é persistida na consulta pessoal; **Manual** remove os critérios e habilita a ordem pessoal. Filtros, agrupamento e posições manuais são preservados.
 - A API filtra e ordena antes de paginar. A seleção única ordena pela sequência das opções na definição; seleção múltipla não oferece ordenação. Cada critério declara direção e posição dos nulos; o desempate final é o UUID.
 - Agrupar por seleção múltipla pode repetir uma tarefa em vários grupos. Totais, cálculos, seleção global e CSV contam/exportam entidades únicas. O filtro remove ocorrências incompatíveis: filtrar por uma opção não cria automaticamente ocorrências nas demais.
 - A busca abrange identificador, UUID, título, descrição e valores dos campos visíveis. A opção explícita de incluir campos ocultos amplia essa busca. Números, datas, booleanos e rótulos de opções também são pesquisáveis.
@@ -56,6 +59,8 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 
 ## Validação do cabeçalho — 26/10/2026
 
+- Ordenação: 46 testes frontend direcionados aprovados, incluindo regressões de substituição dos critérios, prioridade, datas e isolamento por contexto. Navegador com API/PostgreSQL isolados verificou ordem numérica crescente/decrescente, substituição pela opção nativa, persistência após reload e repetição da mesma opção nativa depois de aplicar outro critério personalizado. Typecheck, build e lint aprovados.
+- Refinamento posterior: 44 testes frontend direcionados, TypeScript, build e OxLint aprovados. Navegador com sessão/API/PostgreSQL isolados confirmou os sete tipos sem fundo/borda de formulário, persistência/restauração de texto e booleano, barra junto ao título em 1440/1024 px e barra compacta com 32 px de altura em 390 px. O novo botão Plane AI abre o painel ao lado da busca global nas três larguras. Os erros globais já documentados de hidratação/intake da fixture continuam fora do escopo desse ajuste visual.
 - Typecheck, build web e OxLint aprovados; **25 testes** dos helpers de Lista, exibição e larguras aprovados.
 - Chromium autenticado com API/PostgreSQL isolados: os nove menus abriram e fecharam por Escape em **1440, 1024 e 390 px**, com painéis dentro da largura da tela. A barra foi localizada no slot do cabeçalho, junto às visualizações.
 - Troca Lista → Kanban → Lista confirmou desmontagem/restauração da barra e retorno do botão nativo de criação no Kanban. Screenshots locais conferidos em desktop e celular, incluindo a barra compacta em uma linha no celular.

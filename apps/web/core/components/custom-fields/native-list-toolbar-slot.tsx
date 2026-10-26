@@ -78,11 +78,11 @@ export function NativeListToolbarPopover({
             title={title}
             aria-label={title}
             data-native-list-search-trigger={searchTrigger ? "" : undefined}
-            className={`relative flex h-8 items-center gap-1.5 rounded-md px-1.5 text-12 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent-strong sm:px-2 ${open || active ? "bg-accent-primary/10 text-accent-primary" : "text-secondary hover:bg-layer-transparent-hover hover:text-primary"}`}
+            className={`relative flex h-8 items-center gap-1.5 rounded-md px-1.5 text-12 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent-strong ${open || active ? "bg-accent-primary/10 text-accent-primary" : "text-secondary hover:bg-layer-transparent-hover hover:text-primary"}`}
           >
             {icon}
-            {showLabel && <span className="hidden max-w-28 truncate @6xl:inline">{title}</span>}
-            {showLabel && <ChevronDown className="hidden size-3 text-tertiary @6xl:block" />}
+            {showLabel && <span className="@8xl:inline hidden max-w-28 truncate">{title}</span>}
+            {showLabel && <ChevronDown className="@8xl:block hidden size-3 text-tertiary" />}
             {active && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent-primary" />}
           </Popover.Button>
           <Portal>

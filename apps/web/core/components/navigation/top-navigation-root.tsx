@@ -20,6 +20,7 @@ import useSWR from "swr";
 import { useWorkspaceNotifications } from "@/hooks/store/notifications";
 // local imports
 import { StarUsOnGitHubLink } from "@/app/(all)/[workspaceSlug]/(projects)/star-us-link";
+import { PlaneAIButton } from "@/components/plane-ai/panel";
 
 export const TopNavigationRoot = observer(function TopNavigationRoot() {
   // router
@@ -46,17 +47,21 @@ export const TopNavigationRoot = observer(function TopNavigationRoot() {
 
   return (
     <div
-      className={cn("z-[27] flex min-h-10 w-full items-center bg-canvas px-3.5 transition-all duration-300", {
-        "px-2": !showLabel,
-      })}
+      className={cn(
+        "z-[27] flex min-h-10 w-full flex-wrap items-center gap-x-2 gap-y-1 bg-canvas px-3.5 py-1 transition-all duration-300 sm:flex-nowrap",
+        {
+          "px-2": !showLabel,
+        }
+      )}
     >
       {/* Workspace Menu */}
-      <div className="flex-1 shrink-0">
+      <div className="min-w-0 flex-1">
         <WorkspaceMenuRoot variant="top-navigation" />
       </div>
       {/* Power K Search */}
-      <div className="shrink-0">
+      <div className="order-3 flex w-full min-w-0 items-center justify-center gap-2 sm:order-none sm:w-auto sm:shrink-0">
         <TopNavPowerK />
+        <PlaneAIButton variant="top-navigation" />
       </div>
       {/* Additional Actions */}
       <div className="flex flex-1 shrink-0 items-center justify-end gap-1">

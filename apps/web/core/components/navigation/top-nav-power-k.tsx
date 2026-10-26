@@ -101,7 +101,7 @@ export const TopNavPowerK = observer(() => {
     return () => {
       setTopNavInputRef(null);
     };
-  }, [setTopNavInputRef]);
+  }, [setTopNavInputRef, inputRef]);
 
   const handleClear = () => {
     setSearchTerm("");
@@ -203,15 +203,18 @@ export const TopNavPowerK = observer(() => {
         return;
       }
     },
-    [searchTerm, activePage, context, shouldShowContextBasedActions, setActivePage, closePanel]
+    [searchTerm, activePage, context, shouldShowContextBasedActions, setActivePage, closePanel, isOpen, containerRef]
   );
 
   return (
     <div ref={containerRef} className="relative">
       <div
-        className={cn("relative z-30 flex w-[364px] items-center transition-all duration-300 ease-in-out", {
-          "w-[554px]": isOpen,
-        })}
+        className={cn(
+          "relative z-30 flex w-[min(364px,55vw)] items-center transition-all duration-300 ease-in-out sm:w-[min(364px,34vw)]",
+          {
+            "sm:w-[min(554px,48vw)]": isOpen,
+          }
+        )}
       >
         <div
           className={cn(
@@ -220,13 +223,19 @@ export const TopNavPowerK = observer(() => {
               "bg-layer-1": isOpen,
             }
           )}
-          onClick={() => inputRef.current?.focus()}
-          role="button"
         >
-          <SearchIcon className="mr-2 size-3.5 shrink-0 text-placeholder" />
+          <button
+            type="button"
+            aria-label="Buscar comandos"
+            onClick={() => inputRef.current?.focus()}
+            className="mr-2 shrink-0"
+          >
+            <SearchIcon className="size-3.5 text-placeholder" />
+          </button>
           <input
             ref={inputRef}
             type="text"
+            aria-label="Buscar comandos"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -249,7 +258,7 @@ export const TopNavPowerK = observer(() => {
         className={cn(
           "shadow-lg absolute -top-[6px] left-1/2 z-20 flex -translate-x-1/2 flex-col overflow-hidden rounded-md border border-subtle bg-surface-1 px-0 pt-10 transition-all duration-300 ease-in-out",
           {
-            "max-h-[80vh] w-[574px] opacity-100": isOpen,
+            "max-h-[80vh] w-[574px] max-w-[calc(100vw-24px)] opacity-100": isOpen,
             "h-0 w-0 opacity-0": !isOpen,
           }
         )}

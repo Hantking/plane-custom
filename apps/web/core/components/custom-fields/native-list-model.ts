@@ -1,5 +1,41 @@
 import type { ViewConfig, FilterTree, Condition, CustomField } from "./service";
 import { columnWidthVariable, defaultColumnWidth } from "./column-width-helpers";
+import type { NativeRequest } from "./native-display-helpers";
+
+export type NativeOrderChange = { workspace: string; context: NativeRequest | null; orderBy: string };
+
+export function nativeOrderQueryChange(
+  active: { workspace: string; request: NativeRequest | null },
+  change: NativeOrderChange
+): Pick<ViewConfig, "sorts" | "manual" | "order_by"> | null {
+  const request = active.request,
+    context = change.context;
+  if (
+    !request ||
+    !context ||
+    request.layout !== "list" ||
+    context.layout !== "list" ||
+    active.workspace !== change.workspace ||
+    request.scope !== context.scope ||
+    request.target !== context.target ||
+    request.project_id !== context.project_id ||
+    !["sort_order", "-created_at", "-updated_at", "start_date", "target_date", "-priority"].includes(change.orderBy)
+  )
+    return null;
+  if (change.orderBy === "sort_order") return { sorts: [], manual: true, order_by: "sort_order" };
+  const field = change.orderBy.replace(/^-/, "");
+  return {
+    sorts: [
+      {
+        field: field === "target_date" ? "due_date" : field,
+        direction: change.orderBy === "-priority" || !change.orderBy.startsWith("-") ? "asc" : "desc",
+        nulls: "last",
+      },
+    ],
+    manual: false,
+    order_by: change.orderBy,
+  };
+}
 
 export const listQueryDefaults: ViewConfig = {
   schema_version: 2,

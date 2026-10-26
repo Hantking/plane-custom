@@ -106,7 +106,7 @@ export function NativeListToolbar({ props, summary }: { props: IList; summary?: 
           className="mr-1 hidden shrink-0 rounded-md bg-layer-2 px-2 py-1 text-11 font-medium text-secondary sm:inline"
         >
           {summary?.count ?? "…"}
-          <span className="hidden @6xl:inline"> tarefas</span>
+          <span className="@8xl:inline hidden"> tarefas</span>
         </span>
         <NativeListToolbarPopover title="Exportar CSV" icon={<ArrowDownToLine className="size-3.5" />}>
           <p className="text-12 text-secondary">Exporte as tarefas do resultado atual.</p>
@@ -491,7 +491,7 @@ export function NativeListToolbar({ props, summary }: { props: IList; summary?: 
           {!props.disableIssueCreation && !props.isCompletedCycle && (
             <Button size="sm" title="Nova tarefa" aria-label="Nova tarefa" onClick={() => setCreate(true)}>
               <Plus className="size-3.5" />
-              <span className="hidden @6xl:inline">Nova tarefa</span>
+              <span className="@8xl:inline hidden">Nova tarefa</span>
             </Button>
           )}
         </div>

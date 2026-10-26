@@ -68,7 +68,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
   );
 
   return (
-    <Header className="[&:has([data-native-list-toolbar])]:flex-wrap [&:has([data-native-list-toolbar])]:gap-y-2">
+    <Header className="flex-wrap gap-y-2 md:flex-nowrap [&>div:first-child]:max-w-full [&>div:first-child]:min-w-0 [&>div:first-child]:flex-initial md:[&>div:first-child]:max-w-[25%] xl:[&>div:first-child]:max-w-[30%]">
       <Header.LeftItem>
         <div className="flex items-center gap-2.5">
           <Breadcrumbs onBack={() => router.back()} isLoading={loader === "init-loader"} className="flex-grow-0">
@@ -110,7 +110,7 @@ export const IssuesHeader = observer(function IssuesHeader() {
           <></>
         )}
       </Header.LeftItem>
-      <Header.RightItem className="min-w-0 [&:has([data-native-list-toolbar])]:w-full [&:has([data-native-list-toolbar])]:flex-wrap md:[&:has([data-native-list-toolbar])]:w-auto [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden [&:has([data-native-list-toolbar])_[data-native-list-default-fields]]:hidden">
+      <Header.RightItem className="min-w-0 flex-1 basis-full flex-wrap justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden [&:has([data-native-list-toolbar])_[data-native-list-default-fields]]:hidden">
         <a
           data-native-list-default-fields
           className="rounded border border-subtle px-2 py-1 text-13 text-primary"

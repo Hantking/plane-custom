@@ -7,6 +7,7 @@ import {
   mergeManualOrder,
   moveListRow,
   normalizeListQuery,
+  nativeOrderQueryChange,
 } from "../../apps/web/core/components/custom-fields/native-list-model";
 import {
   bindNativeList,
@@ -20,6 +21,55 @@ const project = "11111111-1111-4111-8111-111111111111";
 const context = { scope: "project", target: project, project_id: project, layout: "list" };
 const url = `/api/workspaces/demo/projects/${project}/issues/`;
 const page = { cursor: "25:0:0", per_page: 25 };
+
+test("native sort choices replace custom criteria and preserve the native priority and date semantics", () => {
+  const active = { workspace: "demo", request: { ...context, scope: "project" as const, layout: "list" as const } };
+  const change = (orderBy: string) =>
+    nativeOrderQueryChange(active, { workspace: "demo", context: active.request, orderBy });
+  const previous = normalizeListQuery({
+    sorts: [{ field: "custom-field", direction: "desc", nulls: "first" }],
+    search: "client",
+    group_by: "group-field",
+    manual_order: { group: ["a", "b"] },
+  });
+  const next = { ...previous, ...change("-created_at") };
+  assert.equal(
+    previous.order_by,
+    "-created_at",
+    "the native option was already selected before applying custom criteria"
+  );
+  assert.deepEqual(next.sorts, [{ field: "created_at", direction: "desc", nulls: "last" }]);
+  assert.equal(next.search, previous.search);
+  assert.equal(next.group_by, previous.group_by);
+  assert.deepEqual(next.manual_order, previous.manual_order);
+  assert.deepEqual(change("-priority")?.sorts, [{ field: "priority", direction: "asc", nulls: "last" }]);
+  assert.deepEqual(change("target_date")?.sorts, [{ field: "due_date", direction: "asc", nulls: "last" }]);
+  assert.deepEqual(change("-updated_at")?.sorts, [{ field: "updated_at", direction: "desc", nulls: "last" }]);
+  assert.deepEqual(change("start_date")?.sorts, [{ field: "start_date", direction: "asc", nulls: "last" }]);
+  assert.deepEqual(change("sort_order"), { sorts: [], manual: true, order_by: "sort_order" });
+});
+
+test("native sort intents cannot affect a different workspace, route context or layout", () => {
+  const request = { ...context, scope: "project" as const, layout: "list" as const };
+  const active = { workspace: "demo", request };
+  for (const change of [
+    { workspace: "foreign", context: request, orderBy: "-created_at" },
+    { workspace: "demo", context: { ...request, target: "other" }, orderBy: "-created_at" },
+    { workspace: "demo", context: { ...request, scope: "module" as const }, orderBy: "-created_at" },
+    { workspace: "demo", context: { ...request, project_id: "other" }, orderBy: "-created_at" },
+    { workspace: "demo", context: { ...request, layout: "kanban" as const }, orderBy: "-created_at" },
+    { workspace: "demo", context: request, orderBy: "assignees__password" },
+    { workspace: "demo", context: null, orderBy: "-created_at" },
+  ])
+    assert.equal(nativeOrderQueryChange(active, change), null);
+  assert.equal(
+    nativeOrderQueryChange(
+      { ...active, request: null },
+      { workspace: "demo", context: request, orderBy: "-created_at" }
+    ),
+    null
+  );
+});
 
 test("legacy filters and sort migrate without losing semantics or changing node identity", () => {
   const value = normalizeListQuery({

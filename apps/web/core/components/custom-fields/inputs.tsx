@@ -46,13 +46,19 @@ export function FieldInput({
   onChange,
   disabled = false,
   immediate = false,
+  appearance = "form",
 }: {
   field: CustomField;
   value: FieldValue | undefined;
   onChange: (value: FieldValue) => void;
   disabled?: boolean;
   immediate?: boolean;
+  appearance?: "form" | "inline";
 }) {
+  const inline = appearance === "inline";
+  const inputClass = inline
+    ? "min-w-0 rounded border-0 bg-transparent px-1.5 py-1 text-13 text-primary shadow-none outline-none placeholder:text-tertiary hover:bg-transparent focus:bg-transparent focus-visible:ring-1 focus-visible:ring-accent-strong disabled:cursor-default disabled:opacity-50"
+    : fieldInputClass;
   const [draft, setDraft] = useState(value === null || value === undefined ? "" : String(value));
   useEffect(() => {
     setDraft(value === null || value === undefined ? "" : String(value));
@@ -63,7 +69,8 @@ export function FieldInput({
       <CustomSearchSelect
         multiple
         className="w-full"
-        buttonClassName={`${fieldInputClass} min-h-8 w-full`}
+        buttonClassName={`${inputClass} min-h-8 w-full`}
+        noChevron={inline}
         optionsClassName="z-[100]"
         value={selected}
         disabled={disabled}
@@ -75,12 +82,12 @@ export function FieldInput({
         }))}
         noResultsMessage="Nenhuma opção encontrada"
         label={
-          <span className="flex flex-wrap gap-1">
+          <span className={`flex min-w-0 gap-1 ${inline ? "items-center overflow-hidden" : "flex-wrap"}`}>
             <span className="sr-only">{field.name}: </span>
             {selected.length ? (
               <FieldDisplay field={field} value={selected} />
             ) : (
-              <span className="text-secondary">Selecionar opções</span>
+              <span className="text-tertiary">{inline ? "—" : "Selecionar opções"}</span>
             )}
           </span>
         }
@@ -102,7 +109,8 @@ export function FieldInput({
     return (
       <CustomSelect
         className="w-full"
-        buttonClassName={`${fieldInputClass} min-h-8 w-full`}
+        buttonClassName={`${inputClass} min-h-8 w-full`}
+        noChevron={inline}
         optionsClassName="z-[100]"
         value={value ?? ""}
         disabled={disabled}
@@ -110,7 +118,11 @@ export function FieldInput({
         label={
           <>
             <span className="sr-only">{field.name}: </span>
-            {selected ? <OptionBadge option={selected} /> : <span className="text-secondary">Sem valor</span>}
+            {selected ? (
+              <OptionBadge option={selected} />
+            ) : (
+              <span className="text-tertiary">{inline ? "—" : "Sem valor"}</span>
+            )}
           </>
         }
       >
@@ -124,6 +136,28 @@ export function FieldInput({
     );
   }
   if (field.kind === "boolean") {
+    if (inline)
+      return (
+        <CustomSelect
+          className="w-full"
+          buttonClassName={`${inputClass} min-h-8 w-full`}
+          optionsClassName="z-[100]"
+          noChevron
+          disabled={disabled}
+          value={value == null ? "" : String(value)}
+          onChange={(next: string) => onChange(next === "" ? null : next === "true")}
+          label={
+            <>
+              <span className="sr-only">{field.name}: </span>
+              <span className={value == null ? "text-tertiary" : ""}>{displayValue(field, value)}</span>
+            </>
+          }
+        >
+          <CustomSelect.Option value="">Sem valor</CustomSelect.Option>
+          <CustomSelect.Option value="true">Sim</CustomSelect.Option>
+          <CustomSelect.Option value="false">Não</CustomSelect.Option>
+        </CustomSelect>
+      );
     return (
       <select
         aria-label={field.name}
@@ -145,10 +179,10 @@ export function FieldInput({
         value={typeof value === "string" ? value : null}
         onChange={(date) => onChange(date ? (renderFormattedPayloadDate(date) ?? null) : null)}
         disabled={disabled}
-        placeholder={field.name}
+        placeholder={inline ? "—" : field.name}
         buttonVariant="transparent-with-text"
         buttonContainerClassName="w-full"
-        buttonClassName={`${fieldInputClass} min-h-8 w-full`}
+        buttonClassName={`${inputClass} min-h-8 w-full`}
         optionsClassName="z-[100]"
         showTooltip
       />
@@ -157,7 +191,8 @@ export function FieldInput({
   return (
     <input
       aria-label={field.name}
-      className={`${fieldInputClass} w-full`}
+      className={`${inputClass} w-full`}
+      placeholder={inline ? "—" : undefined}
       disabled={disabled}
       type={field.kind === "number" ? "number" : field.kind === "url" ? "url" : "text"}
       step={field.kind === "number" ? "0.000001" : undefined}

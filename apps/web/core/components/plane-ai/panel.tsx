@@ -682,14 +682,20 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
   );
 }
 
-export function PlaneAIButton() {
+export function PlaneAIButton({ variant = "sidebar" }: { variant?: "sidebar" | "top-navigation" }) {
   const ai = usePlaneAI();
   if (!ai?.enabled) return null;
   return (
     <button
       type="button"
+      aria-label="Abrir Plane AI"
+      title="Abrir Plane AI"
       onClick={() => ai.open()}
-      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-13 text-secondary hover:bg-layer-1"
+      className={
+        variant === "top-navigation"
+          ? "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-accent-subtle bg-accent-primary/10 px-2.5 text-12 font-medium text-accent-primary transition-colors hover:bg-accent-primary/20 focus-visible:outline-2 focus-visible:outline-accent-strong"
+          : "flex w-full items-center gap-2 rounded px-2 py-1.5 text-13 text-secondary hover:bg-layer-1"
+      }
     >
       <BrainCircuit size={16} />
       Plane AI

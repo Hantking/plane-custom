@@ -20,6 +20,8 @@ import { nativeDisplayService } from "./native-service";
 import { TableColumnWidthsProvider } from "./table-column-widths";
 import { visibleTableColumns } from "./column-width-helpers";
 import { normalizeListQuery, filterDefaults, manualGroupKey, moveListRow, mergeManualOrder } from "./native-list-model";
+import { nativeOrderQueryChange } from "./native-list-model";
+import type { NativeOrderChange } from "./native-list-model";
 import { fieldError, fieldsService } from "./service";
 import type { ViewConfig } from "./service";
 import { NativeListToolbar } from "./native-list-toolbar";
@@ -188,6 +190,19 @@ export const NativeListController = observer(function NativeListController({
       update
     );
   }, []);
+  useEffect(() => {
+    if (!enabled) return;
+    const changeOrder = (event: Event) => {
+      const current = ref.current.native;
+      const detail = (event as CustomEvent<NativeOrderChange>).detail;
+      if (!current || !detail) return;
+      const update = nativeOrderQueryChange(current.display, detail);
+      // An explicit native choice replaces custom criteria, even if the native value was already selected.
+      if (update) void patch(update).catch(() => undefined); // patch exposes failures through the List's alert.
+    };
+    window.addEventListener("hentis-native-list-order", changeOrder);
+    return () => window.removeEventListener("hentis-native-list-order", changeOrder);
+  }, [enabled, patch]);
   const updateIssue = useCallback(
     async (project: string | null, id: string, data: Partial<TIssue>) => {
       const active = document.activeElement?.closest<HTMLElement>("[data-list-column]");

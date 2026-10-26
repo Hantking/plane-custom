@@ -15,6 +15,10 @@ Pontos reutilizados: sessões `BaseSessionAuthentication`; modelos de workspace/
 5. Faça backup e execute o migrator normal (`python manage.py migrate`). As migrações `plane_ai.0001_initial` e `0002_run_attempts_run_automation_policy` criam somente tabelas do módulo.
 6. Reinicie API, worker e beat. No workspace, abra **Configurações → Inteligência Artificial** e habilite a política. Somente administradores podem configurar conexões/política.
 
+### Abrir o assistente
+
+Com a IA habilitada no workspace, o botão **Plane AI** ao lado da busca global no menu superior abre o mesmo painel do atalho lateral. A busca e o botão permanecem juntos em telas menores. O acesso usa a política e as permissões já verificadas pelo bootstrap do workspace.
+
 ### Conectar e escolher modelos automaticamente
 
 1. Escolha **OpenRouter**, **OpenAI**, **Groq** ou **Outro provedor**. OpenRouter permite disponibilizar famílias como GPT, Claude e Gemini através da mesma conexão compatível.

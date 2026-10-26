@@ -272,6 +272,7 @@ export function NativeCustomCell({
       ) : (
         <FieldInput
           field={field}
+          appearance={Container === "div" ? "inline" : "form"}
           value={context.values[issueId]?.[fieldId]}
           disabled={disabled || saving || pending || !context.display.data?.editable_project_ids.includes(project)}
           onChange={(value) => void save(value)}
