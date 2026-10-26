@@ -4,9 +4,11 @@ import json
 import re
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from django.db.models import Q, Count, Case, When, Value as Literal, IntegerField
+from django.db.models import Q, Count, Case, When, Value as Literal, IntegerField, Sum, F
+from django.db.models.functions import Length, Greatest
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
+from bs4 import BeautifulSoup
 from plane.db.models import (
     IssueActivity,
     IssueRelation,
@@ -17,7 +19,7 @@ from plane.db.models import (
     Label,
     ProjectPage,
 )
-from plane.custom_fields.models import Field
+from plane.custom_fields.models import Field, Value as CustomValue
 from plane.custom_fields.services import values_for
 
 REPORTS = {"search", "customer", "overview", "overdue", "blocked", "changed", "cycle", "priorities"}
@@ -31,7 +33,7 @@ def page_url(slug, page, project_id):
     return f"/{slug}/projects/{project_id}/pages/{page.id}"
 
 
-def retrieve(access, scope, query="", report="search", limit=20, focus=None):
+def retrieve(access, scope, query="", report="search", limit=20, focus=None, complete=False):
     scope = access.scope(scope)
     if report not in REPORTS:
         raise ValidationError("Relatório desconhecido.")
@@ -67,6 +69,29 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
         issues = issues.filter(pk__in=focus["issue_ids"])
         pages = pages.filter(pk__in=focus["page_ids"])
         projects = projects.filter(pk__in=focus["project_ids"])
+    if complete:
+        total_chars = (
+            issues.aggregate(total=Sum(Greatest(Length("description_html"), Length("description_stripped"))))["total"]
+            or 0
+        )
+        total_chars += (
+            access.comments()
+            .filter(issue_id__in=issues.values("id"))
+            .aggregate(total=Sum(Length("comment_stripped")))["total"]
+            or 0
+        )
+        total_chars += pages.aggregate(total=Sum(Length("description_stripped")))["total"] or 0
+        total_chars += (
+            CustomValue.objects.filter(
+                issue_id__in=issues.values("id"), field__active=True, field__project_id=F("issue__project_id")
+            ).aggregate(total=Sum(Length("text_value")))["total"]
+            or 0
+        )
+        if total_chars > 2_000_000:
+            raise ValidationError(
+                "O cliente excede o limite de leitura de 2 milhões de caracteres. "
+                "Refine as fontes; nenhum relatório final parcial foi publicado."
+            )
     sources, records = [], []
 
     def source(kind, identifier, title, url):
@@ -183,11 +208,18 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
             )
         )
     selected = list(
-        selection.select_related("project", "state")
+        selection.defer("description_binary", "description_json")
+        .select_related("project", "state")
         .prefetch_related("assignees", "labels")
         .order_by(*(["_focus_root", "target_date", "-updated_at"] if focus else ["target_date", "-updated_at"]))[:limit]
     )
     for issue in selected:
+        description = (
+            BeautifulSoup(issue.description_html or "", "html.parser").get_text("\n", strip=True)
+            if focus
+            else issue.description_stripped or ""
+        )
+        description = description or issue.description_stripped or ""
         ref = source(
             "issue",
             issue.id,
@@ -197,12 +229,15 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
         records.append(
             {
                 **ref,
-                "description": (issue.description_stripped or "")[:2200],
+                "description": description[: 100000 if focus else 2200],
+                "description_original_chars": len(description),
+                "external_source": issue.external_source,
                 "created_at": issue.created_at.isoformat(),
                 "updated_at": issue.updated_at.isoformat(),
                 "completed_at": issue.completed_at.isoformat() if issue.completed_at else None,
                 "start_date": str(issue.start_date) if issue.start_date else None,
                 "state": issue.state.name if issue.state else None,
+                "state_group": issue.state.group if issue.state else None,
                 "priority": issue.priority,
                 "due": str(issue.target_date) if issue.target_date else None,
                 "parent_id": str(issue.parent_id) if issue.parent_id else None,
@@ -213,17 +248,40 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
         )
     ids = [i.id for i in selected]
     custom_values = values_for(selected)
+    definitions = {
+        str(field.id): field
+        for field in Field.objects.filter(project_id__in={issue.project_id for issue in selected}, active=True)
+    }
     for record in records:
         record["custom_fields"] = custom_values.get(record["id"], {})
-    comment_limit = 100 if focus else 20
+        record["named_fields"] = []
+        for identifier, value in record["custom_fields"].items():
+            field = definitions.get(identifier)
+            if not field:
+                continue
+            display = value
+            if field.kind in {"select", "multiselect"}:
+                options = {str(option["id"]): option["label"] for option in field.options}
+                display = (
+                    [options.get(str(item), str(item)) for item in value]
+                    if isinstance(value, list)
+                    else options.get(str(value), value)
+                )
+            elif field.kind == "boolean" and value is not None:
+                display = "Sim" if value else "Não"
+            record["named_fields"].append(
+                {"id": identifier, "name": field.name, "kind": field.kind, "value": value, "display_value": display}
+            )
+    comment_limit = 1000 if complete else 100 if focus else 20
     comment_query = access.comments().filter(issue_id__in=ids)
     comments = list(
         comment_query.order_by("-created_at").values(
-            "id", "issue_id", "comment_stripped", "created_at", "actor_id", "actor__display_name"
+            "id", "issue_id", "comment_stripped", "created_at", "actor_id", "actor__display_name", "external_source"
         )[:comment_limit]
     )
     for comment in comments:
-        comment["comment_stripped"] = comment["comment_stripped"][: 4000 if focus else 1500]
+        comment["original_chars"] = len(comment["comment_stripped"] or "")
+        comment["comment_stripped"] = (comment["comment_stripped"] or "")[: 100000 if focus else 1500]
         issue = next(item for item in selected if item.id == comment["issue_id"])
         source("comment", comment["id"], "Comentário · " + issue.name, issue_url(access.workspace.slug, issue))
     activities = list(
@@ -245,13 +303,40 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
         source("project", project.id, project.name, f"/{access.workspace.slug}/projects/{project.id}/issues/")
         project_data.append({"id": str(project.id), "name": project.name, "identifier": project.identifier})
     documents = []
-    for page in pages.order_by("-updated_at")[:8]:
+    selected_pages = list(
+        pages.defer("description_binary", "description_json", "description_html").order_by("-updated_at")[
+            : 20 if complete else 8
+        ]
+    )
+    from .models import Action
+
+    generated_pages = set(
+        Action.objects.filter(
+            workspace=access.workspace,
+            operation="create_report_page",
+            status="done",
+            result__id__in=[str(page.id) for page in selected_pages],
+        ).values_list("result__id", flat=True)
+    )
+    for page in selected_pages:
         project = projects.filter(
             pk__in=ProjectPage.objects.filter(page=page, deleted_at__isnull=True).values("project_id")
         ).first()
         if project:
             ref = source("page", page.id, page.name, page_url(access.workspace.slug, page, project.id))
-            documents.append({**ref, "text": (page.description_stripped or "")[:3500]})
+            documents.append(
+                {
+                    **ref,
+                    "text": ""
+                    if complete and str(page.id) in generated_pages
+                    else (page.description_stripped or "")[: 100000 if focus else 3500],
+                    "original_chars": len(page.description_stripped or ""),
+                    "created_at": page.created_at.isoformat(),
+                    "updated_at": page.updated_at.isoformat(),
+                    "external_source": page.external_source,
+                    "evidence_role": "derived_report" if str(page.id) in generated_pages else "primary_document",
+                }
+            )
     pids = [p["id"] for p in project_data]
     # Counts may span more projects than the bounded text/lookup result set. Track every
     # contributing project's ACL so a later revocation also hides aggregate history.
@@ -307,5 +392,10 @@ def retrieve(access, scope, query="", report="search", limit=20, focus=None):
     }
     if focus:
         dates = [issue.created_at for issue in selected] + [comment["created_at"] for comment in comments]
-        context["period"] = {"from": min(dates).isoformat() if dates else now.isoformat(), "to": now.isoformat()}
+        context["record_period"] = {
+            "from": min(dates).isoformat() if dates else now.isoformat(),
+            "to": now.isoformat(),
+            "meaning": "technical record timestamps, not the business implantation period",
+        }
+        context["period"] = None
     return json.loads(json.dumps(context, default=str)), sources

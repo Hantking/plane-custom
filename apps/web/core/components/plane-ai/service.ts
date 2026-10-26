@@ -24,9 +24,16 @@ export type AIBootstrap = {
   projects: { id: string; name: string }[];
   writable_projects?: { id: string; name: string }[];
 };
-export type AISource = { kind: string; id: string; title: string; url: string };
+export type AISource = {
+  kind: string;
+  id: string;
+  title: string;
+  url: string;
+  coverage?: { complete: boolean; supplied_chunks: number };
+};
 export type AIReportDocument = { title: string; html: string; filename: string };
 export type AIReport = {
+  presentation?: "operational_appendix";
   id: string;
   title: string;
   kind: string;
@@ -55,12 +62,22 @@ export type AIRun = {
   context: {
     scope?: AIScope;
     report?: string;
-    period?: { from: string; to: string };
+    period?: { from: string; to: string } | null;
     metrics?: Record<string, unknown>;
     truncated?: boolean;
     timezone?: string;
     reports?: AIReport[];
     activity?: string;
+    publication?: AISource;
+    generation?: { complete: boolean; calls: number; continuations: number };
+    report_validation?: { valid: boolean; missing: string[] };
+    evidence_audit?: {
+      exact: boolean;
+      estimated_input_tokens: number;
+      configured_context_tokens: number;
+      retrieval_complete: boolean;
+      sources: { source_id: string; complete: boolean; excluded_reason?: string | null }[];
+    };
   };
   actions: {
     id: string;

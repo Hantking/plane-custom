@@ -112,7 +112,7 @@ class ChatCompletions:
     def payload(self, model, messages, tools=None):
         config = model_config(self.connection, model)
         caps = config["capabilities"]
-        messages = [dict(message) for message in messages]
+        messages = [{key: value for key, value in message.items() if not key.startswith("_")} for message in messages]
         if not caps["system"]:
             messages = [{**message, "role": "user"} if message["role"] == "system" else message for message in messages]
         payload = {"model": model, "messages": messages, **config.get("parameters", {})}
@@ -136,19 +136,22 @@ class ChatCompletions:
                     raise ProviderError("Resposta excedeu o limite de tamanho.")
                 try:
                     data = json.loads(raw)
-                    message = data["choices"][0]["message"]
+                    choice = data["choices"][0]
+                    message = choice["message"]
+                    reason = choice.get("finish_reason")
                     if not isinstance(message.get("content") or "", str):
                         raise ValueError()
                     if cancelled():
                         raise Cancelled()
                     try:
-                        message = normalize_tool_message(message, tools)
+                        if reason not in {"length", "max_tokens", "max_output_tokens"}:
+                            message = normalize_tool_message(message, tools)
                     except ToolEnvelopeError as exc:
                         raise ToolProtocolError(str(exc)) from None
-                    return message, safe_usage(data.get("usage", {}))
+                    return {**message, "_finish_reason": reason}, safe_usage(data.get("usage", {}))
                 except (ValueError, KeyError, IndexError, TypeError):
                     raise ProviderError("Resposta Chat Completions incompatível.") from None
-            content, calls, usage, size = "", {}, {}, 0
+            content, calls, usage, size, reason = "", {}, {}, 0, None
             while True:
                 if cancelled():
                     raise Cancelled()
@@ -171,6 +174,8 @@ class ChatCompletions:
                     if chunk.get("error"):
                         raise ProviderError("O provedor interrompeu a geração.")
                     choices = chunk.get("choices", [])
+                    if choices and choices[0].get("finish_reason"):
+                        reason = choices[0]["finish_reason"]
                     delta = choices[0].get("delta", {}) if choices else {}
                     if delta.get("content"):
                         content += delta["content"]
@@ -191,10 +196,11 @@ class ChatCompletions:
         if calls:
             message["tool_calls"] = [calls[key] for key in sorted(calls)]
         try:
-            message = normalize_tool_message(message, tools)
+            if reason not in {"length", "max_tokens", "max_output_tokens"}:
+                message = normalize_tool_message(message, tools)
         except ToolEnvelopeError as exc:
             raise ToolProtocolError(str(exc)) from None
-        return message, safe_usage(usage)
+        return {**message, "_finish_reason": reason}, safe_usage(usage)
 
 
 ADAPTERS = {"chat_completions": ChatCompletions}

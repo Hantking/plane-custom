@@ -114,6 +114,15 @@ export function AIChatMessage({
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{response}</ReactMarkdown>
         </div>
       )}
+      {run.context.publication?.url && (
+        <p className="rounded-lg border border-subtle p-3 text-13">
+          Criei a página{" "}
+          <a className="text-accent-primary underline" href={run.context.publication.url}>
+            {run.context.publication.title}
+          </a>{" "}
+          com o relatório.
+        </p>
+      )}
       {active && (
         <p className="flex items-center gap-2 text-secondary" role="status">
           <Loader2 size={14} className="animate-spin" />
@@ -130,9 +139,21 @@ export function AIChatMessage({
           o relatório correto.
         </p>
       )}
-      {(!legacyToolReply ? (run.context.reports ?? []) : []).map((report) => (
-        <ReportCard key={report.id} report={report} run={run} exportContext={exportContext} />
-      ))}
+      {(!legacyToolReply ? (run.context.reports ?? []) : []).map((report) =>
+        report.presentation === "operational_appendix" ? (
+          <details key={report.id} className="rounded-xl border border-subtle p-3">
+            <summary className="cursor-pointer text-11 text-secondary">
+              Anexo operacional · status das tarefas no Plane
+            </summary>
+            <p className="mt-2 text-11 text-secondary">
+              Estes números descrevem os registros do sistema, não o percentual de conclusão da implantação.
+            </p>
+            <ReportCard report={report} run={run} exportContext={exportContext} />
+          </details>
+        ) : (
+          <ReportCard key={report.id} report={report} run={run} exportContext={exportContext} />
+        )
+      )}
       {run.error && (
         <p role="alert" className="rounded-lg border border-subtle p-3 text-danger-primary">
           {run.error}
@@ -151,9 +172,41 @@ export function AIChatMessage({
                 className="flex min-w-0 items-center gap-2 rounded-lg bg-layer-1 p-2 text-11 hover:underline"
               >
                 <ExternalLink size={12} className="shrink-0" />
-                <span className="truncate">{source.title}</span>
+                <span className="truncate">
+                  {source.title}
+                  {source.coverage && !source.coverage.complete ? " · trechos parciais" : ""}
+                </span>
               </a>
             ))}
+          </div>
+        </details>
+      )}
+      {run.context.evidence_audit && (
+        <details className="rounded-xl border border-subtle p-3 text-11 text-secondary">
+          <summary className="cursor-pointer font-medium">Evidências e conclusão da geração</summary>
+          <div className="mt-2 space-y-1">
+            <p>
+              Fontes primárias selecionadas fornecidas integralmente:{" "}
+              {run.context.evidence_audit.sources.filter((source) => !source.excluded_reason && source.complete).length}
+              /{run.context.evidence_audit.sources.filter((source) => !source.excluded_reason).length}.
+            </p>
+            <p>
+              Entrada estimada: {run.context.evidence_audit.estimated_input_tokens.toLocaleString("pt-BR")} tokens.
+              Janela configurada: {run.context.evidence_audit.configured_context_tokens.toLocaleString("pt-BR")}.
+              Estimativa, não contagem exata do provedor.
+            </p>
+            {run.context.generation && (
+              <p>
+                Chamadas de geração: {run.context.generation.calls} · Continuações após limite de saída:{" "}
+                {run.context.generation.continuations}.
+              </p>
+            )}
+            {run.context.report_validation && (
+              <p>
+                Estrutura do relatório:{" "}
+                {run.context.report_validation.valid ? "seções obrigatórias concluídas" : "incompleta"}.
+              </p>
+            )}
           </div>
         </details>
       )}

@@ -44,6 +44,8 @@ def dispatch_run(run):
 
 def public_run(access, run):
     get_access(run)
+    from .evidence import supplied_sources
+
     return {
         "id": str(run.id),
         "conversation_id": str(run.conversation_id),
@@ -51,7 +53,7 @@ def public_run(access, run):
         "response": run.response,
         "status": run.status,
         "error": run.error,
-        "sources": run.sources,
+        "sources": supplied_sources(run),
         "context": run.context_summary,
         "model": run.model,
         "usage": run.usage,

@@ -1,5 +1,19 @@
 # Evidências de validação — Plane AI
 
+## Evidências e relatórios executivos completos
+
+- Cenário de regressão baseado na comparação enviada: registro importado em 18/10, datas de atendimento de junho a outubro no texto, nove comentários, tarefa aberta, campo de etapa antigo e próximo contato antigo versus atualização de 22/10.
+- Verificadas descrição além dos 2200 caracteres, informação após os 4000 caracteres do comentário, campos de seleção com rótulo legível, conflitos preservados e ausência de alteração automática dos campos cadastrais.
+- O cabeçalho do contexto não usa mais a data técnica de importação como período da implantação. A ficha distingue datas mencionadas, perguntas/verificações, afirmações a conferir e indicadores operacionais.
+- Validados `finish_reason=length` em JSON e SSE, continuação da linha interrompida em `| 22/1`, soma de uso do provedor, limite de continuações, correção de seções e bloqueio de página/PDF quando o relatório permanece incompleto. Recusa do provedor não é contornada e revogação durante a continuação impede publicação.
+- A ficha registra cobertura e hashes dos trechos enviados; lacunas intermediárias não são marcadas como leitura completa. Uma página anterior produzida pela IA não é reutilizada como evidência primária para perpetuar uma conclusão errada.
+- **175 testes de backend e 57 de frontend aprovados**, com PostgreSQL real. Typecheck, build web, Ruff e OxLint aprovados; nenhuma migração pendente.
+- Chromium autenticado: relatório com nove seções, anexo operacional recolhido e página real criada. A fixture HTTP cortou a linha em `22/1` com `finish_reason=length`; a execução registrou três chamadas totais, uma continuação e término `stop`, com validação sem seções faltantes e cobertura integral das fontes primárias selecionadas.
+- PDF real de três páginas foi baixado e analisado: nove seções, datas completas de 22/10 e 27/10, fontes e análise antes do anexo operacional. A confirmação administrativa de criação da página não faz parte do corpo exportado.
+- Relatórios finais têm nove seções e indicadores de tarefa em anexo operacional. A confirmação de publicação fica fora do corpo do relatório compartilhável. Não há novas tabelas/migrações.
+- Testes usam PostgreSQL real e fixtures de protocolo/geração, sem acesso ao provedor ou aos dados reais de produção do cliente. A qualidade factual do texto do modelo real continua exigindo homologação sobre as fontes reais.
+- Suporte introduzido após `4db1f39`; exige a imagem com esta atualização e novo deploy antes de afetar novas gerações no servidor. Documentos já existentes não são sobrescritos.
+
 ## Relatórios de implantação por cliente e eventos SSE
 
 - Reprodução do pedido “crie o resumo final da implantação do cliente En do Couto e Luciano do Couto, crie como relatório” em dados isolados, com uma descrição antiga e comentário mais recente sobre reunião/FDC. O transporte HTTP de teste devolve os mesmos envelopes textuais `<tool_call><function=search_workspace>…` do incidente; eles são convertidos em buscas reais e não aparecem como resposta.

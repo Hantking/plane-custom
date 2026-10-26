@@ -16,6 +16,7 @@ from plane.app.serializers.page import PageSerializer
 from plane.utils.content_validator import validate_html_content
 from .context import page_url
 from .models import Action, Run
+from .evidence import supplied_sources
 
 
 class PublicationConflict(APIException):
@@ -62,6 +63,11 @@ def safe_markdown(text):
 def report_document(run, report_id=None, title=None):
     if run.status != "completed":
         raise ValidationError("Aguarde a conclusão da resposta para exportar o relatório.")
+    if (
+        run.context_summary.get("generation", {}).get("complete") is False
+        or run.context_summary.get("report_validation", {}).get("valid") is False
+    ):
+        raise ValidationError("O relatório ainda não foi concluído/validado para publicação.")
     reports = run.context_summary.get("reports", [])
     if report_id:
         reports = [report for report in reports if report["id"] == report_id]
@@ -69,13 +75,27 @@ def report_document(run, report_id=None, title=None):
             raise ValidationError("Este relatório não pertence à resposta selecionada.")
     if not run.response and not reports:
         raise ValidationError("Esta resposta não possui conteúdo para exportação.")
-    title = title or (reports[0]["title"] if len(reports) == 1 else "Relatório · Plane AI")
+    executive = run.context_summary.get("final_report", False)
+    default_title = (
+        ("Relatório final · " + run.context_summary.get("focus", {}).get("subject", "Cliente"))
+        if executive
+        else reports[0]["title"]
+        if len(reports) == 1
+        else "Relatório · Plane AI"
+    )
+    title = title or default_title
     parts = [f'<h1 class="page-title">{escape(title)}</h1>']
-    parts.append(f"<p>Plane AI · Modelo: {escape(run.model)}</p>")
-    parts.append(f"<p><strong>Solicitação:</strong> {escape(run.prompt)}</p>")
+    metadata = f"<p>Plane AI · Modelo: {escape(run.model)}</p><p><strong>Solicitação:</strong> {escape(run.prompt)}</p>"
+    if not executive:
+        parts.append(metadata)
     if run.response:
         parts.append(safe_markdown(run.response))
     for report in reports:
+        if report.get("presentation") == "operational_appendix":
+            parts.append(
+                "<h2>Anexo operacional — registro no Plane</h2><p>Os indicadores abaixo descrevem tarefas no sistema. "
+                "Não representam o percentual de conclusão do onboarding nem substituem as evidências de negócio.</p>"
+            )
         parts.append(f"<h2>{escape(report['title'])}</h2>")
         period = report.get("period")
         caption = f"{period['from']} a {period['to']}" if period else f"Retrato em {report['as_of']}"
@@ -98,9 +118,12 @@ def report_document(run, report_id=None, title=None):
             parts.append("<p>Exibição limitada a 100 grupos; os totais consideram todos os itens autorizados.</p>")
     if run.context_summary.get("truncated"):
         parts.append("<p>A análise utiliza contexto limitado. As tabelas mantêm os totais calculados pelo backend.</p>")
-    if run.sources:
+    if executive:
+        parts.append("<h2>Detalhes da geração</h2>" + metadata)
+    sources = supplied_sources(run)
+    if sources:
         parts.append("<h2>Fontes consultadas</h2><ul>")
-        for source in run.sources:
+        for source in sources:
             url = absolute_url(source.get("url"))
             label = escape(source.get("title", "Fonte"))
             parts.append(f'<li><a href="{escape(url, quote=True)}">{label}</a></li>' if url else f"<li>{label}</li>")

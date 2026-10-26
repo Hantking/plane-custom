@@ -17,6 +17,33 @@ CALLS = (
     "<tool_call><function=search_workspace><parameter=query>En do Couto</parameter></function></tool_call>"
     "<tool_call><function=search_workspace><parameter=query>Luciano do Couto</parameter></function></tool_call>"
 )
+EXECUTIVE_REPORT = """## 1. Resumo executivo
+Implantação acompanhada com entregas e pendências documentadas.
+
+## 2. Dados do cliente
+En do Couto e Luciano do Couto. CS responsável não informado nas fontes.
+
+## 3. Serviços e condições comerciais
+Não informado nas fontes.
+
+## 4. Estrutura de atendimento
+João foi informado como responsável no comentário.
+
+## 5. Linha do tempo
+A reunião com Emilly foi realizada em 29/09, segundo o comentário.
+
+## 6. Entregas concluídas
+A subtarefa de entregas está concluída.
+
+## 7. Situação por responsável/departamento
+O FDC assumiu as pendências da alteração contratual da filial.
+
+## 8. Pendências e próximos passos
+Pendências da filial em acompanhamento pelo responsável informado.
+
+## 9. Conclusão e divergências cadastrais
+A descrição antiga ainda pede organizar a reunião e deve ser revisada.
+"""
 
 
 class ToolTransportTests(SimpleTestCase):
@@ -134,14 +161,7 @@ class ClientReportTests(TestCase):
                             }
                         ],
                     }, {}
-                return {
-                    "content": (
-                        "## Relatório final da implantação\n\nA reunião com Emilly foi realizada em 29/09, "
-                        "segundo o comentário mais recente.\n\nO FDC assumiu as pendências da alteração contratual "
-                        "da filial; responsável informado: João.\n\nA descrição antiga ainda pede organizar "
-                        "a reunião; deve ser revisada."
-                    )
-                }, {}
+                return {"content": EXECUTIVE_REPORT}, {}
 
         adapter = Adapter()
         with patch("plane.ai.orchestrator.adapter", return_value=adapter):
@@ -161,7 +181,7 @@ class ClientReportTests(TestCase):
         self.assertIn("29/09", page.description_html)
         self.assertEqual(page.access, Page.PRIVATE_ACCESS)
         self.assertTrue(ProjectPage.objects.filter(page=page, project=self.project).exists())
-        self.assertIn(str(page.id), run.response)
+        self.assertIn(str(page.id), run.context_summary["publication"]["url"])
         self.assertEqual(Action.objects.filter(run=run, operation="create_report_page", status="done").count(), 1)
         self.assertEqual(adapter.calls, 3)
 
@@ -172,7 +192,7 @@ class ClientReportTests(TestCase):
         class Adapter:
             def complete(self, model, messages, *args):
                 captured.extend(messages)
-                return {"content": "## Relatório\nReunião realizada em 29/09; FDC assumiu pendências."}, {}
+                return {"content": EXECUTIVE_REPORT}, {}
 
         with patch("plane.ai.orchestrator.adapter", return_value=Adapter()):
             run_generation(run.id)
@@ -189,11 +209,7 @@ class ClientReportTests(TestCase):
 
             def complete(self, *args):
                 self.calls += 1
-                return (
-                    {"content": CALLS}
-                    if self.calls == 1
-                    else {"content": "## Relatório final\nFDC assumiu as pendências."}
-                ), {}
+                return ({"content": CALLS} if self.calls == 1 else {"content": EXECUTIVE_REPORT}), {}
 
         adapter = Adapter()
         with patch("plane.ai.orchestrator.adapter", return_value=adapter):
@@ -230,7 +246,7 @@ class ClientReportTests(TestCase):
 
         class Adapter:
             def complete(self, *args):
-                return {"content": "Relatório do cliente."}, {}
+                return {"content": EXECUTIVE_REPORT}, {}
 
         with patch("plane.ai.orchestrator.adapter", return_value=Adapter()):
             run_generation(run.id)

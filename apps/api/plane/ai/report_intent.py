@@ -253,5 +253,5 @@ def publish_requested_report(access, run, focus):
                 "access": 1,
             },
         )
-        run.response = f"Criei a página [{page['title']}]({page['url']}) com o relatório.\n\n" + run.response
-        Run.objects.filter(pk=run.pk).update(response=run.response)
+        run.context_summary["publication"] = page
+        Run.objects.filter(pk=run.pk).update(context_summary=run.context_summary)

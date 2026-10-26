@@ -135,6 +135,7 @@ def schema():
                 "name": "report_workspace",
                 "description": (
                     "Compute a full authorized report with exact totals and a table, not sampled task counts. "
+                    "These are operational task statistics, not the customer's onboarding completion percentage. "
                     "Use for progress, workload, deadlines and period comparisons. "
                     "Dates are YYYY-MM-DD in the user's timezone. Overview is a current snapshot; "
                     "use changed/completed/created for date periods."

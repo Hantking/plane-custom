@@ -53,9 +53,18 @@ class ProtocolTests(SimpleTestCase):
                                 + json.dumps({"choices": [{"delta": {"content": fragment}}]}).encode()
                                 + b"\n\n"
                             )
+                        self.wfile.write(
+                            b"data: "
+                            + json.dumps({"choices": [{"delta": {}, "finish_reason": cls.finish_reason}]}).encode()
+                            + b"\n\n"
+                        )
                         self.wfile.write(b"data: [DONE]\n\n")
                     else:
-                        self.wfile.write(json.dumps({"choices": [{"message": cls.message_override}]}).encode())
+                        self.wfile.write(
+                            json.dumps(
+                                {"choices": [{"message": cls.message_override, "finish_reason": cls.finish_reason}]}
+                            ).encode()
+                        )
                 elif payload.get("stream"):
                     chunks = [
                         {"choices": [{"delta": {"content": "Resposta "}}]},
@@ -84,6 +93,7 @@ class ProtocolTests(SimpleTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        type(self).finish_reason = "stop"
         type(self).message_override = None
         type(self).catalog_data = [{"id": "manual-one"}, {"id": "manual-two"}]
         type(self).http_status = 200
@@ -157,6 +167,23 @@ class ProtocolTests(SimpleTestCase):
     def test_full_base_url_in_environment_allows_real_catalog_request(self):
         with patch.dict(os.environ, {"PLANE_AI_ALLOWED_HOSTS": self.connection.base_url}):
             self.assertEqual(ChatCompletions(self.connection).models(), ["manual-one", "manual-two"])
+
+    def test_finish_reason_length_is_preserved_in_both_transports(self):
+        type(self).message_override = {"role": "assistant", "content": "| 22/1"}
+        type(self).finish_reason = "length"
+        for streaming in [True, False]:
+            self.connection.models[0]["capabilities"]["streaming"] = streaming
+            message, _ = ChatCompletions(self.connection).complete(
+                "manual-one", [{"role": "user", "content": "Relatório"}]
+            )
+            self.assertEqual(message["_finish_reason"], "length")
+            self.assertEqual(message["content"], "| 22/1")
+
+    def test_internal_completion_metadata_is_not_sent_as_message_fields(self):
+        payload = ChatCompletions(self.connection).payload(
+            "manual-one", [{"role": "assistant", "content": "Partial", "_finish_reason": "length"}]
+        )
+        self.assertNotIn("_finish_reason", payload["messages"][0])
 
     def test_catalog_unknown_models_are_conservative_and_reasoning_profile_uses_native_parameter(self):
         from .catalog import describe_model

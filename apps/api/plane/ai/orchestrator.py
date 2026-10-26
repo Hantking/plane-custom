@@ -9,6 +9,14 @@ from .security import Access
 from . import tools
 from .report_intent import focus_for_run, focus_question, publish_requested_report, wants_report_page
 from .tool_transport import normalize_tool_message, visible_assistant_text, ToolEnvelopeError
+from .evidence import build_dossier, evidence_manifest
+from .report_quality import (
+    GenerationSession,
+    executive_instructions,
+    executive_problems,
+    is_final_report,
+    request_tokens,
+)
 
 SYSTEM = """You are Plane AI, a workspace assistant. Reply in the user's language.
 Only CONTEXT facts and successful tool results are authoritative work data. Cite supplied item URLs.
@@ -30,8 +38,9 @@ existing page tool when the user explicitly enables execution; only claim succes
 For a named-client deployment report, focus only on that client and its deployment records and comments,
 never workspace-wide statistics. Produce a final report with a timeline, team, deliveries, contractual
 changes, pending actions and responsible people when evidenced. Say when a fact is not documented.
-Read comment timestamps: a newer comment documenting completion supersedes a stale task description;
-explain the discrepancy and cite the comment/task. Do not invent dates, owners or completed work.
+Separate recorded/import timestamps from original event dates mentioned in the source text.
+A newer question is not proof of completion. Reconcile explicit assertions, dates and stale fields;
+explain unresolved discrepancies and cite the source. Do not invent dates, owners or completed work.
 An explicit request to create/save a report can publish a private Plane page after generation; the backend
 will provide the actual result/link. Do not claim page creation before that result.
 """
@@ -105,13 +114,34 @@ def detect_report(prompt):
 
 
 def bounded_messages(run, context, policy, tool_schema):
-    # Without a provider tokenizer, UTF-8 bytes give a conservative byte-token upper bound.
-    budget = run.connection.context_tokens - run.connection.output_tokens - 300
-    if tool_schema:
-        budget = int(budget * 0.7)
+    final_report = bool(context.get("final_report"))
+    reserved = min(
+        run.connection.output_tokens * (4 if final_report else 1),
+        max(run.connection.output_tokens, int(run.connection.context_tokens * 0.4)),
+    )
+    budget = int(run.connection.context_tokens * 0.90) - reserved - 300
+    original_dossier = context.get("dossier")
     context = json.loads(json.dumps(context))
+    retrieval_incomplete = context.get("truncated", False)
     if not any(item["function"]["name"] == "plane_action" for item in tool_schema):
-        context["lookup"] = {}
+        context["lookup"] = {"custom_fields": context["lookup"].get("custom_fields", [])}
+    dossier = context.get("dossier")
+    if final_report:
+        context["operational_metrics"] = context.pop("metrics", {})
+        context["operational_reports"] = context.pop("reports", [])
+    if dossier:
+        for item in context["issues"]:
+            item["description"] = "Conteúdo integral referenciado em dossier.evidence."
+            item["custom_fields"] = {}
+        for item in context["comments"]:
+            item["comment_stripped"] = "Conteúdo integral referenciado em dossier.evidence."
+        for item in context["pages"]:
+            item["text"] = "Conteúdo integral referenciado em dossier.evidence."
+        # Exact quoted content is retained once; date/claim indexes are navigational hints.
+        dossier["date_mentions"] = [
+            {key: value for key, value in item.items() if key != "excerpt"} for item in dossier["date_mentions"]
+        ]
+        dossier["claims"] = [{**item, "text": item["text"][:350]} for item in dossier["claims"]]
     history = []
     for previous in run.conversation.runs.filter(
         created_at__lt=run.created_at, status__in=["completed", "failed"]
@@ -137,6 +167,7 @@ def bounded_messages(run, context, policy, tool_schema):
             {
                 "role": "system",
                 "content": SYSTEM
+                + (executive_instructions() if final_report else "")
                 + (
                     "\nTool calling is unavailable. Do not emit tool markup or simulated calls; answer from CONTEXT."
                     if not tool_schema
@@ -154,11 +185,12 @@ def bounded_messages(run, context, policy, tool_schema):
         ]
 
     messages = build()
+
+    def oversized():
+        return request_tokens(messages, tool_schema) > budget
+
     for entries in context["lookup"].values():
-        while (
-            entries
-            and len(json.dumps({"messages": messages, "tools": tool_schema}, ensure_ascii=False).encode()) > budget
-        ):
+        while entries and oversized():
             entries.pop()
             context["truncated"] = True
             messages = build()
@@ -168,23 +200,45 @@ def bounded_messages(run, context, policy, tool_schema):
         else ["comments", "activities", "relations", "pages", "issues", "memories"]
     )
     for key in priorities:
+        if final_report and key in {"issues", "comments", "pages"}:
+            continue
         minimum = 1 if context.get("focus") and key in {"issues", "comments"} else 0
-        while (
-            len(context[key]) > minimum
-            and len(json.dumps({"messages": messages, "tools": tool_schema}, ensure_ascii=False).encode()) > budget
-        ):
+        while len(context[key]) > minimum and oversized():
             context[key].pop()
             context["truncated"] = True
             messages = build()
-    while (
-        history and len(json.dumps({"messages": messages, "tools": tool_schema}, ensure_ascii=False).encode()) > budget
-    ):
+    while history and oversized():
         del history[:2]
         messages = build()
-    if len(json.dumps({"messages": messages, "tools": tool_schema}, ensure_ascii=False).encode()) > budget:
+    if dossier and oversized():
+        # Remove duplicated indexes before considering any loss of primary evidence.
+        dossier["claims"] = []
+        messages = build()
+    if dossier and not final_report:
+        while dossier["evidence"] and oversized():
+            worst = min(range(len(dossier["evidence"])), key=lambda index: dossier["evidence"][index]["priority"])
+            dossier["evidence"].pop(worst)
+            context["truncated"] = True
+            messages = build()
+    manifest = evidence_manifest(original_dossier, context["dossier"]["evidence"]) if dossier else []
+    audit = {
+        "method": "tokenizer-independent conservative estimate",
+        "exact": False,
+        "estimated_input_tokens": request_tokens(messages, tool_schema),
+        "input_budget": budget,
+        "configured_context_tokens": run.connection.context_tokens,
+        "reserved_output_tokens": reserved,
+        "sources": manifest,
+        "all_selected_sources_supplied": all(item["complete"] for item in manifest if not item.get("excluded_reason")),
+        "retrieval_complete": not retrieval_incomplete,
+    }
+    run.context_summary["evidence_audit"] = audit
+    if oversized() or final_report and (retrieval_incomplete or not audit["all_selected_sources_supplied"]):
         raise ValidationError(
-            "Contexto excede o limite configurado. Reduza o texto/escopo ou aumente a janela da conexão."
+            "As evidências do cliente não cabem integralmente na janela configurada ou excedem o limite de leitura. "
+            "Aumente o contexto ou refine o escopo. Nenhum relatório final incompleto foi publicado."
         )
+    context["_audit"] = audit
     return messages, context
 
 
@@ -208,6 +262,7 @@ def run_generation(identifier):
         access = get_access(run)
         policy = ensure_connection(access, run.connection, run.model)
         focus = focus_for_run(access, run)
+        final_report = is_final_report(run.prompt, focus)
         if focus:
             question = focus_question(focus)
             if question:
@@ -229,8 +284,9 @@ def run_generation(identifier):
             run.conversation.scope,
             "" if focus else run.prompt,
             "customer" if focus else detect_report(run.prompt),
-            limit=50 if focus else 20,
+            limit=1000 if final_report else 50 if focus else 20,
             focus=focus,
+            complete=final_report,
         )
         if focus:
             context["focus"] = {
@@ -238,6 +294,8 @@ def run_generation(identifier):
                 "queries": focus["queries"],
                 "matched_tasks": len(focus["issue_ids"]),
             }
+            context["final_report"] = final_report
+            context["dossier"] = build_dossier(context)
         initial_reports = []
         if context["report"] in {"overview", "overdue", "blocked", "changed"} or focus and focus["issue_ids"]:
             from .reports import build_report, prompt_report
@@ -245,7 +303,8 @@ def run_generation(identifier):
             spec = {"kind": "overview", "group_by": "project"} if focus else prompt_report(run.prompt, context)
             report, references = build_report(access, run.conversation.scope, spec, focus=focus)
             if focus:
-                report["title"] = "Implantação · " + focus["subject"]
+                report["title"] = "Registro operacional · " + focus["subject"]
+                report["presentation"] = "operational_appendix"
             initial_reports.append(report)
             context["metrics"]["matching"] = report["metrics"]["total"]
             context["metrics"]["report_completed"] = report["metrics"]["completed"]
@@ -277,12 +336,13 @@ def run_generation(identifier):
             return
         can_tools = model_config(run.connection, run.model)["capabilities"]["tools"]
         schemas = tools.schema() if can_tools else []
-        if not run.allow_actions:
+        if not run.allow_actions or final_report:
             schemas = [
                 schema for schema in schemas if schema["function"]["name"] in {"search_workspace", "report_workspace"}
             ]
-        messages, sent_context = bounded_messages(run, context, policy, schemas)
         run.sources = sources
+        run.save(update_fields=["sources", "updated_at"])
+        messages, sent_context = bounded_messages(run, context, policy, schemas)
         run.context_summary = {
             "scope": context["scope"],
             "report": context["report"],
@@ -292,6 +352,9 @@ def run_generation(identifier):
             "timezone": context["timezone"],
             "reports": initial_reports,
             "activity": "Contexto do workspace preparado",
+            "evidence_audit": sent_context["_audit"],
+            "record_period": context.get("record_period"),
+            "final_report": final_report,
             **({"focus": focus} if focus else {}),
         }
         run.save(update_fields=["sources", "context_summary", "updated_at"])
@@ -305,6 +368,8 @@ def run_generation(identifier):
                 Run.objects.filter(pk=run.pk, cancelled=False).update(response=visible_assistant_text(text))
                 last_flush = time.monotonic()
 
+        session = GenerationSession(run, lambda: get_access(run), cancelled, delta)
+
         provider = adapter(run.connection)
         calls_used = 0
         protocol_repairs = 0
@@ -312,14 +377,9 @@ def run_generation(identifier):
             access = get_access(run)
             if cancelled():
                 raise Cancelled()
-            if (
-                len(json.dumps({"messages": messages, "tools": schemas}).encode())
-                > run.connection.context_tokens - run.connection.output_tokens
-            ):
-                raise ValidationError("Limite de contexto atingido durante as ferramentas; restrinja o escopo.")
             provider = adapter(run.connection)
             try:
-                message, usage = provider.complete(run.model, messages, schemas or None, delta, cancelled)
+                message = session.complete(provider, messages, schemas or None)
                 message = normalize_tool_message(message, schemas)
             except (ToolEnvelopeError, ToolProtocolError):
                 if protocol_repairs:
@@ -341,8 +401,6 @@ def run_generation(identifier):
                 )
                 continue
             access = get_access(run)
-            for key, value in usage.items():
-                run.usage[key] = run.usage.get(key, 0) + value
             run.response = message.get("content") or ""
             calls = message.get("tool_calls") or []
             if not calls:
@@ -368,7 +426,8 @@ def run_generation(identifier):
                         raise ValidationError("Parâmetros de relatório inválidos.")
                     result, refs = build_report(access, run.conversation.scope, arguments, focus=focus)
                     if focus:
-                        result["title"] = "Implantação · " + focus["subject"]
+                        result["title"] = "Registro operacional · " + focus["subject"]
+                        result["presentation"] = "operational_appendix"
                     reports = run.context_summary.setdefault("reports", [])
                     run.context_summary["reports"] = [report for report in reports if report["id"] != result["id"]] + [
                         result
@@ -396,6 +455,7 @@ def run_generation(identifier):
                         arguments.get("report", "search"),
                         limit=5,
                         focus=focus,
+                        complete=final_report,
                     )
                     result["lookup"] = {}
                     tool_budget = max(1000, (run.connection.context_tokens - run.connection.output_tokens) // 4)
@@ -406,7 +466,7 @@ def run_generation(identifier):
                     run.sources = list({(s["kind"], s["id"]): s for s in run.sources + refs}.values())
                     run.context_summary["activity"] = "Fontes do workspace consultadas"
                     run.save(update_fields=["sources", "context_summary", "updated_at"])
-                elif function.get("name") == "plane_action" and run.allow_actions:
+                elif function.get("name") == "plane_action" and run.allow_actions and not final_report:
                     operation = arguments.get("operation")
                     data = arguments.get("arguments")
                     tools.validate(access, run.conversation.scope, operation, data, run.prompt)
@@ -472,7 +532,31 @@ def run_generation(identifier):
             run.response = (
                 "O provedor não retornou texto. Consulte os resultados reais das ações abaixo ou tente novamente."
             )
+        if run.status == "completed" and final_report:
+            problems = executive_problems(run.response)
+            if problems:
+                run.context_summary["activity"] = "Verificando e completando as seções do relatório…"
+                run.save(update_fields=["context_summary", "updated_at"])
+                correction = [
+                    *messages,
+                    {
+                        "role": "user",
+                        "content": "Conclua/reorganize o relatório final inteiro, com todas as nove seções. Faltam: "
+                        + ", ".join(problems)
+                        + ". Use somente as fontes fornecidas e declare não informado quando faltar evidência. "
+                        "Não execute ferramentas.",
+                    },
+                ]
+                message = session.complete(adapter(run.connection), correction, None)
+                run.response = message.get("content") or ""
+                problems = executive_problems(run.response)
+            run.context_summary["report_validation"] = {"valid": not problems, "missing": problems}
+            if problems:
+                raise ProviderError(
+                    "Relatório final incompleto: " + ", ".join(problems[:3]) + ". Nenhuma página foi publicada."
+                )
         if run.status == "completed":
+            session.audit["complete"] = True
             publish_requested_report(get_access(run), run, focus)
             run.save(update_fields=["context_summary", "updated_at"])
     except Cancelled:
@@ -493,5 +577,14 @@ def run_generation(identifier):
             if Run.objects.filter(pk=run.pk, cancelled=True).exists():
                 run.status = "cancelled"
             run.save(
-                update_fields=["response", "status", "error", "usage", "latency_ms", "tool_messages", "updated_at"]
+                update_fields=[
+                    "response",
+                    "status",
+                    "error",
+                    "usage",
+                    "latency_ms",
+                    "tool_messages",
+                    "context_summary",
+                    "updated_at",
+                ]
             )
