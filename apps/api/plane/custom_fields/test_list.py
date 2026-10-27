@@ -255,6 +255,39 @@ class NativeListTests(TestCase):
             [str(self.beta.id), str(self.alpha.id)],
         )
 
+    def test_selection_direction_reverses_ungrouped_scoped_results(self):
+        ModuleIssue.objects.create(project=self.project, workspace=self.workspace, module=self.module, issue=self.beta)
+        self.fields["select"].name = "Setor da pendência"
+        self.fields["select"].save(update_fields=["name"])
+        CycleIssue.objects.create(project=self.project, workspace=self.workspace, cycle=self.cycle, issue=self.alpha)
+        for path, context, standard in [
+            (self.base + "issues/", self.context(), {}),
+            (self.base + f"modules/{self.module.id}/issues/", self.context(scope="module", target=self.module.id), {}),
+            (
+                self.base + "issues/",
+                self.context(scope="module", target=self.module.id),
+                {"module": str(self.module.id)},
+            ),
+            (
+                self.base + f"cycles/{self.cycle.id}/cycle-issues/",
+                self.context(scope="cycle", target=self.cycle.id),
+                {},
+            ),
+            (self.base + "issues/", self.context(scope="cycle", target=self.cycle.id), {"cycle": str(self.cycle.id)}),
+        ]:
+            for direction, expected in [("asc", [self.alpha, self.beta]), ("desc", [self.beta, self.alpha])]:
+                with self.subTest(path=path, direction=direction):
+                    response = self.get_list(
+                        self.query(
+                            sorts=[{"field": str(self.fields["select"].id), "direction": direction, "nulls": "last"}]
+                        ),
+                        path=path,
+                        context=context,
+                        **standard,
+                    )
+                    self.assertEqual(self.ids(response), [str(issue.id) for issue in expected])
+                    self.assertTrue(response.data["hentis_server_order"])
+
     def test_multiselect_filter_suppresses_incompatible_occurrences(self):
         config = self.query(
             group_by=str(self.fields["multiselect"].id),

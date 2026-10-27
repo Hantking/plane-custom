@@ -169,6 +169,55 @@ test("query binding matches only paginated List reads in the mounted scope", () 
   );
 });
 
+test("module and cycle List queries reach their project endpoint only for the exact scope target", () => {
+  for (const scope of ["module", "cycle"] as const) {
+    const scoped = { ...context, scope, target: `${scope}-one` };
+    const params = { ...page, [scope]: scoped.target, order_by: "-created_at" };
+    const query = normalizeListQuery({ sorts: [{ field: "sector", direction: "desc", nulls: "last" }] });
+    const unbind = bindNativeList({ identity: scope, workspace: "demo", context: scoped, query });
+    try {
+      for (const path of [url, url.replace("issues/", "issues-detail/")]) {
+        assert.equal(matchesNativeListRequest(path, "demo", scoped, params), true);
+        const read = nativeListReadParams(path, params);
+        assert.deepEqual(JSON.parse(String(read.hentis_query)), { context: scoped, query });
+        assert.equal(read[scope], scoped.target);
+        for (const foreign of [
+          page,
+          { ...params, [scope]: "other" },
+          { ...params, [scope]: `${scoped.target},other` },
+          { ...params, [scope]: [scoped.target] },
+        ])
+          assert.equal(matchesNativeListRequest(path, "demo", scoped, foreign), false);
+      }
+    } finally {
+      unbind();
+    }
+  }
+});
+
+test("module custom-group pagination retains its module filter and descending criteria", () => {
+  const scoped = { ...context, scope: "module", target: "module-one" };
+  const query = normalizeListQuery({
+    group_by: "sector",
+    sorts: [{ field: "sector", direction: "desc", nulls: "last" }],
+  });
+  const unbind = bindNativeList({ identity: "module-grouped", workspace: "demo", context: scoped, query });
+  try {
+    nativeListReadParams(url, { ...page, module: scoped.target, filters: "native-filter", group_by: "state_id" });
+    withNativeListGroup("module-grouped", "finance", () => {
+      const next = nativeListReadParams(url, { ...page, cursor: "25:1:0", module: scoped.target });
+      assert.equal(next.module, scoped.target);
+      assert.equal(next.filters, "native-filter");
+      assert.equal(next.hentis_group, "finance");
+      assert.equal(next.group_by, "hentis_custom");
+      assert.equal(next.cursor, "25:1:0");
+      assert.deepEqual(JSON.parse(String(next.hentis_query)).query.sorts, query.sorts);
+    });
+  } finally {
+    unbind();
+  }
+});
+
 test("custom group next pages retain original native filters and strip transient grouping", () => {
   const unbind = bindNativeList({
     identity: "custom",

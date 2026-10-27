@@ -46,10 +46,15 @@ export function matchesNativeListRequest(
   const project = `projects/${context.project_id}/`;
   if (!path.startsWith(project)) return false;
   const rest = path.slice(project.length);
-  if (context.scope === "module") return rest === `modules/${context.target}/issues/`;
-  if (context.scope === "cycle") return rest === `cycles/${context.target}/cycle-issues/`;
+  const projectList = /^(issues|issues-detail)\/$/.test(rest);
+  // Module/cycle stores also read the project endpoint with an explicit scope filter.
+  // Only the exact target may consume this binding; an unscoped project read must not inherit it.
+  if (context.scope === "module")
+    return rest === `modules/${context.target}/issues/` || (projectList && params.module === context.target);
+  if (context.scope === "cycle")
+    return rest === `cycles/${context.target}/cycle-issues/` || (projectList && params.cycle === context.target);
   if (context.scope === "archive") return /^(archived-issues|archives)\/$/.test(rest);
-  return /^(issues|issues-detail)\/$/.test(rest);
+  return projectList;
 }
 
 export function bindNativeList(binding: Omit<Binding, "base" | "pageGroup">) {

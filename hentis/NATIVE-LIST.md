@@ -58,6 +58,13 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 | Redimensionamento             | Mesmo provider de larguras; cabeçalho/linha compartilham a grade CSS, sem padding externo na linha; wrappers da virtualização cobrem a largura total        |
 | Imagem backend                | `hentis/Dockerfile.backend` inclui os três pontos de integração de filtro/ordem/paginação, além do módulo e serializer                                      |
 
+## Ordenação por setor em módulos e ciclos — 27/10/2026
+
+- Reproduzido o caso de **Setor da pendência**, sem agrupamento: o critério era salvo, mas crescente/decrescente não mudavam a posição das tarefas. Os stores de módulo/ciclo consultam também o endpoint geral do projeto com `module=<id>` ou `cycle=<id>`; o binding anterior reconhecia somente os endpoints aninhados e deixava de enviar a consulta avançada nessas leituras.
+- O binding agora reconhece as duas formas de leitura, exigindo o identificador exato do módulo/ciclo. Leituras sem escopo, de outro alvo, com vários identificadores ou de outro layout não recebem a consulta desse contexto. A paginação mantém os filtros e critérios.
+- Chromium com API/PostgreSQL isolados: módulo de teste com 18 tarefas e três setores intercalados. Antes, a direção não alterava as posições; depois, os setores ficaram ordenados conforme as opções e a direção oposta inverteu a sequência. A ordenação persistiu após reload.
+- **182 testes de backend e 29 testes frontend direcionados aprovados**, com cobertura de seleção crescente/decrescente em projeto, módulo e ciclo, inclusive pelo endpoint geral filtrado. TypeScript, build, Ruff e OxLint aprovados. O ensaio não utiliza os dados de produção do usuário.
+
 ## Validação do cabeçalho — 26/10/2026
 
 - Botão Aplicar da barra superior: reproduzido o bloqueio mantendo uma leitura HTTP pendente no Chromium. Após o ajuste, Aplicar permaneceu habilitado com tarefas/contagens pendentes, bloqueou somente durante o PATCH dos critérios e permitiu alternar decrescente/crescente antes do fim da atualização. Resultado final persistido após reload, sem alerta de requisição substituída. TypeScript, build, lint e 27 testes direcionados aprovados. Ensaio usa API/PostgreSQL isolados com atraso controlado no transporte, sem dados de produção.
