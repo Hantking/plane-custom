@@ -123,7 +123,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
 
   return (
     <Header className="flex-wrap gap-y-2 md:flex-nowrap [&>div:first-child]:max-w-full [&>div:first-child]:min-w-0 [&>div:first-child]:flex-initial md:[&>div:first-child]:max-w-[25%] xl:[&>div:first-child]:max-w-[30%]">
-      <Header.LeftItem>
+      <Header.LeftItem className="@container w-full flex-nowrap md:w-[min(25%,20rem)] xl:w-[min(30%,20rem)]">
         <Breadcrumbs isLoading={loader === "init-loader"}>
           <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
           <Breadcrumbs.Item
@@ -165,7 +165,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
           <></>
         )}
       </Header.LeftItem>
-      <Header.RightItem className="min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
+      <Header.RightItem className="@container min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
         <>
           {!viewDetails.is_locked && (
             <LayoutSelection

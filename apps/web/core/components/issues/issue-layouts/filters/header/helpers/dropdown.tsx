@@ -57,6 +57,8 @@ export function FiltersDropdown(props: Props) {
               <div ref={setReferenceElement}>
                 <div className="hidden @4xl:flex">
                   <Button
+                    aria-label={title}
+                    title={title}
                     disabled={disabled}
                     variant="secondary"
                     prependIcon={icon}
@@ -76,6 +78,8 @@ export function FiltersDropdown(props: Props) {
                 </div>
                 <div className="flex @4xl:hidden">
                   <Button
+                    aria-label={title}
+                    title={title}
                     disabled={disabled}
                     ref={setReferenceElement}
                     variant="secondary"

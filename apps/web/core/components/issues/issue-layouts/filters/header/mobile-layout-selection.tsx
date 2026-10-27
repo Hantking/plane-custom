@@ -29,7 +29,12 @@ export function MobileLayoutSelection({
       className="flex flex-grow justify-center text-13 text-secondary"
       placement="bottom-start"
       customButton={
-        <Button variant="secondary" className="relative px-2">
+        <Button
+          variant="secondary"
+          className="relative px-2"
+          aria-label={t("common.layout")}
+          title={t("common.layout")}
+        >
           {activeLayout && (
             <IssueLayoutIcon layout={activeLayout} size={14} strokeWidth={2} className={`h-3.5 w-3.5`} />
           )}
@@ -39,9 +44,9 @@ export function MobileLayoutSelection({
       customButtonClassName="flex flex-grow justify-center text-secondary text-13"
       closeOnSelect
     >
-      {ISSUE_LAYOUTS.filter((l) => layouts.includes(l.key)).map((layout, index) => (
+      {ISSUE_LAYOUTS.filter((l) => layouts.includes(l.key)).map((layout) => (
         <CustomMenu.MenuItem
-          key={index}
+          key={layout.key}
           onClick={() => {
             onChange(layout.key);
           }}

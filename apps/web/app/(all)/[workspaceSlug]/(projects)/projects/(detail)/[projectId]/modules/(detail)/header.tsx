@@ -133,8 +133,8 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
         projectDetails={currentProjectDetails}
       />
       <Header className="flex-wrap gap-y-2 md:flex-nowrap [&>div:first-child]:max-w-full [&>div:first-child]:min-w-0 [&>div:first-child]:flex-initial md:[&>div:first-child]:max-w-[25%] xl:[&>div:first-child]:max-w-[30%]">
-        <Header.LeftItem>
-          <div className="flex items-center gap-2">
+        <Header.LeftItem className="@container w-full flex-nowrap md:w-[min(25%,20rem)] xl:w-[min(30%,20rem)]">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <Breadcrumbs onBack={router.back} isLoading={loader === "init-loader"}>
               <CommonProjectBreadcrumbs workspaceSlug={workspaceSlug?.toString()} projectId={projectId?.toString()} />
               <Breadcrumbs.Item
@@ -178,7 +178,7 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
             ) : null}
           </div>
         </Header.LeftItem>
-        <Header.RightItem className="min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
+        <Header.RightItem className="@container min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0 [&:has([data-native-list-toolbar])_[data-native-list-default-create]]:hidden">
           <NativeListToolbarSlot />
           <div className="hidden gap-2 md:flex">
             <div className="hidden @4xl:flex">
@@ -230,7 +230,14 @@ export const ModuleIssuesHeader = observer(function ModuleIssuesHeader() {
 
           {canUserCreateIssue ? (
             <>
-              <Button className="hidden md:block" onClick={() => setAnalyticsModal(true)} variant="secondary" size="lg">
+              <Button
+                className="hidden md:block"
+                aria-label="Analytics"
+                title="Analytics"
+                onClick={() => setAnalyticsModal(true)}
+                variant="secondary"
+                size="lg"
+              >
                 <span className="hidden @4xl:flex">Analytics</span>
                 <span className="@4xl:hidden">
                   <ChartNoAxesColumn className="size-3.5" />

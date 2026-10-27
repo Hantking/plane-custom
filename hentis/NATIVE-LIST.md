@@ -14,6 +14,8 @@ Os controles ficam na linha do título/caminho da página, junto ao nome do proj
 
 Os painéis se ajustam à largura da tela, fecham por Escape/clique externo e preservam os providers da Lista por portal. A criação contextual fica no mesmo cabeçalho. Ao trocar de layout, a barra da Lista é desmontada e a criação nativa reaparece. No celular os controles usam ícones com nomes acessíveis, sem manter formulários abertos acima da tabela.
 
+O título e os controles medem seu próprio espaço disponível. Com o menu lateral aberto, o seletor de layouts e os botões de exibição/análise usam versões compactas antes de ocupar uma segunda linha. O caminho do projeto se recolhe e nomes longos ficam limitados à área do título, sem sobrepor as ações; o nome completo continua disponível no tooltip/menu de navegação.
+
 ### Semântica dos resultados
 
 - No **Ordenar da barra superior**, carregar tarefas ou atualizar contagens não desabilita **Aplicar ordem**. O botão e os critérios ficam protegidos apenas durante o salvamento da consulta, com o texto **Aplicando ordem…**. Atualizações substituídas por uma nova ordenação não devem sobrescrever o estado de carregamento nem apresentar erros de uma requisição anterior.
@@ -57,6 +59,12 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 | Seleção, ações e hierarquia   | Componentes nativos preservados; filhos são carregados em lotes pelo store de subtarefas existente                                                          |
 | Redimensionamento             | Mesmo provider de larguras; cabeçalho/linha compartilham a grade CSS, sem padding externo na linha; wrappers da virtualização cobrem a largura total        |
 | Imagem backend                | `hentis/Dockerfile.backend` inclui os três pontos de integração de filtro/ordem/paginação, além do módulo e serializer                                      |
+
+## Cabeçalho com menu lateral aberto em 1366×768 — 27/10/2026
+
+- Reproduzida a quebra de ícones do cabeçalho do módulo com a barra lateral esquerda aberta: a área de ações media 726 px, mas os controles usavam a largura total do cabeçalho para escolher suas versões expandidas. O cabeçalho ficava com 66 px de altura e ações em duas linhas.
+- Cada área do cabeçalho agora possui seu próprio container responsivo. Com a barra lateral aberta, o cabeçalho ficou com 32 px e as ações alinhadas na mesma linha, sem sobreposição com nomes longos. Abrir, fechar e reabrir a barra lateral manteve o alinhamento em 1366×768.
+- Chromium com sessão/API/PostgreSQL isolados confirmou os menus Ordenar, Campos, Exibir e seletor compacto de layout dentro da tela. Em 390 px não houve overflow horizontal. TypeScript, build, lint e 29 testes direcionados aprovados.
 
 ## Ordenação por setor em módulos e ciclos — 27/10/2026
 

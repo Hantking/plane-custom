@@ -109,7 +109,7 @@ export const GlobalIssuesHeader = observer(function GlobalIssuesHeader() {
     <>
       <CreateUpdateWorkspaceViewModal isOpen={createViewModal} onClose={() => setCreateViewModal(false)} />
       <Header className="flex-wrap gap-y-2 md:flex-nowrap [&>div:first-child]:max-w-full [&>div:first-child]:min-w-0 [&>div:first-child]:flex-initial md:[&>div:first-child]:max-w-[25%] xl:[&>div:first-child]:max-w-[30%]">
-        <Header.LeftItem>
+        <Header.LeftItem className="@container w-full flex-nowrap md:w-[min(25%,20rem)] xl:w-[min(30%,20rem)]">
           <Breadcrumbs>
             <Breadcrumbs.Item
               component={<BreadcrumbLink label={t("views")} icon={<ViewsIcon className="h-4 w-4 text-tertiary" />} />}
@@ -136,7 +136,7 @@ export const GlobalIssuesHeader = observer(function GlobalIssuesHeader() {
           </Breadcrumbs>
         </Header.LeftItem>
 
-        <Header.RightItem className="min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0">
+        <Header.RightItem className="@container min-w-0 flex-1 basis-full flex-wrap items-center justify-start gap-1.5 md:basis-0">
           <NativeListToolbarSlot />
           {globalViewId && <WorkItemFiltersToggle entityType={EIssuesStoreType.GLOBAL} entityId={globalViewId} />}
           {!isLocked && (
