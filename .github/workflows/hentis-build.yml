@@ -48,7 +48,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libpq-dev
       - run: pip install -r requirements/base.txt
         working-directory: apps/api
-      - run: python manage.py test plane.custom_fields plane.ai --settings=plane.ai.test_settings --noinput && python manage.py makemigrations --check --dry-run
+      - run: python manage.py test plane.custom_fields plane.ai plane.api.test_report_read --settings=plane.ai.test_settings --noinput && python manage.py makemigrations --check --dry-run
         working-directory: apps/api
   web-test:
     needs: [resolve, backend-test]
