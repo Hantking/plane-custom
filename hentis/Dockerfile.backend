@@ -10,6 +10,9 @@ COPY apps/api/plane/app/urls/__init__.py /code/plane/app/urls/__init__.py
 COPY apps/api/plane/app/serializers/issue.py /code/plane/app/serializers/issue.py
 COPY apps/api/plane/app/views/issue/base.py /code/plane/app/views/issue/base.py
 COPY apps/api/plane/api/serializers/issue.py /code/plane/api/serializers/issue.py
+COPY apps/api/plane/api/urls/__init__.py /code/plane/api/urls/__init__.py
+COPY apps/api/plane/api/urls/report_read.py /code/plane/api/urls/report_read.py
+COPY apps/api/plane/api/views/report_read.py /code/plane/api/views/report_read.py
 COPY apps/api/plane/db/models/issue.py /code/plane/db/models/issue.py
 COPY apps/api/plane/db/migrations/0123_issue_schedule_times.py /code/plane/db/migrations/0123_issue_schedule_times.py
 COPY apps/api/plane/utils/filters/filter_backend.py /code/plane/utils/filters/filter_backend.py
