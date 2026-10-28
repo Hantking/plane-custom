@@ -12,7 +12,7 @@ import { cn } from "../utils";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
-export function Calendar({ className, showOutsideDays = true, ...props }: CalendarProps) {
+export function Calendar({ className, showOutsideDays = true, formatters, ...props }: CalendarProps) {
   const currentYear = new Date().getFullYear();
   const thirtyYearsAgoFirstDay = new Date(currentYear - 30, 0, 1);
   const thirtyYearsFromNowFirstDay = new Date(currentYear + 30, 11, 31);
@@ -23,19 +23,20 @@ export function Calendar({ className, showOutsideDays = true, ...props }: Calend
       className={cn("p-3", className)}
       weekStartsOn={props.weekStartsOn}
       components={{
-        Chevron: ({ className, ...props }) => (
+        Chevron: ({ className: iconClassName, ...iconProps }) => (
           <ChevronLeftIcon
             className={cn(
               "size-4",
-              { "rotate-180": props.orientation === "right", "-rotate-90": props.orientation === "down" },
-              className
+              { "rotate-180": iconProps.orientation === "right", "-rotate-90": iconProps.orientation === "down" },
+              iconClassName
             )}
-            {...props}
+            {...iconProps}
           />
         ),
       }}
       startMonth={thirtyYearsAgoFirstDay}
       endMonth={thirtyYearsFromNowFirstDay}
+      formatters={{ formatWeekdayName: (date) => `${date.getDay() + 1}º`, ...formatters }}
       {...props}
     />
   );

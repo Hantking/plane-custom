@@ -7,7 +7,10 @@ from django.contrib.postgres.indexes import GinIndex
 
 
 class Field(models.Model):
-    TYPES = [(kind, kind) for kind in ("text", "number", "date", "boolean", "select", "multiselect", "url")]
+    TYPES = [
+        (kind, kind)
+        for kind in ("text", "long_text", "number", "date", "boolean", "select", "multiselect", "url", "phone", "site")
+    ]
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     project = models.ForeignKey("db.Project", on_delete=models.CASCADE)
     name = models.CharField(max_length=100)

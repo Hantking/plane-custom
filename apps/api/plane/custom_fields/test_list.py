@@ -173,6 +173,21 @@ class NativeListTests(TestCase):
             }.issubset(response.data["results"][0])
         )
 
+    def test_new_text_types_search_and_partial_filters_in_native_list(self):
+        for kind, value, search in [
+            ("long_text", "First line\nUnique second line", "Unique second"),
+            ("phone", "(21) 93323-8159", "93323-8159"),
+            ("site", "example.com/contact", "example.com"),
+        ]:
+            with self.subTest(kind=kind):
+                field = Field.objects.create(project=self.project, name=kind, kind=kind)
+                key = str(field.id)
+                save_values(self.alpha, validate_values(self.project.id, {key: value}), self.admin.id)
+                query = self.query(columns=[key], search=search)
+                self.assertEqual(self.ids(self.get_list(query)), [str(self.alpha.id)])
+                query = self.query(filter_tree={"field": key, "operator": "contains", "value": search})
+                self.assertEqual(self.ids(self.get_list(query)), [str(self.alpha.id)])
+
     def test_nested_and_or_not_composes_with_native_filters(self):
         tree = {
             "op": "and",

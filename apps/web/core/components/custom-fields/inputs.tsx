@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CustomSearchSelect, CustomSelect } from "@plane/ui";
 import type { CustomField, FieldValue, SelectOption } from "./service";
 import { fieldInputClass } from "./service";
@@ -7,6 +7,8 @@ import { selectionValues } from "./selection-values";
 import { RelativeDate } from "@/components/dates/relative-date";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { renderFormattedPayloadDate } from "@plane/utils";
+import { LongTextInput } from "./long-text-input";
+import { phoneDisplay, plainNumber, safeSite } from "./text-values";
 
 export function OptionBadge({ option }: { option: SelectOption }) {
   return (
@@ -21,6 +23,18 @@ export function OptionBadge({ option }: { option: SelectOption }) {
 }
 
 export function FieldDisplay({ field, value }: { field: CustomField; value: FieldValue | undefined }) {
+  if (field.kind === "site" && safeSite(value))
+    return (
+      <a
+        href={safeSite(value)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-accent-primary underline"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {String(value)}
+      </a>
+    );
   if (field.kind === "date" && typeof value === "string" && value) return <RelativeDate value={value} />;
   if (field.kind === "multiselect") {
     const selected = selectionValues(field, value);
@@ -59,10 +73,63 @@ export function FieldInput({
   const inputClass = inline
     ? "min-w-0 rounded border-0 bg-transparent px-1.5 py-1 text-13 text-primary shadow-none outline-none placeholder:text-tertiary hover:bg-transparent focus:bg-transparent focus-visible:ring-1 focus-visible:ring-accent-strong disabled:cursor-default disabled:opacity-50"
     : fieldInputClass;
-  const [draft, setDraft] = useState(value === null || value === undefined ? "" : String(value));
+  const textValue =
+    field.kind === "number"
+      ? plainNumber(value)
+      : field.kind === "phone" && value
+        ? phoneDisplay(String(value))
+        : value == null
+          ? ""
+          : String(value);
+  const [draft, setDraft] = useState(textValue);
+  const [siteEditing, setSiteEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    setDraft(value === null || value === undefined ? "" : String(value));
-  }, [value]);
+    if (siteEditing) inputRef.current?.focus();
+  }, [siteEditing]);
+  useEffect(() => {
+    setDraft(textValue);
+  }, [textValue]);
+  if (field.kind === "long_text")
+    return (
+      <LongTextInput
+        name={field.name}
+        value={value}
+        disabled={disabled}
+        immediate={immediate}
+        inline={inline}
+        inputClass={inputClass}
+        onChange={onChange}
+      />
+    );
+  if (field.kind === "site" && inline && !siteEditing)
+    return (
+      <div className="flex w-full min-w-0 items-center gap-2">
+        {safeSite(value) ? (
+          <a
+            href={safeSite(value)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 truncate text-accent-primary underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {String(value)}
+          </a>
+        ) : (
+          <span className="truncate">{textValue || "—"}</span>
+        )}
+        {!disabled && (
+          <button
+            type="button"
+            aria-label={`Editar ${field.name}`}
+            className="shrink-0 text-11 text-secondary"
+            onClick={() => setSiteEditing(true)}
+          >
+            Editar
+          </button>
+        )}
+      </div>
+    );
   if (field.kind === "multiselect") {
     const selected = selectionValues(field, value);
     return (
@@ -188,30 +255,65 @@ export function FieldInput({
       />
     );
   }
-  return (
+  const input = (
     <input
       aria-label={field.name}
       className={`${inputClass} w-full`}
       placeholder={inline ? "—" : undefined}
       disabled={disabled}
-      type={field.kind === "number" ? "number" : field.kind === "url" ? "url" : "text"}
-      step={field.kind === "number" ? "0.000001" : undefined}
-      maxLength={10000}
+      ref={inputRef}
+      type={field.kind === "phone" ? "tel" : field.kind === "url" ? "url" : "text"}
+      inputMode={field.kind === "number" ? "decimal" : undefined}
+      maxLength={field.kind === "site" ? 2000 : 10000}
       value={draft}
       onChange={(e) => {
         setDraft(e.target.value);
         if (immediate) onChange(e.target.value || null);
       }}
       onBlur={() => {
-        if (!immediate && draft !== (value == null ? "" : String(value))) onChange(draft || null);
+        if (field.kind === "phone") setDraft(phoneDisplay(draft));
+        if (!immediate && draft !== textValue) onChange(draft || null);
+        if (field.kind === "site") setSiteEditing(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          setDraft(textValue);
+        }
       }}
     />
   );
+  if (field.kind === "site")
+    return (
+      <div className="flex min-w-0 items-center gap-1">
+        {safeSite(value) && (
+          <a
+            href={safeSite(value)}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Abrir ${field.name} em nova aba`}
+            title={String(value)}
+            className="shrink-0 text-accent-primary underline"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Abrir ↗
+          </a>
+        )}
+        {input}
+      </div>
+    );
+  return input;
 }
 
 export function displayValue(field: CustomField, value: FieldValue | undefined) {
   if (value === null || value === undefined) return "—";
   if (field.kind === "boolean") return value ? "Sim" : "Não";
+  if (field.kind === "number") return plainNumber(value);
+  if (field.kind === "phone") return phoneDisplay(String(value));
   if (field.kind === "select") return field.options.find((option) => option.id === value)?.label ?? "—";
   if (field.kind === "multiselect") {
     const selected = selectionValues(field, value);

@@ -238,8 +238,14 @@ def apply_query(query, project_ids, config, *, visible=None, hierarchy=False):
         )
         allowed = [key for key in search_fields if key in fields]
         condition = Q(
-            field_id__in=[key for key in allowed if fields[key].kind in {"text", "url"}], text_value__icontains=term
+            field_id__in=[key for key in allowed if fields[key].kind in {"text", "long_text", "site", "url"}],
+            text_value__icontains=term,
         )
+        phone_term = re.sub(r"\D", "", term)
+        if phone_term:
+            condition |= Q(
+                field_id__in=[key for key in allowed if fields[key].kind == "phone"], text_value__icontains=phone_term
+            )
         for key in allowed:
             field = fields[key]
             if field.kind in {"select", "multiselect"}:

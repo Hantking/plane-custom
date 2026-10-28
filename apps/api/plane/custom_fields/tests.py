@@ -93,6 +93,52 @@ class CustomFieldsIntegrationTests(TestCase):
             normalize(self.boolean, "false")
         self.assertIs(normalize(self.boolean, False), False)
 
+    def test_long_text_phone_site_roundtrip_and_lossless_conversion(self):
+        samples = {
+            "long_text": ("Primeira linha\r\nSegunda linha\nTerceira", "Primeira linha\nSegunda linha\nTerceira"),
+            "phone": ("+55 (21) 93323-8159", "21933238159"),
+            "site": ("example.com/pagina?q=teste", "https://example.com/pagina?q=teste"),
+        }
+        for kind, (raw, expected) in samples.items():
+            with self.subTest(kind=kind):
+                response = self.client.post(self.base, {"name": kind, "kind": kind}, format="json")
+                self.assertEqual(response.status_code, 201, response.data)
+                key = str(response.data["id"])
+                self.assertEqual(self.save(self.issue, {key: raw}).status_code, 200)
+                self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], expected)
+                # Converting to ordinary text keeps all content, including line breaks.
+                response = self.client.patch(self.base + f"definitions/{key}/", {"kind": "text"}, format="json")
+                self.assertEqual(response.status_code, 200, response.data)
+                self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], expected)
+
+    def test_new_text_types_reject_invalid_values_and_keep_atomic_conversion(self):
+        phone = Field.objects.create(project=self.project, name="Phone", kind="phone")
+        site = Field.objects.create(project=self.project, name="Site", kind="site")
+        self.assertEqual(normalize(phone, "(21) 3323-8159"), "2133238159")
+        for field, raw in [
+            (phone, "123"),
+            (phone, "letters21933238159"),
+            (site, "javascript:alert(1)"),
+            (site, "data:text/html,test"),
+            (site, "ftp://example.com"),
+        ]:
+            with self.subTest(raw=raw), self.assertRaises(ValidationError):
+                normalize(field, raw)
+        text = Field.objects.create(project=self.project, name="Pending", kind="text")
+        self.assertEqual(self.save(self.issue, {str(text.id): "First\nSecond"}).status_code, 200)
+        url = self.base + f"definitions/{text.id}/"
+        self.assertEqual(self.client.patch(url, {"kind": "phone"}, format="json").status_code, 400)
+        text.refresh_from_db()
+        self.assertEqual(text.kind, "text")
+        self.assertEqual(self.client.patch(url, {"kind": "long_text"}, format="json").status_code, 200)
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)][str(text.id)], "First\nSecond")
+
+    def test_decimal_comma_is_explicit_decimal_without_grouping_or_precision_loss(self):
+        self.assertEqual(normalize(self.numeric, "99999999999999,123456"), Decimal("99999999999999.123456"))
+        for invalid in ("1,000,000", "1.000,25", "1,1234567"):
+            with self.assertRaises(ValidationError):
+                normalize(self.numeric, invalid)
+
     def test_native_serializer_requires_fields_and_saves_atomically(self):
         required = Field.objects.create(project=self.project, name="Reference", kind="text", required=True)
         context = {"project_id": self.project.id, "workspace_id": self.workspace.id, "default_assignee_id": None}

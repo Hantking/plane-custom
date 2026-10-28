@@ -360,7 +360,7 @@ export const ListGroup = observer(function ListGroup(props: Props) {
             !isCompletedCycle &&
             !isWorkflowIssueCreationDisabled &&
             !(native?.customGroup?.required && group.id === "__empty__") && (
-              <div className="sticky bottom-0 z-[1] w-full flex-shrink-0">
+              <div className="w-full flex-shrink-0">
                 {native?.enabled && required ? (
                   <NativeListCreateButton
                     defaults={{

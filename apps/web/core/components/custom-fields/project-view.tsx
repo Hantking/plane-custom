@@ -37,7 +37,7 @@ function operators(field: CustomField) {
   return [
     "eq",
     "ne",
-    ...(field.kind === "text" || field.kind === "url" ? ["contains"] : []),
+    ...(["text", "long_text", "phone", "site", "url"].includes(field.kind) ? ["contains"] : []),
     ...(field.kind === "number" || field.kind === "date" ? ["gt", "gte", "lt", "lte"] : []),
     "empty",
     "not_empty",

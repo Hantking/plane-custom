@@ -41,7 +41,7 @@ export const CalendarWeekHeader = observer(function CalendarWeekHeader(props: Pr
 
         return (
           <div key={day.shortTitle} className="flex h-11 items-center justify-center bg-layer-1 px-4 md:justify-end">
-            {day.shortTitle}
+            {day.value + 1}º
           </div>
         );
       })}

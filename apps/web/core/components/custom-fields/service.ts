@@ -49,7 +49,7 @@ export type SelectOption = { id: string; label: string; color?: string };
 export type CustomField = {
   id: string;
   name: string;
-  kind: "text" | "number" | "date" | "boolean" | "select" | "multiselect" | "url";
+  kind: "text" | "long_text" | "number" | "date" | "boolean" | "select" | "multiselect" | "url" | "phone" | "site";
   description: string;
   required: boolean;
   active: boolean;

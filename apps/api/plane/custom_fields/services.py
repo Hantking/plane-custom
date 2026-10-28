@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
@@ -12,6 +13,9 @@ from .models import Change, Field, Value
 
 COLUMNS = {
     "text": "text_value",
+    "long_text": "text_value",
+    "phone": "text_value",
+    "site": "text_value",
     "url": "text_value",
     "number": "number_value",
     "date": "date_value",
@@ -21,6 +25,9 @@ COLUMNS = {
 }
 OPERATORS = {
     "text": {"eq", "ne", "contains", "empty", "not_empty"},
+    "long_text": {"eq", "ne", "contains", "empty", "not_empty"},
+    "phone": {"eq", "ne", "contains", "empty", "not_empty"},
+    "site": {"eq", "ne", "contains", "empty", "not_empty"},
     "url": {"eq", "ne", "contains", "empty", "not_empty"},
     "number": {"eq", "ne", "gt", "gte", "lt", "lte", "empty", "not_empty"},
     "date": {"eq", "ne", "gt", "gte", "lt", "lte", "empty", "not_empty"},
@@ -42,7 +49,7 @@ def value_columns(kind, value):
 def normalize(field, raw):
     if raw is None or raw == "":
         return None
-    if field.kind in ("text", "url") and isinstance(raw, str) and not raw.strip():
+    if field.kind in ("text", "long_text", "phone", "site", "url") and isinstance(raw, str) and not raw.strip():
         return None
     try:
         if field.kind == "multiselect":
@@ -60,7 +67,7 @@ def normalize(field, raw):
         if field.kind == "number":
             if isinstance(raw, bool):
                 raise ValueError()
-            value = Decimal(str(raw))
+            value = Decimal(str(raw).replace(",", "."))
             if not value.is_finite() or abs(value) >= Decimal("1e14") or value.as_tuple().exponent < -6:
                 raise ValueError()
             return value
@@ -72,6 +79,24 @@ def normalize(field, raw):
             raise ValueError()
         if field.kind == "url":
             URLValidator(schemes=["https", "http"])(raw)
+        if field.kind == "site":
+            raw = raw.strip()
+            if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", raw):
+                raw = "https://" + raw
+            if len(raw) > 2000:
+                raise ValueError()
+            URLValidator(schemes=["https", "http"])(raw)
+        if field.kind == "phone":
+            if not re.fullmatch(r"\+?[\d ().-]+", raw.strip()):
+                raise ValueError()
+            digits = re.sub(r"\D", "", raw)
+            if len(digits) in (12, 13) and digits.startswith("55"):
+                digits = digits[2:]
+            if len(digits) not in (10, 11):
+                raise ValueError()
+            raw = digits
+        if field.kind == "long_text":
+            raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         return raw
     except (ValueError, TypeError, InvalidOperation, DjangoValidationError):
         raise ValidationError({str(field.id): f"Valor inválido para {field.name} ({field.kind})."})
@@ -204,7 +229,14 @@ def filter_items(queryset, project_id, filters, match="all", *, occurrence=None)
             raw = node.get("value")
             if field.kind == "multiselect" and isinstance(raw, str):
                 raw = [raw]
-            value = normalize(field, raw)
+            # Substring filters must also accept partial phone numbers / domains.
+            value = (
+                raw
+                if op == "contains" and field.kind in {"phone", "site"} and isinstance(raw, str)
+                else normalize(field, raw)
+            )
+            if op == "contains" and field.kind == "phone" and isinstance(value, str):
+                value = re.sub(r"\D", "", value) or None
             if value is None:
                 raise ValidationError("Use empty para valores vazios.")
         if occurrence and occurrence[0] == str(field.id):

@@ -2,9 +2,11 @@
 
 ## Utilização
 
-A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padrão e os sete tipos de campos personalizados. **Campos** controla visibilidade e ordem; a borda dos cabeçalhos ajusta larguras com mouse ou teclado. As larguras da Lista e da Planilha são independentes.
+A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padrão e os dez tipos de campos personalizados. **Campos** controla visibilidade e ordem; a borda dos cabeçalhos ajusta larguras com mouse ou teclado. As larguras da Lista e da Planilha são independentes.
 
 Na Lista, os editores de campos personalizados têm apresentação inline: fundo transparente, sem a borda de formulário em volta de cada valor, seleções com suas cores e foco de teclado visível. Valores vazios usam um travessão discreto. Texto/número/URL continuam salvando ao sair do campo; seleções e booleanos usam menus. Os formulários e a Planilha mantêm sua apresentação própria.
+
+**Texto longo**, **Telefone** e **Site**, incluindo atalhos, conversão de Pendência principal, numeração dos dias e correção do botão de criação, estão documentados em [TEXT-FIELDS.md](TEXT-FIELDS.md).
 
 A barra da Lista oferece agrupamento, até cinco critérios de ordenação, filtros AND/OR/NOT, busca, modo de subtarefas, cálculos, presets e CSV. A página **Campos e visualizações** continua responsável pela gestão de definições e também pode editar as consultas salvas.
 

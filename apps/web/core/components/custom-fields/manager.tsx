@@ -16,6 +16,9 @@ const blank = (): Partial<CustomField> => ({
 });
 const labels: Record<CustomField["kind"], string> = {
   text: "Texto",
+  long_text: "Texto longo",
+  phone: "Telefone",
+  site: "Site",
   number: "Número",
   date: "Data",
   boolean: "Sim/não",
