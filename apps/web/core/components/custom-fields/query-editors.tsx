@@ -21,7 +21,7 @@ export function fieldOperators(field: CustomField) {
     "eq",
     "ne",
     ...(["text", "long_text", "phone", "site", "url"].includes(field.kind) ? ["contains"] : []),
-    ...(["number", "date"].includes(field.kind) ? ["gt", "gte", "lt", "lte"] : []),
+    ...(["number", "date", "datetime"].includes(field.kind) ? ["gt", "gte", "lt", "lte"] : []),
     "empty",
     "not_empty",
   ];

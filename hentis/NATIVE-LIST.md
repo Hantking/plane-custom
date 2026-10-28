@@ -2,11 +2,13 @@
 
 ## Utilização
 
-A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padrão e os dez tipos de campos personalizados. **Campos** controla visibilidade e ordem; a borda dos cabeçalhos ajusta larguras com mouse ou teclado. As larguras da Lista e da Planilha são independentes.
+A Lista nativa usa cabeçalhos e células alinhados, incluindo propriedades padrão e os onze tipos de campos personalizados. **Campos** controla visibilidade e ordem; a borda dos cabeçalhos ajusta larguras com mouse ou teclado. As larguras da Lista e da Planilha são independentes.
 
 Na Lista, os editores de campos personalizados têm apresentação inline: fundo transparente, sem a borda de formulário em volta de cada valor, seleções com suas cores e foco de teclado visível. Valores vazios usam um travessão discreto. Texto/número/URL continuam salvando ao sair do campo; seleções e booleanos usam menus. Os formulários e a Planilha mantêm sua apresentação própria.
 
 **Texto longo**, **Telefone** e **Site**, incluindo atalhos, conversão de Pendência principal, numeração dos dias e correção do botão de criação, estão documentados em [TEXT-FIELDS.md](TEXT-FIELDS.md).
+
+O tipo **Data e hora**, com horário opcional, é independente de **Data**. Contrato de seleção, persistência e conversão em [DATE-TIME-FIELDS.md](DATE-TIME-FIELDS.md).
 
 A barra da Lista oferece agrupamento, até cinco critérios de ordenação, filtros AND/OR/NOT, busca, modo de subtarefas, cálculos, presets e CSV. A página **Campos e visualizações** continua responsável pela gestão de definições e também pode editar as consultas salvas.
 
@@ -63,6 +65,13 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 | Seleção, ações e hierarquia   | Componentes nativos preservados; filhos são carregados em lotes pelo store de subtarefas existente                                                          |
 | Redimensionamento             | Mesmo provider de larguras; cabeçalho/linha compartilham a grade CSS, sem padding externo na linha; wrappers da virtualização cobrem a largura total        |
 | Imagem backend                | `hentis/Dockerfile.backend` inclui os três pontos de integração de filtro/ordem/paginação, além do módulo e serializer                                      |
+
+## Menus Exibir e três pontinhos acima das colunas — 28/10/2026
+
+- Reproduzida no Chromium a sobreposição dos cabeçalhos fixos da Lista sobre os menus **Display/Exibir** e **três pontinhos** da barra superior. Os cabeçalhos usavam `z-20` fora de um contexto próprio, ultrapassando a camada da barra da página (`z-[18]`).
+- O contêiner de rolagem da Lista agora usa `isolation: isolate`. As camadas das colunas e grupos ficam locais à Lista, abaixo dos menus da página, mantendo o cabeçalho fixo e os seletores renderizados por portal.
+- Ensaio com API/PostgreSQL isolados e 32 tarefas: antes, o hit test no cruzamento entre menu/cabeçalho atingia as colunas; depois, atingiu os menus e cliques reais chegaram aos painéis. Os dois menus foram conferidos em **1366 e 1024 px**, antes e depois de rolar vertical e horizontalmente. O cabeçalho continuou fixo no topo do contêiner.
+- Build web, OxLint sem avisos e `git diff --check` aprovados. Alteração visual localizada; dados e migrações não participam desta correção.
 
 ## Abertura da Lista, horários e acesso rápido — 28/10/2026
 

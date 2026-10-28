@@ -188,6 +188,31 @@ class NativeListTests(TestCase):
                 query = self.query(filter_tree={"field": key, "operator": "contains", "value": search})
                 self.assertEqual(self.ids(self.get_list(query)), [str(self.alpha.id)])
 
+    def test_datetime_native_sort_filters_search_and_csv_preserve_optional_clock(self):
+        field = Field.objects.create(project=self.project, name="Meeting", kind="datetime")
+        key = str(field.id)
+        for issue, value in [(self.alpha, "2026-11-10"), (self.beta, "2026-11-10T00:00")]:
+            save_values(issue, validate_values(self.project.id, {key: value}), self.admin.id)
+        query = self.query(sorts=[{"field": key, "direction": "asc"}])
+        self.assertEqual(self.ids(self.get_list(query)), [str(self.alpha.id), str(self.beta.id)])
+        self.assertEqual(
+            self.ids(self.get_list(self.query(filter_tree={"field": key, "operator": "eq", "value": "2026-11-10"}))),
+            [str(self.alpha.id)],
+        )
+        self.assertEqual(
+            self.ids(self.get_list(self.query(filter_tree={"field": key, "operator": "gt", "value": "2026-11-10"}))),
+            [str(self.beta.id)],
+        )
+        for issue, value in [(self.alpha, "2026-11-10T09:30"), (self.beta, "2026-11-10T17:45")]:
+            save_values(issue, validate_values(self.project.id, {key: value}), self.admin.id)
+        query = self.query(sorts=[{"field": key, "direction": "desc"}])
+        self.assertEqual(self.ids(self.get_list(query)), [str(self.beta.id), str(self.alpha.id)])
+        self.assertEqual(self.ids(self.get_list(self.query(columns=[key], search="09:30"))), [str(self.alpha.id)])
+        exported = self.operation("export", mode="all")
+        self.assertEqual(exported.status_code, 200)
+        self.assertIn("2026-11-10T09:30", exported.content.decode("utf-8-sig"))
+        self.assertIn("2026-11-10T17:45", exported.content.decode("utf-8-sig"))
+
     def test_nested_and_or_not_composes_with_native_filters(self):
         tree = {
             "op": "and",

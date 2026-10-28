@@ -5,9 +5,11 @@ export function IssueTimeInput({
   timeZone,
   disabled,
   onChange,
+  ariaLabel = "Horário da tarefa",
 }: {
   value?: string | null;
-  timeZone: string;
+  timeZone?: string;
+  ariaLabel?: string;
   disabled: boolean;
   onChange: (value: string | null) => void;
 }) {
@@ -22,7 +24,7 @@ export function IssueTimeInput({
       <label className="flex items-center justify-between gap-3 text-12 text-secondary">
         Horário (opcional)
         <input
-          aria-label="Horário da tarefa"
+          aria-label={ariaLabel}
           type="time"
           step={60}
           value={draft}
@@ -45,7 +47,7 @@ export function IssueTimeInput({
         />
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2 text-11 text-tertiary">
-        <span>Fuso: {timeZone}</span>
+        {timeZone && <span>Fuso: {timeZone}</span>}
         {saved && (
           <button
             type="button"

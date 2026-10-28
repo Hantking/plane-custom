@@ -9,6 +9,7 @@ import { DayPicker } from "react-day-picker";
 import { ChevronLeftIcon } from "../icons/arrows/chevron-left";
 
 import { cn } from "../utils";
+import { weekdayLabel } from "./weekday-label";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
@@ -36,7 +37,7 @@ export function Calendar({ className, showOutsideDays = true, formatters, ...pro
       }}
       startMonth={thirtyYearsAgoFirstDay}
       endMonth={thirtyYearsFromNowFirstDay}
-      formatters={{ formatWeekdayName: (date) => `${date.getDay() + 1}º`, ...formatters }}
+      formatters={{ formatWeekdayName: (date) => weekdayLabel(date.getDay()), ...formatters }}
       {...props}
     />
   );

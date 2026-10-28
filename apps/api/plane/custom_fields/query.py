@@ -238,7 +238,9 @@ def apply_query(query, project_ids, config, *, visible=None, hierarchy=False):
         )
         allowed = [key for key in search_fields if key in fields]
         condition = Q(
-            field_id__in=[key for key in allowed if fields[key].kind in {"text", "long_text", "site", "url"}],
+            field_id__in=[
+                key for key in allowed if fields[key].kind in {"text", "long_text", "site", "url", "datetime"}
+            ],
             text_value__icontains=term,
         )
         phone_term = re.sub(r"\D", "", term)

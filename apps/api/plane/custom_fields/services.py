@@ -1,5 +1,5 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
@@ -19,6 +19,9 @@ COLUMNS = {
     "url": "text_value",
     "number": "number_value",
     "date": "date_value",
+    # Fixed-width local ISO strings preserve both date-only values and optional
+    # minutes; lexical ordering is chronological without inventing midnight/UTC.
+    "datetime": "text_value",
     "boolean": "boolean_value",
     "select": "option_value",
     "multiselect": "option_values",
@@ -31,6 +34,7 @@ OPERATORS = {
     "url": {"eq", "ne", "contains", "empty", "not_empty"},
     "number": {"eq", "ne", "gt", "gte", "lt", "lte", "empty", "not_empty"},
     "date": {"eq", "ne", "gt", "gte", "lt", "lte", "empty", "not_empty"},
+    "datetime": {"eq", "ne", "gt", "gte", "lt", "lte", "empty", "not_empty"},
     "boolean": {"eq", "ne", "empty", "not_empty"},
     "select": {"eq", "ne", "empty", "not_empty"},
     "multiselect": {"eq", "ne", "contains_any", "contains_all", "empty", "not_empty"},
@@ -73,6 +77,14 @@ def normalize(field, raw):
             return value
         if field.kind == "date":
             return date.fromisoformat(str(raw))
+        if field.kind == "datetime":
+            if not isinstance(raw, str) or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2})?", raw):
+                raise ValueError()
+            if "T" in raw:
+                datetime.fromisoformat(raw)
+            else:
+                date.fromisoformat(raw)
+            return raw
         if not isinstance(raw, str) or len(raw) > 10000:
             raise ValueError()
         if field.kind == "select" and raw not in {str(o["id"]) for o in field.options}:

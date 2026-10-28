@@ -5,4 +5,5 @@
  */
 
 export * from "./root";
+export { weekdayLabel } from "./weekday-label";
 export type { Matcher, DateRange } from "react-day-picker";

@@ -9,6 +9,8 @@ import { DateDropdown } from "@/components/dropdowns/date";
 import { renderFormattedPayloadDate } from "@plane/utils";
 import { LongTextInput } from "./long-text-input";
 import { phoneDisplay, plainNumber, safeSite } from "./text-values";
+import { DateTimeFieldInput } from "./date-time-input";
+import { dateTimeParts } from "./date-time-value";
 
 export function OptionBadge({ option }: { option: SelectOption }) {
   return (
@@ -23,6 +25,15 @@ export function OptionBadge({ option }: { option: SelectOption }) {
 }
 
 export function FieldDisplay({ field, value }: { field: CustomField; value: FieldValue | undefined }) {
+  if (field.kind === "datetime" && typeof value === "string" && value) {
+    const { date, time } = dateTimeParts(value);
+    return (
+      <span>
+        <RelativeDate value={date} />
+        {time && <span className="ml-1 tabular-nums">· {time}</span>}
+      </span>
+    );
+  }
   if (field.kind === "site" && safeSite(value))
     return (
       <a
@@ -239,6 +250,18 @@ export function FieldInput({
       </select>
     );
   }
+  if (field.kind === "datetime")
+    return (
+      <DateTimeFieldInput
+        name={field.name}
+        value={value}
+        disabled={disabled}
+        immediate={immediate}
+        inline={inline}
+        inputClass={inputClass}
+        onChange={onChange}
+      />
+    );
   if (field.kind === "date") {
     return (
       <DateDropdown

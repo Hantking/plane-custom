@@ -47,6 +47,8 @@ type Props = TDropdownProps & {
   labelClassName?: string;
   timeValue?: string | null;
   timeZone?: string | null;
+  showTimeZone?: boolean;
+  timeAriaLabel?: string;
   onTimeChange?: (value: string | null, timeZone: string) => void;
 };
 
@@ -79,6 +81,8 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
     labelClassName = "",
     timeValue,
     timeZone,
+    showTimeZone = true,
+    timeAriaLabel,
     onTimeChange,
   } = props;
   // states
@@ -154,7 +158,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
         tooltipHeading={placeholder}
         tooltipContent={
           value
-            ? `${renderFormattedDate(value, formatToken)}${timeValue ? ` · ${timeValue.slice(0, 5)} (${scheduleZone})` : ""}`
+            ? `${renderFormattedDate(value, formatToken)}${timeValue ? ` · ${timeValue.slice(0, 5)}${showTimeZone ? ` (${scheduleZone})` : ""}` : ""}`
             : "None"
         }
         showTooltip={showTooltip}
@@ -228,7 +232,8 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
               {onTimeChange && (
                 <IssueTimeInput
                   value={timeValue}
-                  timeZone={scheduleZone}
+                  timeZone={showTimeZone ? scheduleZone : undefined}
+                  ariaLabel={timeAriaLabel}
                   disabled={disabled || !isDateSelected}
                   onChange={(clock) => onTimeChange(clock, scheduleZone)}
                 />

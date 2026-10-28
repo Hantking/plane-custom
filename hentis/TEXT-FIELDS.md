@@ -13,7 +13,7 @@ Os novos tipos usam `Value.text_value`, com os mesmos contratos de histórico, p
 
 ## Calendários e criação
 
-Os cabeçalhos dos seletores de data e do layout Calendário usam **1º a 7º**, de domingo a sábado. A numeração identifica o dia da semana, independentemente da preferência de início da semana.
+Os cabeçalhos dos seletores de data e do layout Calendário usam **2ª · 3ª · 4ª · 5ª · 6ª · sá · do**, identificando segunda a domingo. As abreviações substituem a numeração anterior de 1º a 7º; a ordem das colunas continua respeitando a preferência de início da semana.
 
 O controle **Nova tarefa · formulário completo** acompanha o fluxo de cada seção da Lista. Seu contêiner não é mais um rodapé `sticky`, evitando que fique sobre as tarefas durante a rolagem. A mesma posição é usada pela criação rápida quando disponível.
 

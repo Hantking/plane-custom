@@ -21,6 +21,7 @@ const labels: Record<CustomField["kind"], string> = {
   site: "Site",
   number: "Número",
   date: "Data",
+  datetime: "Data e hora",
   boolean: "Sim/não",
   select: "Seleção única",
   multiselect: "Seleção múltipla",

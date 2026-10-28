@@ -139,6 +139,56 @@ class CustomFieldsIntegrationTests(TestCase):
             with self.assertRaises(ValidationError):
                 normalize(self.numeric, invalid)
 
+    def test_datetime_accepts_date_only_and_explicit_midnight_without_inventing_time(self):
+        response = self.client.post(self.base, {"name": "Meeting", "kind": "datetime", "required": True}, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        key = str(response.data["id"])
+        for value in ("2026-11-10", "2026-11-10T00:00", "2026-11-10T09:30", "2026-11-10"):
+            self.assertEqual(self.save(self.issue, {key: value}).status_code, 200)
+            self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], value)
+        changes = list(
+            Change.objects.filter(issue=self.issue, field_id=key)
+            .order_by("created_at")
+            .values_list("new_value", flat=True)
+        )
+        self.assertEqual(changes, ["2026-11-10", "2026-11-10T00:00", "2026-11-10T09:30", "2026-11-10"])
+        self.assertEqual(self.save(self.issue, {key: None}).status_code, 400)
+
+    def test_datetime_validation_rejects_invalid_days_clocks_and_implicit_timezone_conversion(self):
+        field = Field.objects.create(project=self.project, name="Date with optional time", kind="datetime")
+        for invalid in (
+            "09:30",
+            "2026-02-30",
+            "2026-11-10T24:00",
+            "2026-11-10T09:60",
+            "2026-11-10T9:30",
+            "2026-11-10T09:30:45",
+            "2026-11-10T09:30Z",
+            "2026-11-10T09:30-03:00",
+            {"date": "2026-11-10"},
+            True,
+        ):
+            with self.subTest(invalid=invalid), self.assertRaises(ValidationError):
+                normalize(field, invalid)
+        self.assertIsNone(normalize(field, None))
+        self.assertIsNone(normalize(field, ""))
+
+    def test_date_to_datetime_conversion_keeps_date_only_and_rejects_losing_a_clock(self):
+        field = Field.objects.create(project=self.project, name="Date conversion", kind="date")
+        key = str(field.id)
+        url = self.base + f"definitions/{key}/"
+        self.assertEqual(self.save(self.issue, {key: "2026-11-10"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"kind": "datetime"}, format="json").status_code, 200)
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], "2026-11-10")
+        self.assertEqual(self.save(self.issue, {key: "2026-11-10T09:30"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"kind": "date"}, format="json").status_code, 400)
+        field.refresh_from_db()
+        self.assertEqual(field.kind, "datetime")
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], "2026-11-10T09:30")
+        self.assertEqual(self.save(self.issue, {key: "2026-11-10"}).status_code, 200)
+        self.assertEqual(self.client.patch(url, {"kind": "date"}, format="json").status_code, 200)
+        self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], "2026-11-10")
+
     def test_native_serializer_requires_fields_and_saves_atomically(self):
         required = Field.objects.create(project=self.project, name="Reference", kind="text", required=True)
         context = {"project_id": self.project.id, "workspace_id": self.workspace.id, "default_assignee_id": None}

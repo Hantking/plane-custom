@@ -194,7 +194,8 @@ const ListContent = observer(function ListContent(props: IList) {
             <>
               <div
                 ref={containerRef}
-                className="vertical-scrollbar relative scrollbar-lg size-full overflow-auto bg-surface-1"
+                // Keep sticky column/group layers below the page header's menus.
+                className="vertical-scrollbar relative isolate scrollbar-lg size-full overflow-auto bg-surface-1"
                 role={native?.enabled ? "treegrid" : undefined}
                 aria-label={native?.enabled ? "Lista de tarefas por colunas" : undefined}
               >
