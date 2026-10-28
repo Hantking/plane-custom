@@ -1,0 +1,41 @@
+name: Report API integration tests
+
+on:
+  pull_request:
+    branches: [hentis/custom-fields]
+    paths:
+      - apps/api/**
+      - .github/workflows/report-api-tests.yml
+      - .github/workflows/hentis-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test-password
+          POSTGRES_DB: plane
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      SECRET_KEY: ci-test-key-only
+      REDIS_URL: redis://127.0.0.1:6379
+      DATABASE_URL: postgresql://postgres:test-password@127.0.0.1:5432/plane
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y libpq-dev
+      - run: pip install -r requirements/base.txt
+        working-directory: apps/api
+      - run: python manage.py test plane.api.test_report_read --settings=plane.custom_fields.test_settings --noinput
+        working-directory: apps/api
