@@ -26,6 +26,7 @@ import { useAppRouter } from "@/hooks/use-app-router";
 import { IssuePeekOverview } from "../peek-overview";
 import { IssueMainContent } from "./main-content";
 import { IssueDetailsSidebar } from "./sidebar";
+import { IssueQuickAccessContent, IssueQuickAccessRail, useIssueQuickPanel } from "./quick-access";
 
 export type TIssueOperations = {
   fetch: (workspaceSlug: string, projectId: string, issueId: string, loader?: boolean) => Promise<void>;
@@ -60,7 +61,12 @@ export type TIssueDetailRoot = {
 
 export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDetailRoot) {
   const { t } = useTranslation();
-  const { workspaceSlug, projectId, issueId, is_archived = false } = props;
+  const {
+    workspaceSlug: currentWorkspaceSlug,
+    projectId: currentProjectId,
+    issueId: currentIssueId,
+    is_archived = false,
+  } = props;
   // router
   const router = useAppRouter();
   // hooks
@@ -80,7 +86,8 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
     issues: { removeIssue: removeArchivedIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
   const { allowPermissions } = useUserPermissions();
-  const { issueDetailSidebarCollapsed } = useAppTheme();
+  const { issueDetailSidebarCollapsed, toggleIssueDetailSidebar } = useAppTheme();
+  const [quickPanel, setQuickPanel] = useIssueQuickPanel(currentIssueId);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({
@@ -216,13 +223,13 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   );
 
   // issue details
-  const issue = getIssueById(issueId);
+  const issue = getIssueById(currentIssueId);
   // checking if issue is editable, based on user role
   const isEditable = allowPermissions(
     [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
     EUserPermissionsLevel.PROJECT,
-    workspaceSlug,
-    projectId
+    currentWorkspaceSlug,
+    currentProjectId
   );
 
   return (
@@ -234,33 +241,52 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           description={t("issue.empty_state.issue_detail.description")}
           primaryButton={{
             text: t("issue.empty_state.issue_detail.primary_button.text"),
-            onClick: () => router.push(`/${workspaceSlug}/projects/${projectId}/issues`),
+            onClick: () => router.push(`/${currentWorkspaceSlug}/projects/${currentProjectId}/issues`),
           }}
         />
       ) : (
-        <div className="flex h-full w-full overflow-hidden">
+        <div className="relative flex h-full w-full overflow-hidden">
           <div className="h-full w-full space-y-6 overflow-y-auto px-9 py-5">
             <IssueMainContent
-              workspaceSlug={workspaceSlug}
-              projectId={projectId}
-              issueId={issueId}
+              workspaceSlug={currentWorkspaceSlug}
+              projectId={currentProjectId}
+              issueId={currentIssueId}
               issueOperations={issueOperations}
               isEditable={isEditable}
               isArchived={is_archived}
+              quickPanel={quickPanel}
             />
           </div>
           <div
-            className="fixed right-0 z-[5] h-full w-full min-w-[300px] border-l border-subtle bg-surface-1 sm:w-1/2 md:relative md:w-1/4 lg:min-w-80 xl:min-w-96"
+            className="absolute top-0 right-11 z-[5] h-full w-[calc(100%-2.75rem)] min-w-0 border-l border-subtle bg-surface-1 sm:w-1/2 md:relative md:top-auto md:right-auto md:w-1/4 md:min-w-[300px] lg:min-w-80 xl:min-w-96"
             style={issueDetailSidebarCollapsed ? { right: `-${window?.innerWidth || 0}px` } : {}}
           >
-            <IssueDetailsSidebar
-              workspaceSlug={workspaceSlug}
-              projectId={projectId}
-              issueId={issueId}
-              issueOperations={issueOperations}
-              isEditable={!is_archived && isEditable}
+            <IssueQuickAccessContent
+              panel={quickPanel}
+              workspaceSlug={currentWorkspaceSlug}
+              projectId={currentProjectId}
+              issueId={currentIssueId}
+              disabled={!isEditable || is_archived}
+              isArchived={is_archived}
+              properties={
+                <IssueDetailsSidebar
+                  workspaceSlug={currentWorkspaceSlug}
+                  projectId={currentProjectId}
+                  issueId={currentIssueId}
+                  issueOperations={issueOperations}
+                  isEditable={!is_archived && isEditable}
+                />
+              }
             />
           </div>
+          <IssueQuickAccessRail
+            issueId={currentIssueId}
+            panel={quickPanel}
+            onChange={(panel) => {
+              setQuickPanel(panel);
+              toggleIssueDetailSidebar(false);
+            }}
+          />
         </div>
       )}
 

@@ -146,6 +146,9 @@ class Issue(ChangeTrackerMixin, ProjectBaseModel):
     )
     start_date = models.DateField(null=True, blank=True)
     target_date = models.DateField(null=True, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    target_time = models.TimeField(null=True, blank=True)
+    schedule_timezone = models.CharField(max_length=64, blank=True, default="")
     assignees = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         blank=True,

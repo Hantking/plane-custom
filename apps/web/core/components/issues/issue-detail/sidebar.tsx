@@ -140,10 +140,17 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
             <SidebarPropertyListItem icon={StartDatePropertyIcon} label={t("common.order_by.start_date")}>
               <DateDropdown
                 placeholder={t("issue.add.start_date")}
+                ariaLabel={t("common.order_by.start_date")}
                 value={issue.start_date}
+                timeValue={issue.start_time}
+                timeZone={issue.schedule_timezone}
+                onTimeChange={(start_time, schedule_timezone) =>
+                  void issueOperations.update(workspaceSlug, projectId, issueId, { start_time, schedule_timezone })
+                }
                 onChange={(val) =>
                   issueOperations.update(workspaceSlug, projectId, issueId, {
                     start_date: val ? renderFormattedPayloadDate(val) : null,
+                    ...(!val ? { start_time: null } : {}),
                   })
                 }
                 maxDate={maxDate ?? undefined}
@@ -161,10 +168,17 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
               <div className="flex w-full items-center gap-2">
                 <DateDropdown
                   placeholder={t("issue.add.due_date")}
+                  ariaLabel={t("common.order_by.due_date")}
                   value={issue.target_date}
+                  timeValue={issue.target_time}
+                  timeZone={issue.schedule_timezone}
+                  onTimeChange={(target_time, schedule_timezone) =>
+                    void issueOperations.update(workspaceSlug, projectId, issueId, { target_time, schedule_timezone })
+                  }
                   onChange={(val) =>
                     issueOperations.update(workspaceSlug, projectId, issueId, {
                       target_date: val ? renderFormattedPayloadDate(val) : null,
+                      ...(!val ? { target_time: null } : {}),
                     })
                   }
                   minDate={minDate ?? undefined}

@@ -9,7 +9,7 @@ import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
 // plane package imports
 import type { TActivityFilters } from "@plane/constants";
-import { E_SORT_ORDER, defaultActivityFilters } from "@plane/constants";
+import { E_SORT_ORDER, EActivityFilterType, defaultActivityFilters } from "@plane/constants";
 import { useLocalStorage } from "@plane/hooks";
 // i18n
 import { useTranslation } from "@plane/i18n";
@@ -31,6 +31,7 @@ type TIssueActivity = {
   issueId: string;
   disabled?: boolean;
   isIntakeIssue?: boolean;
+  commentsOnly?: boolean;
 };
 
 export type TActivityOperations = {
@@ -41,7 +42,7 @@ export type TActivityOperations = {
 };
 
 export const IssueActivity = observer(function IssueActivity(props: TIssueActivity) {
-  const { workspaceSlug, projectId, issueId, disabled = false, isIntakeIssue = false } = props;
+  const { workspaceSlug, projectId, issueId, disabled = false, isIntakeIssue = false, commentsOnly = false } = props;
   // i18n
   const { t } = useTranslation();
   // hooks
@@ -93,15 +94,17 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     <div className="space-y-4">
       {/* header */}
       <div className="flex items-center justify-between">
-        <div className="text-h5-medium text-primary">{t("common.activity")}</div>
+        <div className="text-h5-medium text-primary">{t(commentsOnly ? "common.comments" : "common.activity")}</div>
         <div className="flex items-center gap-2">
           <ActivitySortRoot sortOrder={sortOrder || E_SORT_ORDER.ASC} toggleSort={toggleSortOrder} />
-          <ActivityFilterRoot
-            selectedFilters={selectedFilters || defaultActivityFilters}
-            toggleFilter={toggleFilter}
-            isIntakeIssue={isIntakeIssue}
-            projectId={projectId}
-          />
+          {!commentsOnly && (
+            <ActivityFilterRoot
+              selectedFilters={selectedFilters || defaultActivityFilters}
+              toggleFilter={toggleFilter}
+              isIntakeIssue={isIntakeIssue}
+              projectId={projectId}
+            />
+          )}
         </div>
       </div>
 
@@ -115,7 +118,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               workspaceSlug={workspaceSlug}
               isIntakeIssue={isIntakeIssue}
               issueId={issueId}
-              selectedFilters={selectedFilters || defaultActivityFilters}
+              selectedFilters={commentsOnly ? [EActivityFilterType.COMMENT] : selectedFilters || defaultActivityFilters}
               activityOperations={activityOperations}
               showAccessSpecifier={!!project.anchor}
               disabled={disabled}

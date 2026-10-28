@@ -65,6 +65,7 @@ requests==2.33.0
 zxcvbn==4.4.28
 # timezone
 pytz==2024.1
+tzdata==2026.5
 # jwt
 PyJWT==2.13.0
 # OpenTelemetry

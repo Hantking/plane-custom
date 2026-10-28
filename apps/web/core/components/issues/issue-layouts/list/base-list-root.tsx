@@ -21,6 +21,7 @@ import { useUserPermissions } from "@/hooks/store/user";
 import { useGroupIssuesDragNDrop } from "@/hooks/use-group-dragndrop";
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { useIssuesActions } from "@/hooks/use-issues-actions";
+import { useNativeDisplay } from "@/components/custom-fields/native-layout";
 // components
 import { IssueLayoutHOC } from "../issue-layout-HOC";
 import { List } from "./default";
@@ -85,10 +86,15 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
   const { updateFilters } = useIssuesActions(storeType);
   const collapsedGroups =
     issuesFilter?.issueFilters?.kanbanFilters || ({ group_by: [], sub_group_by: [] } as TIssueKanbanFilters);
+  const nativeDisplay = useNativeDisplay("list");
+  const nativeOwnsRequests = !isEpic && !!nativeDisplay.request && (!nativeDisplay.error || !!nativeDisplay.data);
 
   useEffect(() => {
+    // The native List controller binds its query and owns the initial read as well as refreshes.
+    // A second initial read here aborts that request and can leave the List empty.
+    if (nativeOwnsRequests) return;
     fetchIssues("init-loader", { canGroup: true, perPageCount: group_by ? 50 : 100 }, viewId);
-  }, [fetchIssues, storeType, group_by, viewId]);
+  }, [fetchIssues, storeType, group_by, viewId, nativeOwnsRequests]);
 
   const groupedIssueIds = issues?.groupedIssueIds as TGroupedIssues | undefined;
   // auth

@@ -28,12 +28,21 @@ export const SpreadsheetStartDateColumn = observer(function SpreadsheetStartDate
     <div className="h-11 border-b-[0.5px] border-subtle">
       <DateDropdown
         value={issue.start_date}
+        timeValue={issue.start_time}
+        timeZone={issue.schedule_timezone}
+        onTimeChange={(start_time, schedule_timezone) =>
+          onChange(
+            issue,
+            { start_time, schedule_timezone },
+            { changed_property: "start_time", change_details: start_time }
+          )
+        }
         maxDate={getDate(issue.target_date)}
         onChange={(data) => {
           const startDate = data ? renderFormattedPayloadDate(data) : null;
           onChange(
             issue,
-            { start_date: startDate },
+            { start_date: startDate, ...(!startDate ? { start_time: null } : {}) },
             {
               changed_property: "start_date",
               change_details: startDate,

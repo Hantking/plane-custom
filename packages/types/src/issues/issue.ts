@@ -68,6 +68,9 @@ export type TBaseIssue = {
   created_at: string;
   updated_at: string;
   start_date: string | null;
+  start_time?: string | null;
+  target_time?: string | null;
+  schedule_timezone?: string;
   target_date: string | null;
   completed_at: string | null;
   archived_at: string | null;

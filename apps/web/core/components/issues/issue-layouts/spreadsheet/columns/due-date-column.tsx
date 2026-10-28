@@ -34,12 +34,21 @@ export const SpreadsheetDueDateColumn = observer(function SpreadsheetDueDateColu
     <div className="h-11 border-b-[0.5px] border-subtle">
       <DateDropdown
         value={issue.target_date}
+        timeValue={issue.target_time}
+        timeZone={issue.schedule_timezone}
+        onTimeChange={(target_time, schedule_timezone) =>
+          onChange(
+            issue,
+            { target_time, schedule_timezone },
+            { changed_property: "target_time", change_details: target_time }
+          )
+        }
         minDate={getDate(issue.start_date)}
         onChange={(data) => {
           const targetDate = data ? renderFormattedPayloadDate(data) : null;
           onChange(
             issue,
-            { target_date: targetDate },
+            { target_date: targetDate, ...(!targetDate ? { target_time: null } : {}) },
             {
               changed_property: "target_date",
               change_details: targetDate,

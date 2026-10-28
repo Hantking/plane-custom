@@ -67,8 +67,11 @@ function identify(node: FilterTree, path: string): FilterTree {
   return { ...node, id: node.id ?? `legacy-${path}` };
 }
 
-export function normalizeListQuery(value: Partial<ViewConfig> = {}): ViewConfig {
+export function normalizeListQuery(value: Partial<ViewConfig> = {}, nativeSubIssues = false): ViewConfig {
   const result = { ...listQueryDefaults, ...value };
+  // Existing module/cycle Lists commonly show subtasks as independent members.
+  // Do not hide them before the user has explicitly chosen a personal hierarchy mode.
+  if (value.subtasks === undefined && nativeSubIssues) result.subtasks = "separate";
   if (!value.filter_tree && value.filters)
     result.filter_tree = { op: value.match === "any" ? "or" : "and", children: value.filters };
   if (!value.sorts && value.order_by)

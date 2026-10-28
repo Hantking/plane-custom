@@ -45,7 +45,7 @@ export const IssueDetailsPage = observer(function IssueDetailsPage({ params }: R
     issue: { getIssueById },
   } = useIssueDetail();
   const { getProjectById, getProjectByIdentifier } = useProject();
-  const { toggleIssueDetailSidebar, issueDetailSidebarCollapsed } = useAppTheme();
+  const { toggleIssueDetailSidebar } = useAppTheme();
 
   const [projectIdentifier, sequence_id] = workItem.split("-");
 
@@ -76,14 +76,14 @@ export const IssueDetailsPage = observer(function IssueDetailsPage({ params }: R
       if (window && window.innerWidth < 768) {
         toggleIssueDetailSidebar(true);
       }
-      if (window && issueDetailSidebarCollapsed && window.innerWidth >= 768) {
+      if (window && window.innerWidth >= 768) {
         toggleIssueDetailSidebar(false);
       }
     };
     window.addEventListener("resize", handleToggleIssueDetailSidebar);
     handleToggleIssueDetailSidebar();
     return () => window.removeEventListener("resize", handleToggleIssueDetailSidebar);
-  }, [issueDetailSidebarCollapsed, toggleIssueDetailSidebar]);
+  }, [toggleIssueDetailSidebar]);
 
   useEffect(() => {
     if (data?.is_intake) {

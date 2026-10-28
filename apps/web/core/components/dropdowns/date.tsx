@@ -18,7 +18,8 @@ import { ComboDropDown } from "@plane/ui";
 import { cn, renderFormattedDate, getDate } from "@plane/utils";
 // helpers
 // hooks
-import { useUserProfile } from "@/hooks/store/user";
+import { useUserProfile, useUser } from "@/hooks/store/user";
+import { IssueTimeInput } from "@/components/dates/issue-time-input";
 import { useDropdown } from "@/hooks/use-dropdown";
 // components
 import { DropdownButton } from "./buttons";
@@ -44,6 +45,9 @@ type Props = TDropdownProps & {
   formatToken?: string;
   renderByDefault?: boolean;
   labelClassName?: string;
+  timeValue?: string | null;
+  timeZone?: string | null;
+  onTimeChange?: (value: string | null, timeZone: string) => void;
 };
 
 export const DateDropdown = observer(function DateDropdown(props: Props) {
@@ -73,6 +77,9 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
     formatToken,
     renderByDefault = true,
     labelClassName = "",
+    timeValue,
+    timeZone,
+    onTimeChange,
   } = props;
   // states
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -80,6 +87,8 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   // hooks
   const { data } = useUserProfile();
+  const { data: currentUser } = useUser();
+  const scheduleZone = timeZone || currentUser?.user_timezone || "UTC";
   const startOfWeek = data?.start_of_the_week;
   // popper-js refs
   const [referenceElement, setReferenceElement] = useState<HTMLButtonElement | null>(null);
@@ -113,7 +122,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
 
   const dropdownOnChange = (val: Date | null) => {
     onChange(val);
-    if (closeOnSelect) {
+    if (closeOnSelect && !onTimeChange) {
       handleClose();
       referenceElement?.blur();
     }
@@ -143,7 +152,11 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
         className={buttonClassName}
         isActive={isOpen}
         tooltipHeading={placeholder}
-        tooltipContent={value ? renderFormattedDate(value, formatToken) : "None"}
+        tooltipContent={
+          value
+            ? `${renderFormattedDate(value, formatToken)}${timeValue ? ` · ${timeValue.slice(0, 5)} (${scheduleZone})` : ""}`
+            : "None"
+        }
         showTooltip={showTooltip}
         variant={buttonVariant}
         renderToolTipByDefault={renderByDefault}
@@ -152,6 +165,7 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
         {BUTTON_VARIANTS_WITH_TEXT.includes(buttonVariant) && (
           <span className={cn("flex-grow truncate text-left text-body-xs-medium", labelClassName)}>
             {value ? <RelativeDate value={value} normalText={renderFormattedDate(value, formatToken)} /> : placeholder}
+            {value && timeValue && <span className="ml-1 text-11 tabular-nums">· {timeValue.slice(0, 5)}</span>}
           </span>
         )}
         {isClearable && !disabled && isDateSelected && (
@@ -211,6 +225,14 @@ export const DateDropdown = observer(function DateDropdown(props: Props) {
                 fixedWeeks
                 weekStartsOn={startOfWeek}
               />
+              {onTimeChange && (
+                <IssueTimeInput
+                  value={timeValue}
+                  timeZone={scheduleZone}
+                  disabled={disabled || !isDateSelected}
+                  onChange={(clock) => onTimeChange(clock, scheduleZone)}
+                />
+              )}
             </div>
           </Combobox.Options>,
           document.body

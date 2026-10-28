@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { observer } from "mobx-react";
 import useSWR, { mutate as refreshCache } from "swr";
+import { isCancel } from "axios";
 import type { IIssueDisplayProperties, TIssue } from "@plane/types";
 import { EIssueFilterType, ALL_ISSUES } from "@plane/constants";
 import { useIssues } from "@/hooks/store/use-issues";
@@ -42,14 +43,18 @@ export const NativeListController = observer(function NativeListController({
 }) {
   const native = useNativeFieldsContext();
   const storeType = useIssueStoreType();
-  const { issues } = useIssues(storeType);
+  const { issues, issuesFilter } = useIssues(storeType);
   const nativeLoading = !!issues?.getIssueLoader();
   const actions = useIssuesActions(storeType);
   const issueDetail = useIssueDetail();
   const ref = useRef({ native, props, actions, issueDetail });
   ref.current = { native, props, actions, issueDetail };
   const raw = JSON.stringify(native?.display.data?.preference.query ?? {});
-  const query = useMemo(() => normalizeListQuery(JSON.parse(raw) as Partial<ViewConfig>), [raw]);
+  const nativeSubIssues = !!issuesFilter?.issueFilters?.displayFilters?.sub_issue;
+  const query = useMemo(
+    () => normalizeListQuery(JSON.parse(raw) as Partial<ViewConfig>, nativeSubIssues),
+    [raw, nativeSubIssues]
+  );
   const queryKey = JSON.stringify(query);
   const identity = native?.display.identity ?? "unsupported";
   const supported = !!native?.display.request && !props.isEpic;
@@ -129,7 +134,7 @@ export const NativeListController = observer(function NativeListController({
         pendingFocus.current = null;
       });
     } catch (failure) {
-      if (generation === reloadGeneration.current) setError(fieldError(failure));
+      if (generation === reloadGeneration.current && !isCancel(failure)) setError(fieldError(failure));
     } finally {
       if (generation === reloadGeneration.current) setLoading(false);
     }
@@ -145,7 +150,7 @@ export const NativeListController = observer(function NativeListController({
     });
     void reload();
     return unbind;
-  }, [identity, enabled, queryKey, fieldsKey, visibleKey, reload]);
+  }, [identity, enabled, queryKey, fieldsKey, visibleKey, props.group_by, props.orderBy, reload]);
   useEffect(() => {
     if (!supported) return;
     const changed = (event: Event) => {

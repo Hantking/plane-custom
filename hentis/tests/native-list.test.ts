@@ -82,6 +82,15 @@ test("legacy filters and sort migrate without losing semantics or changing node 
   assert.deepEqual(normalizeListQuery(value), value);
 });
 
+test("an unconfigured List inherits native subtask visibility without overriding an explicit personal mode", () => {
+  assert.equal(normalizeListQuery({}, true).subtasks, "separate");
+  assert.equal(normalizeListQuery({}, false).subtasks, "collapsed");
+  for (const subtasks of ["collapsed", "expanded", "separate"] as const) {
+    assert.equal(normalizeListQuery({ subtasks }, true).subtasks, subtasks);
+    assert.equal(normalizeListQuery({ subtasks }, false).subtasks, subtasks);
+  }
+});
+
 test("defaults use unambiguous scalar equality in AND and exclude multiselect, OR, NOT and ranges", () => {
   assert.deepEqual(
     filterDefaults(

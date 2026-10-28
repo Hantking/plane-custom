@@ -18,6 +18,8 @@ O título e os controles medem seu próprio espaço disponível. Com o menu late
 
 ### Semântica dos resultados
 
+- O controlador da Lista nativa é o único responsável por sua leitura inicial. Cancelamentos de leituras substituídas mantêm sua identidade e não viram o alerta genérico de operação. A abertura não disputa a mesma consulta com uma segunda carga inicial do layout base.
+- Até escolher um modo pessoal de subtarefas, a Lista respeita a visibilidade nativa: módulos/ciclos que já exibem subtarefas continuam mostrando seus membros independentemente do pai estar nesse contexto. Isso evita uma Lista aparentemente vazia quando seus membros são subtarefas.
 - No **Ordenar da barra superior**, carregar tarefas ou atualizar contagens não desabilita **Aplicar ordem**. O botão e os critérios ficam protegidos apenas durante o salvamento da consulta, com o texto **Aplicando ordem…**. Atualizações substituídas por uma nova ordenação não devem sobrescrever o estado de carregamento nem apresentar erros de uma requisição anterior.
 - Escolher uma ordem em **Exibir → Ordenar por** substitui os critérios personalizados ativos da mesma Lista, inclusive ao clicar na opção nativa que já estava selecionada. A nova escolha é persistida na consulta pessoal; **Manual** remove os critérios e habilita a ordem pessoal. Filtros, agrupamento e posições manuais são preservados.
 - A API filtra e ordena antes de paginar. A seleção única ordena pela sequência das opções na definição; seleção múltipla não oferece ordenação. Cada critério declara direção e posição dos nulos; o desempate final é o UUID.
@@ -59,6 +61,11 @@ O CSV é tabular e único, sem reproduzir as ocorrências dos grupos ou a hierar
 | Seleção, ações e hierarquia   | Componentes nativos preservados; filhos são carregados em lotes pelo store de subtarefas existente                                                          |
 | Redimensionamento             | Mesmo provider de larguras; cabeçalho/linha compartilham a grade CSS, sem padding externo na linha; wrappers da virtualização cobrem a largura total        |
 | Imagem backend                | `hentis/Dockerfile.backend` inclui os três pontos de integração de filtro/ordem/paginação, além do módulo e serializer                                      |
+
+## Abertura da Lista, horários e acesso rápido — 28/10/2026
+
+- Regressão de abertura: removida a leitura inicial concorrente do layout base para contextos geridos pela Lista nativa; cancelamentos preservados no serviço HTTP. A configuração sem modo pessoal de subtarefas herda a visibilidade nativa.
+- Chromium com sessão/API/PostgreSQL isolados: módulo composto somente por duas subtarefas com pai fora do módulo abriu sem ordenação e continuou mostrando as duas tarefas com ordem crescente/decrescente após reload, sem alerta de operação. O mesmo fluxo validou horários, comentário/anexo e IA contextual na tarefa e na prévia. Detalhes em [TASK-DETAILS.md](TASK-DETAILS.md).
 
 ## Cabeçalho com menu lateral aberto em 1366×768 — 27/10/2026
 

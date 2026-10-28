@@ -143,12 +143,19 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
         <SidebarPropertyListItem icon={StartDatePropertyIcon} label={t("common.order_by.start_date")}>
           <DateDropdown
             value={issue.start_date}
+            timeValue={issue.start_time}
+            timeZone={issue.schedule_timezone}
+            onTimeChange={(start_time, schedule_timezone) =>
+              void issueOperations.update(workspaceSlug, projectId, issueId, { start_time, schedule_timezone })
+            }
             onChange={(val) =>
               issueOperations.update(workspaceSlug, projectId, issueId, {
                 start_date: val ? renderFormattedPayloadDate(val) : null,
+                ...(!val ? { start_time: null } : {}),
               })
             }
             placeholder={t("issue.add.start_date")}
+            ariaLabel={t("common.order_by.start_date")}
             buttonVariant="transparent-with-text"
             maxDate={maxDate ?? undefined}
             disabled={disabled}
@@ -164,12 +171,19 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
           <div className="flex w-full items-center gap-2">
             <DateDropdown
               value={issue.target_date}
+              timeValue={issue.target_time}
+              timeZone={issue.schedule_timezone}
+              onTimeChange={(target_time, schedule_timezone) =>
+                void issueOperations.update(workspaceSlug, projectId, issueId, { target_time, schedule_timezone })
+              }
               onChange={(val) =>
                 issueOperations.update(workspaceSlug, projectId, issueId, {
                   target_date: val ? renderFormattedPayloadDate(val) : null,
+                  ...(!val ? { target_time: null } : {}),
                 })
               }
               placeholder={t("issue.add.due_date")}
+              ariaLabel={t("common.order_by.due_date")}
               buttonVariant="transparent-with-text"
               minDate={minDate ?? undefined}
               disabled={disabled}

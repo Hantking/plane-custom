@@ -32,6 +32,7 @@ import { IssueActivity } from "./issue-activity";
 import { IssueParentDetail } from "./parent";
 import { IssueReaction } from "./reactions";
 import type { TIssueOperations } from "./root";
+import type { IssueQuickPanel } from "./quick-access";
 // services init
 const workItemVersionService = new WorkItemVersionService();
 
@@ -42,10 +43,11 @@ type Props = {
   issueOperations: TIssueOperations;
   isEditable: boolean;
   isArchived: boolean;
+  quickPanel?: IssueQuickPanel;
 };
 
 export const IssueMainContent = observer(function IssueMainContent(props: Props) {
-  const { workspaceSlug, projectId, issueId, issueOperations, isEditable, isArchived } = props;
+  const { workspaceSlug, projectId, issueId, issueOperations, isEditable, isArchived, quickPanel } = props;
   // refs
   const editorRef = useRef<EditorRefApi>(null);
   // states
@@ -169,6 +171,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         disabled={!isEditable || isArchived}
         renderWidgetModals={!isPeekModeActive}
         issueServiceType={EIssueServiceType.ISSUES}
+        hideWidgets={quickPanel === "attachments" ? ["attachments"] : undefined}
       />
 
       {windowSize[0] < 768 && (
@@ -181,7 +184,9 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         />
       )}
 
-      <IssueActivity workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={isArchived} />
+      {quickPanel !== "comments" && (
+        <IssueActivity workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={isArchived} />
+      )}
     </>
   );
 });

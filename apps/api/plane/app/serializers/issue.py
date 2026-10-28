@@ -11,6 +11,7 @@ from django.db import IntegrityError
 # Third Party imports
 from rest_framework import serializers
 from plane.custom_fields.serializers import CustomFieldsSerializerMixin
+from plane.custom_fields.scheduling import validate_issue_schedule
 
 # Module imports
 from .base import BaseSerializer, DynamicBaseSerializer
@@ -124,6 +125,7 @@ class IssueCreateSerializer(CustomFieldsSerializerMixin, BaseSerializer):
         return data
 
     def validate(self, attrs):
+        attrs = validate_issue_schedule(attrs, self.instance, self.context.get("request"))
         allow_triage = self.context.get("allow_triage_state", False)
         state_manager = State.triage_objects if allow_triage else State.objects
 
@@ -810,6 +812,9 @@ class IssueSerializer(DynamicBaseSerializer):
             "priority",
             "start_date",
             "target_date",
+            "start_time",
+            "target_time",
+            "schedule_timezone",
             "sequence_id",
             "project_id",
             "parent_id",
@@ -867,6 +872,9 @@ class IssueListDetailSerializer(serializers.Serializer):
             "priority": instance.priority,
             "start_date": instance.start_date,
             "target_date": instance.target_date,
+            "start_time": instance.start_time,
+            "target_time": instance.target_time,
+            "schedule_timezone": instance.schedule_timezone,
             "sequence_id": instance.sequence_id,
             "project_id": instance.project_id,
             "parent_id": instance.parent_id,

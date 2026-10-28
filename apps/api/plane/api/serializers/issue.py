@@ -41,6 +41,7 @@ from .user import UserLiteSerializer
 # Django imports
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
+from plane.custom_fields.scheduling import validate_issue_schedule
 
 
 class IssueSerializer(BaseSerializer):
@@ -73,6 +74,7 @@ class IssueSerializer(BaseSerializer):
         exclude = ["description_json", "description_stripped"]
 
     def validate(self, data):
+        data = validate_issue_schedule(data, self.instance, self.context.get("request"))
         if (
             data.get("start_date", None) is not None
             and data.get("target_date", None) is not None

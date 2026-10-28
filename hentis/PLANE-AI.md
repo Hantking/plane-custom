@@ -19,6 +19,8 @@ Pontos reutilizados: sessões `BaseSessionAuthentication`; modelos de workspace/
 
 Com a IA habilitada no workspace, o botão **Plane AI** ao lado da busca global no menu superior abre o mesmo painel do atalho lateral. A busca e o botão permanecem juntos em telas menores. O acesso usa a política e as permissões já verificadas pelo bootstrap do workspace.
 
+Na tarefa, o ícone da IA na barra direita abre uma conversa com o escopo explícito daquela tarefa. O compositor começa vazio; ao usar o editor, a seleção fica anexada separadamente como referência, e o usuário escreve o pedido, sem ação pré-escolhida nem sugestões fixas. Horários opcionais de início/prazo e os atalhos da tarefa estão descritos em [TASK-DETAILS.md](TASK-DETAILS.md).
+
 ### Conectar e escolher modelos automaticamente
 
 1. Escolha **OpenRouter**, **OpenAI**, **Groq** ou **Outro provedor**. OpenRouter permite disponibilizar famílias como GPT, Claude e Gemini através da mesma conexão compatível.

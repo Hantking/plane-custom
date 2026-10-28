@@ -47,8 +47,8 @@ export const IssueDetailWidgetCollapsibles = observer(function IssueDetailWidget
   const attachmentUploads = getAttachmentsUploadStatusByIssueId(issueId);
   const attachmentsCount = getAttachmentsCountByIssueId(issueId);
   const shouldRenderAttachments =
-    attachmentsCount > 0 ||
-    (!!attachmentUploads && attachmentUploads.length > 0 && !hideWidgets?.includes("attachments"));
+    !hideWidgets?.includes("attachments") &&
+    (attachmentsCount > 0 || (!!attachmentUploads && attachmentUploads.length > 0));
 
   return (
     <div className="flex flex-col">
