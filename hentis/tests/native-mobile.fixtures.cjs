@@ -178,7 +178,7 @@ async function installFixtures(page, data, origin) {
           workspace_join: true,
         },
         timezone: "America/Sao_Paulo",
-        language: "en",
+        language: data.language || "en",
       });
     if (path === "/api/users/me/settings/")
       return json({

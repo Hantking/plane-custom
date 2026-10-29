@@ -32,6 +32,11 @@ jobs:
       - run: node hentis/browser/node_modules/playwright/cli.js install --with-deps chromium
       - name: Browser regression against the compiled application
         run: npm test --prefix hentis/browser
+      - name: Brazilian Portuguese browser regression
+        run: npm test --prefix hentis/browser
+        env:
+          PLANE_TEST_LANGUAGE: pt-BR
+          PLANE_TEST_OUTPUT: hentis/browser/output/pt-BR
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

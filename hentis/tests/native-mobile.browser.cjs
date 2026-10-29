@@ -24,6 +24,7 @@ async function newPage(viewport = { width: 390, height: 844 }) {
   const context = await browser.newContext({ viewport, serviceWorkers: "block" });
   const page = await context.newPage();
   const data = fixture();
+  data.language = process.env.PLANE_TEST_LANGUAGE || "en";
   const errors = [],
     consoleErrors = [],
     requestsFailed = [];
@@ -130,6 +131,11 @@ async function visit(state, route) {
     );
     await page.screenshot({ path: path.join(OUTPUT, "profile-390.png") });
     await page.keyboard.press("Escape");
+    await page.locator("[data-mobile-navigation] button").last().click();
+    await page.locator("[role=dialog] input").first().waitFor({ state: "visible" });
+    assert.ok((await page.getByRole("dialog").innerText()).length > 40, "Native creation form is usable on mobile");
+    await page.keyboard.press("Escape");
+    await page.locator("[role=dialog] input").first().waitFor({ state: "hidden" });
 
     const routes = [
       ["cycles", `/hentis/projects/${PROJECT}/cycles/`],
@@ -149,6 +155,14 @@ async function visit(state, route) {
     for (const [name, route] of routes) {
       const before = state.errors.length;
       await visit(state, route);
+      if (["cycles", "modules"].includes(name)) {
+        await page.getByRole("button", { name: "Layout", exact: true }).click();
+        assert.ok(
+          (await page.getByRole("menuitem").count()) >= 3,
+          "List, board and Gantt must all be available on mobile"
+        );
+        await page.keyboard.press("Escape");
+      }
       await page.screenshot({ path: path.join(OUTPUT, `${name}-390.png`) });
       report.routes.push({
         name,
@@ -178,7 +192,7 @@ async function visit(state, route) {
     const fieldHandle = await longText.elementHandle();
     for (const width of [768, 1440, 390, 320, 390]) {
       await page.setViewportSize({ width, height: 844 });
-      await page.waitForFunction((width) => innerWidth === width, width);
+      await page.waitForFunction((expectedWidth) => innerWidth === expectedWidth, width);
       await page
         .locator(width < 768 ? "[data-mobile-navigation]" : "[data-issue-panel=properties]")
         .waitFor({ state: "visible" });
