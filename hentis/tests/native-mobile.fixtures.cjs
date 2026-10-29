@@ -246,6 +246,7 @@ async function installFixtures(page, data, origin) {
     if (path === `${prefix}/issues/` || path.endsWith("/issues/list/")) return json(paginated([data.issue]));
     if (path.endsWith(`/issues/${ISSUE}/subscribe/`)) return json({ is_subscribed: false });
     if (path.endsWith("/issue-display-properties/")) return json({});
+    if (path.endsWith("/personal-pages/")) return json({ count: 0, page: 1, page_size: 50, results: [] });
     if (path.endsWith("/home-preferences/")) return json({ is_overview_enabled: true, widgets: [] });
     if (path.endsWith("/active-cycles/")) return json(paginated([]));
     if (path.includes("/search/")) return json({ issues: [], pages: [], projects: [], cycles: [], modules: [] });

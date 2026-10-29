@@ -105,6 +105,7 @@ async function visit(state, route) {
         `Missing native project destination ${suffix}`
       );
     assert.ok(links.some((link) => link.href === "/hentis/settings/"));
+    assert.ok(links.some((link) => link.href === "/hentis/pages/"));
     assert.ok(links.some((link) => link.href === `/hentis/settings/projects/${PROJECT}/`));
     const box = await page.locator("[data-mobile-menu]").boundingBox();
     assert.ok(box.width <= 390 && box.x >= 0);
@@ -141,6 +142,7 @@ async function visit(state, route) {
       ["cycles", `/hentis/projects/${PROJECT}/cycles/`],
       ["modules", `/hentis/projects/${PROJECT}/modules/`],
       ["pages", `/hentis/projects/${PROJECT}/pages/`],
+      ["personal-pages", "/hentis/pages/"],
       ["views", `/hentis/projects/${PROJECT}/views/`],
       ["settings", "/hentis/settings/"],
       ["browse", "/hentis/browse/HNT-1/"],
