@@ -12,7 +12,11 @@ export async function setLanguage(lng: TLanguage): Promise<void> {
   await initPromise;
   await i18nInstance.changeLanguage(lng);
   if (typeof window !== "undefined") {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+    } catch {
+      // Language selection still works when browser storage is unavailable.
+    }
     document.documentElement.lang = lng;
   }
 }

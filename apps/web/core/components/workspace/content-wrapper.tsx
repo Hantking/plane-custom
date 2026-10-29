@@ -11,32 +11,48 @@ import { cn } from "@plane/utils";
 import { AppRailRoot } from "@/components/navigation";
 import { useAppRailVisibility } from "@/lib/app-rail";
 import { TopNavigationRoot } from "@/components/navigation/top-navigation-root";
+import { MobileNavigationProvider, useMobileNavigation } from "@/components/mobile/navigation-context";
+import { MobileWorkspaceNavigation } from "@/components/mobile/workspace-navigation";
 
 export const WorkspaceContentWrapper = observer(function WorkspaceContentWrapper({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <MobileNavigationProvider>
+      <WorkspaceContent>{children}</WorkspaceContent>
+    </MobileNavigationProvider>
+  );
+});
+
+const WorkspaceContent = observer(function WorkspaceContent({ children }: { children: React.ReactNode }) {
   // Use the context to determine if app rail should render
   const { shouldRenderAppRail } = useAppRailVisibility();
+  const navigation = useMobileNavigation();
+  const showDesktopRail = shouldRenderAppRail && !navigation?.isMobile;
 
   return (
-    <div className="relative flex size-full flex-col overflow-hidden bg-canvas transition-all duration-300 ease-in-out">
+    <div
+      data-mobile-workspace-shell
+      className="relative flex size-full min-h-0 min-w-0 flex-col overflow-hidden bg-canvas transition-all duration-300 ease-in-out"
+    >
       <TopNavigationRoot />
-      <div className="relative flex size-full overflow-hidden">
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
         {/* Conditionally render AppRailRoot based on context */}
-        {shouldRenderAppRail && <AppRailRoot />}
+        {showDesktopRail && <AppRailRoot />}
         <div
           className={cn(
-            "relative size-full flex-grow overflow-hidden pr-2 pb-2 pl-2 transition-all duration-300 ease-in-out",
+            "relative min-h-0 min-w-0 flex-1 overflow-hidden transition-all duration-300 ease-in-out md:pr-2 md:pb-2 md:pl-2",
             {
-              "pl-0!": shouldRenderAppRail,
+              "pl-0!": showDesktopRail,
             }
           )}
         >
           {children}
         </div>
       </div>
+      <MobileWorkspaceNavigation />
     </div>
   );
 });

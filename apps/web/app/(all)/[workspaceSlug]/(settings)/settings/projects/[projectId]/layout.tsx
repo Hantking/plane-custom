@@ -27,7 +27,7 @@ function ProjectDetailSettingsLayout({ params }: Route.ComponentProps) {
         hamburgerContent={(props) => <ProjectSettingsSidebarRoot {...props} projectId={projectId} />}
         activePath={getProjectActivePath(pathname) || ""}
       />
-      <div className="inset-y-0 flex h-full w-full flex-row">
+      <div className="inset-y-0 flex min-h-0 w-full flex-1 flex-row">
         <div className="relative flex size-full">
           <div className="hidden h-full shrink-0 md:block">
             <ProjectSettingsSidebarRoot projectId={projectId} />

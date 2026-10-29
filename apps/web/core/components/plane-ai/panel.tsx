@@ -353,6 +353,7 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
       <Dialog data-plane-ai-panel open={isOpen} onClose={() => setOpen(false)} className="relative z-[100]">
         <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px]" aria-hidden="true" />
         <Dialog.Panel
+          data-plane-ai-surface
           className={`shadow-xl fixed inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-2xl border border-subtle bg-surface-1 text-primary ${expanded ? "max-w-none" : "max-w-5xl"}`}
         >
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-subtle px-4 py-3">

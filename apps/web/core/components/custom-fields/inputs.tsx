@@ -82,7 +82,7 @@ export function FieldInput({
 }) {
   const inline = appearance === "inline";
   const inputClass = inline
-    ? "min-w-0 rounded border-0 bg-transparent px-1.5 py-1 text-13 text-primary shadow-none outline-none placeholder:text-tertiary hover:bg-transparent focus:bg-transparent focus-visible:ring-1 focus-visible:ring-accent-strong disabled:cursor-default disabled:opacity-50"
+    ? "min-h-11 min-w-0 rounded border-0 bg-transparent px-1.5 py-1 text-base text-primary shadow-none outline-none placeholder:text-tertiary hover:bg-transparent focus:bg-transparent focus-visible:ring-1 focus-visible:ring-accent-strong disabled:cursor-default disabled:opacity-50 md:min-h-0 md:text-13"
     : fieldInputClass;
   const textValue =
     field.kind === "number"
@@ -133,7 +133,7 @@ export function FieldInput({
           <button
             type="button"
             aria-label={`Editar ${field.name}`}
-            className="shrink-0 text-11 text-secondary"
+            className="min-h-11 shrink-0 px-2 text-13 text-secondary md:min-h-0 md:px-0 md:text-11"
             onClick={() => setSiteEditing(true)}
           >
             Editar
@@ -147,7 +147,7 @@ export function FieldInput({
       <CustomSearchSelect
         multiple
         className="w-full"
-        buttonClassName={`${inputClass} min-h-8 w-full`}
+        buttonClassName={`${inputClass} min-h-11 w-full md:min-h-8`}
         noChevron={inline}
         optionsClassName="z-[100]"
         value={selected}
@@ -187,7 +187,7 @@ export function FieldInput({
     return (
       <CustomSelect
         className="w-full"
-        buttonClassName={`${inputClass} min-h-8 w-full`}
+        buttonClassName={`${inputClass} min-h-11 w-full md:min-h-8`}
         noChevron={inline}
         optionsClassName="z-[100]"
         value={value ?? ""}
@@ -218,7 +218,7 @@ export function FieldInput({
       return (
         <CustomSelect
           className="w-full"
-          buttonClassName={`${inputClass} min-h-8 w-full`}
+          buttonClassName={`${inputClass} min-h-11 w-full md:min-h-8`}
           optionsClassName="z-[100]"
           noChevron
           disabled={disabled}

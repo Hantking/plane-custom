@@ -207,7 +207,7 @@ export const TopNavPowerK = observer(() => {
   );
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative" data-native-workspace-search data-search-open={isOpen}>
       <div
         className={cn(
           "relative z-30 flex w-[min(364px,55vw)] items-center transition-all duration-300 ease-in-out sm:w-[min(364px,34vw)]",
@@ -226,8 +226,12 @@ export const TopNavPowerK = observer(() => {
         >
           <button
             type="button"
+            data-native-workspace-search-trigger
             aria-label="Buscar comandos"
-            onClick={() => inputRef.current?.focus()}
+            onClick={() => {
+              openPanel();
+              inputRef.current?.focus();
+            }}
             className="mr-2 shrink-0"
           >
             <SearchIcon className="size-3.5 text-placeholder" />

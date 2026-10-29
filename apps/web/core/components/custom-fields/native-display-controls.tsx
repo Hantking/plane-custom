@@ -68,7 +68,7 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
   const move = (source: string, target: string) =>
     void save({ ...metadata.preference, order: moveNativeProperty(metadata.preference.order, source, target) });
   return (
-    <details className="mt-3 rounded border border-subtle p-2" open>
+    <details data-native-display-controls className="mt-3 min-w-0 rounded border border-subtle p-2" open>
       <summary className="cursor-pointer text-13 font-medium">Campos personalizados e ordem</summary>
       <p className="my-2 text-11 text-secondary">
         {metadata.context_label} · Campos personalizados e ordem são pessoais neste layout. Marque os campos e arraste
@@ -94,10 +94,10 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
                 const source = event.dataTransfer.getData("application/x-plane-property");
                 if (!busy && rows.includes(source) && source !== key) move(source, key);
               }}
-              className="flex items-center gap-2 rounded bg-layer-1 p-1 text-11"
+              className="flex flex-wrap items-center gap-1 rounded bg-layer-1 p-1 text-11 sm:flex-nowrap sm:gap-2"
             >
               <GripVertical className="h-3 w-3 shrink-0 text-secondary" aria-hidden="true" />
-              <label className="flex min-w-0 flex-1 items-center gap-2">
+              <label className="flex min-h-11 min-w-0 basis-[calc(100%-24px)] items-center gap-2 sm:min-h-0 sm:flex-1 sm:basis-auto">
                 <input
                   type="checkbox"
                   disabled={busy}
@@ -113,13 +113,14 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
                     else updateStandard({ [key.slice(9)]: event.target.checked });
                   }}
                 />
-                <span className="truncate" title={name}>
+                <span className="min-w-0 break-words sm:truncate" title={name}>
                   {name}
                   {field ? " · personalizado" : ""}
                 </span>
               </label>
               <button
                 type="button"
+                className="flex h-11 w-11 items-center justify-center rounded hover:bg-layer-2 focus-visible:outline-2 sm:h-6 sm:w-6"
                 aria-label={`Mover ${name} para cima`}
                 disabled={busy || index === 0}
                 onClick={() => move(key, rows[index - 1])}
@@ -128,6 +129,7 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
               </button>
               <button
                 type="button"
+                className="flex h-11 w-11 items-center justify-center rounded hover:bg-layer-2 focus-visible:outline-2 sm:h-6 sm:w-6"
                 aria-label={`Mover ${name} ao início`}
                 disabled={busy || index === 0}
                 onClick={() => move(key, rows[0])}
@@ -136,6 +138,7 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
               </button>
               <button
                 type="button"
+                className="flex h-11 w-11 items-center justify-center rounded hover:bg-layer-2 focus-visible:outline-2 sm:h-6 sm:w-6"
                 aria-label={`Mover ${name} para baixo`}
                 disabled={busy || index === rows.length - 1}
                 onClick={() => move(key, rows[index + 1])}
@@ -144,6 +147,7 @@ export const NativeDisplayControls = observer(function NativeDisplayControls({
               </button>
               <button
                 type="button"
+                className="flex h-11 w-11 items-center justify-center rounded hover:bg-layer-2 focus-visible:outline-2 sm:h-6 sm:w-6"
                 aria-label={`Mover ${name} ao fim`}
                 disabled={busy || index === rows.length - 1}
                 onClick={() => move(key, rows[rows.length - 1])}

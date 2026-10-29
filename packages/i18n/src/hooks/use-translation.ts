@@ -48,7 +48,11 @@ export function useTranslation(): TTranslationStore {
         try {
           await i18n.changeLanguage(lng);
           if (typeof window === "undefined") return;
-          localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+          try {
+            window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+          } catch {
+            // Language selection still works when browser storage is unavailable.
+          }
           document.documentElement.lang = lng;
         } catch (err) {
           console.error("Failed to change language:", err);

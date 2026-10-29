@@ -16,9 +16,10 @@ import { cn } from "@plane/utils";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import useKeypress from "@/hooks/use-keypress";
 import usePeekOverviewOutsideClickDetector from "@/hooks/use-peek-overview-outside-click";
+import useSize from "@/hooks/use-window-size";
+import { isIssueMobileViewport } from "../issue-detail/mobile-panels";
 // local imports
 import type { TIssueOperations } from "../issue-detail";
-import { IssueActivity } from "../issue-detail/issue-activity";
 import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { IssuePeekOverviewError } from "./error";
 import type { TPeekModes } from "./header";
@@ -26,7 +27,14 @@ import { IssuePeekOverviewHeader } from "./header";
 import { PeekOverviewIssueDetails } from "./issue-detail";
 import { IssuePeekOverviewLoader } from "./loader";
 import { PeekOverviewProperties } from "./properties";
-import { IssueQuickAccessContent, IssueQuickAccessRail, useIssueQuickPanel } from "../issue-detail/quick-access";
+import {
+  IssueMobilePanelContent,
+  IssueMobileTabs,
+  IssueQuickAccessPanels,
+  IssueQuickAccessRail,
+  useIssueMobilePanel,
+  useIssueQuickPanel,
+} from "../issue-detail/quick-access";
 
 interface IIssueView {
   workspaceSlug: string;
@@ -57,6 +65,9 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   // states
   const [peekMode, setPeekMode] = useState<TPeekModes>("side-peek");
   const [quickPanel, setQuickPanel] = useIssueQuickPanel(issueId);
+  const [mobilePanel, setMobilePanel] = useIssueMobilePanel(issueId);
+  const [viewportWidth] = useSize();
+  const isCompact = isIssueMobileViewport(viewportWidth);
   const [isSubmitting, setIsSubmitting] = useState<TNameDescriptionLoader>("saved");
   const [isDeleteIssueModalOpen, setIsDeleteIssueModalOpen] = useState(false);
   const [isArchiveIssueModalOpen, setIsArchiveIssueModalOpen] = useState(false);
@@ -125,12 +136,14 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   const peekOverviewIssueClassName = cn(
     !embedIssue
       ? "absolute z-[25] flex flex-col overflow-hidden rounded-sm border border-subtle bg-surface-1 transition-all duration-300"
-      : `h-full w-full`,
-    !embedIssue && {
-      "top-0 right-0 bottom-0 w-full border-0 border-l md:w-[50%]": peekMode === "side-peek",
-      "top-[8.33%] left-[8.33%] size-5/6": peekMode === "modal",
-      "absolute inset-0 m-4": peekMode === "full-screen",
-    }
+      : "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden",
+    !embedIssue && isCompact && "inset-0 m-0 size-full rounded-none border-0",
+    !embedIssue &&
+      !isCompact && {
+        "top-0 right-0 bottom-0 w-full border-0 border-l md:w-[50%]": peekMode === "side-peek",
+        "top-[8.33%] left-[8.33%] size-5/6": peekMode === "modal",
+        "absolute inset-0 m-4": peekMode === "full-screen",
+      }
   );
 
   const shouldUsePortal = !embedIssue;
@@ -138,7 +151,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   const portalContainer = document.getElementById("full-screen-portal") as HTMLElement;
 
   const content = (
-    <div className="w-full text-body-sm-regular">
+    <div className={cn("w-full min-w-0 text-body-sm-regular", embedIssue && "h-full min-h-0")}>
       {issueId && (
         <div
           ref={issuePeekOverviewRef}
@@ -176,142 +189,112 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                 embedIssue={embedIssue}
               />
               {/* content */}
-              <div className="flex h-full min-h-0 w-full">
-                <div className="vertical-scrollbar relative scrollbar-md h-full min-w-0 flex-1 overflow-hidden overflow-y-auto">
-                  {["side-peek", "modal"].includes(peekMode) ? (
-                    <div className="relative flex flex-col gap-3 space-y-3 px-8 py-5">
-                      <PeekOverviewIssueDetails
-                        editorRef={editorRef}
+              <div
+                className={cn(
+                  "min-h-0 w-full min-w-0 flex-1",
+                  isCompact
+                    ? "flex flex-col overflow-hidden"
+                    : peekMode === "full-screen"
+                      ? "flex flex-row overflow-hidden"
+                      : "overflow-y-auto"
+                )}
+                data-mobile-issue-detail={isCompact || undefined}
+              >
+                {isCompact && (
+                  <IssueMobileTabs
+                    issueId={issueId}
+                    panel={mobilePanel}
+                    onChange={setMobilePanel}
+                    idPrefix="issue-peek"
+                  />
+                )}
+                <IssueMobilePanelContent
+                  key="content"
+                  issueId={issueId}
+                  panel="content"
+                  activePanel={mobilePanel}
+                  idPrefix="issue-peek"
+                  isMobile={isCompact}
+                  className={cn(
+                    "vertical-scrollbar relative scrollbar-md",
+                    isCompact || peekMode === "full-screen" ? "h-full" : "!flex-none !overflow-visible"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "relative flex min-w-0 flex-col gap-3 space-y-3 py-5",
+                      isCompact ? "px-4" : peekMode === "full-screen" ? "px-4" : "px-8"
+                    )}
+                  >
+                    <PeekOverviewIssueDetails
+                      editorRef={editorRef}
+                      workspaceSlug={workspaceSlug}
+                      projectId={projectId}
+                      issueId={issueId}
+                      issueOperations={issueOperations}
+                      disabled={disabled}
+                      isArchived={is_archived}
+                      isSubmitting={isSubmitting}
+                      setIsSubmitting={setIsSubmitting}
+                    />
+                    <div className="py-2">
+                      <IssueDetailWidgets
+                        workspaceSlug={workspaceSlug}
+                        projectId={projectId}
+                        issueId={issueId}
+                        disabled={disabled || is_archived}
+                        issueServiceType={EIssueServiceType.ISSUES}
+                        hideWidgets={["attachments"]}
+                      />
+                    </div>
+                  </div>
+                </IssueMobilePanelContent>
+                <div
+                  key="access-panels"
+                  className={
+                    isCompact
+                      ? "contents"
+                      : peekMode === "full-screen"
+                        ? "flex h-full w-[400px] shrink-0 flex-col overflow-hidden border-l border-subtle"
+                        : "flex min-h-[300px] flex-col border-t border-subtle"
+                  }
+                >
+                  <IssueQuickAccessPanels
+                    key={issueId}
+                    issueId={issueId}
+                    idPrefix="issue-peek"
+                    activePanel={isCompact ? mobilePanel : quickPanel}
+                    isMobile={isCompact}
+                    workspaceSlug={workspaceSlug}
+                    projectId={projectId}
+                    disabled={disabled || is_archived}
+                    isArchived={is_archived}
+                    properties={
+                      <PeekOverviewProperties
                         workspaceSlug={workspaceSlug}
                         projectId={projectId}
                         issueId={issueId}
                         issueOperations={issueOperations}
-                        disabled={disabled}
-                        isArchived={is_archived}
-                        isSubmitting={isSubmitting}
-                        setIsSubmitting={(value) => setIsSubmitting(value)}
+                        disabled={disabled || is_archived}
                       />
-
-                      <div className="py-2">
-                        <IssueDetailWidgets
-                          workspaceSlug={workspaceSlug}
-                          projectId={projectId}
-                          issueId={issueId}
-                          disabled={disabled || is_archived}
-                          issueServiceType={EIssueServiceType.ISSUES}
-                          hideWidgets={quickPanel === "attachments" ? ["attachments"] : undefined}
-                        />
-                      </div>
-
-                      <div data-issue-quick-target="properties">
-                        <PeekOverviewProperties
-                          workspaceSlug={workspaceSlug}
-                          projectId={projectId}
-                          issueId={issueId}
-                          issueOperations={issueOperations}
-                          disabled={disabled || is_archived}
-                        />
-                      </div>
-
-                      {quickPanel === "attachments" && (
-                        <div data-issue-quick-target="attachments">
-                          <IssueQuickAccessContent
-                            panel="attachments"
-                            workspaceSlug={workspaceSlug}
-                            projectId={projectId}
-                            issueId={issueId}
-                            disabled={disabled || is_archived}
-                            isArchived={is_archived}
-                          />
-                        </div>
-                      )}
-
-                      <div data-issue-quick-target="comments">
-                        <IssueActivity
-                          commentsOnly={quickPanel === "comments"}
-                          workspaceSlug={workspaceSlug}
-                          projectId={projectId}
-                          issueId={issueId}
-                          disabled={is_archived}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="vertical-scrollbar flex h-full w-full overflow-auto">
-                      <div className="relative h-full w-full space-y-6 overflow-auto p-4 py-5">
-                        <div className="space-y-3">
-                          <PeekOverviewIssueDetails
-                            editorRef={editorRef}
-                            workspaceSlug={workspaceSlug}
-                            projectId={projectId}
-                            issueId={issueId}
-                            issueOperations={issueOperations}
-                            disabled={disabled}
-                            isArchived={is_archived}
-                            isSubmitting={isSubmitting}
-                            setIsSubmitting={(value) => setIsSubmitting(value)}
-                          />
-
-                          <div className="py-2">
-                            <IssueDetailWidgets
-                              workspaceSlug={workspaceSlug}
-                              projectId={projectId}
-                              issueId={issueId}
-                              disabled={disabled}
-                              issueServiceType={EIssueServiceType.ISSUES}
-                              hideWidgets={quickPanel === "attachments" ? ["attachments"] : undefined}
-                            />
-                          </div>
-
-                          {quickPanel !== "comments" && (
-                            <IssueActivity
-                              workspaceSlug={workspaceSlug}
-                              projectId={projectId}
-                              issueId={issueId}
-                              disabled={is_archived}
-                            />
-                          )}
-                        </div>
-                      </div>
-                      <div
-                        className={`vertical-scrollbar scrollbar-sm h-full !w-[400px] flex-shrink-0 overflow-hidden border-l border-subtle p-4 py-5 ${
-                          is_archived ? "pointer-events-none" : ""
-                        }`}
-                      >
-                        <IssueQuickAccessContent
-                          panel={quickPanel}
-                          workspaceSlug={workspaceSlug}
-                          projectId={projectId}
-                          issueId={issueId}
-                          disabled={disabled || is_archived}
-                          isArchived={is_archived}
-                          properties={
-                            <PeekOverviewProperties
-                              workspaceSlug={workspaceSlug}
-                              projectId={projectId}
-                              issueId={issueId}
-                              issueOperations={issueOperations}
-                              disabled={disabled || is_archived}
-                            />
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
+                    }
+                  />
                 </div>
-                <IssueQuickAccessRail
-                  issueId={issueId}
-                  panel={quickPanel}
-                  onChange={(panel) => {
-                    setQuickPanel(panel);
-                    if (["side-peek", "modal"].includes(peekMode))
-                      requestAnimationFrame(() =>
-                        issuePeekOverviewRef.current
-                          ?.querySelector(`[data-issue-quick-target="${panel}"]`)
-                          ?.scrollIntoView({ block: "start", behavior: "smooth" })
-                      );
-                  }}
-                />
+                {!isCompact && (
+                  <IssueQuickAccessRail
+                    issueId={issueId}
+                    panel={quickPanel}
+                    onChange={(panel) => {
+                      setQuickPanel(panel);
+                      if (["side-peek", "modal"].includes(peekMode))
+                        requestAnimationFrame(() =>
+                          issuePeekOverviewRef.current
+                            ?.querySelector(`[data-issue-panel="${panel}"]`)
+                            ?.scrollIntoView({ block: "start", behavior: "smooth" })
+                        );
+                    }}
+                  />
+                )}
               </div>
             </>
           )}

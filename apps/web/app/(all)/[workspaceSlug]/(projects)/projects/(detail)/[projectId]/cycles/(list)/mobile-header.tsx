@@ -58,7 +58,6 @@ export const CyclesListMobileHeader = observer(function CyclesListMobileHeader()
         closeOnSelect
       >
         {CYCLE_VIEW_LAYOUTS.map((layout) => {
-          if (layout.key == "gantt") return;
           return (
             <CustomMenu.MenuItem
               key={layout.key}

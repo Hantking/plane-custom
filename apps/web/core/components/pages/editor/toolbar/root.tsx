@@ -47,20 +47,23 @@ export const PageEditorToolbarRoot = observer(function PageEditorToolbarRoot(pro
       >
         <div
           className={cn(
-            "page-toolbar-content relative hidden min-h-[52px] items-center px-page-x transition-all duration-200 ease-in-out md:flex",
+            "page-toolbar-content relative flex min-h-[52px] min-w-0 items-center px-page-x transition-all duration-200 ease-in-out",
             {
               "wide-layout": isFullWidth,
             }
           )}
         >
           <div className="flex w-full max-w-full items-center justify-between">
-            <div className="flex-1">{editorRef && <PageToolbar editorRef={editorRef} />}</div>
+            <div className="min-w-0 flex-1" data-page-editor-toolbar>
+              {editorRef && <PageToolbar editorRef={editorRef} />}
+            </div>
             <div className="flex items-center gap-2">
               {!isNavigationPaneOpen && (
                 <button
                   type="button"
-                  className="grid size-6 shrink-0 place-items-center rounded-sm text-secondary transition-colors hover:bg-layer-transparent-hover hover:text-primary"
+                  className="grid size-11 shrink-0 place-items-center rounded-sm text-secondary transition-colors hover:bg-layer-transparent-hover hover:text-primary md:size-6"
                   onClick={handleOpenNavigationPane}
+                  aria-label={t("page_navigation_pane.open_button")}
                 >
                   <PanelRight className="size-3.5" />
                 </button>
@@ -75,7 +78,7 @@ export const PageEditorToolbarRoot = observer(function PageEditorToolbarRoot(pro
             <Tooltip tooltipContent={t("page_navigation_pane.open_button")}>
               <button
                 type="button"
-                className="grid size-6 shrink-0 place-items-center rounded-sm text-secondary transition-colors hover:bg-layer-transparent-hover hover:text-primary"
+                className="grid size-11 shrink-0 place-items-center rounded-sm text-secondary transition-colors hover:bg-layer-transparent-hover hover:text-primary md:size-6"
                 onClick={handleOpenNavigationPane}
                 aria-label={t("page_navigation_pane.open_button")}
               >

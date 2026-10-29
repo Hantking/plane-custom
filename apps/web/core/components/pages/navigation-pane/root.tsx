@@ -87,6 +87,8 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
 
   return (
     <aside
+      data-page-navigation-pane
+      data-state={isNavigationPaneOpen ? "open" : "closed"}
       className="flex h-full shrink-0 flex-col border-l border-subtle bg-surface-1 pt-3.5 transition-all duration-300 ease-out"
       style={{
         width: `${paneWidth}px`,
@@ -97,7 +99,7 @@ export const PageNavigationPaneRoot = observer(function PageNavigationPaneRoot(p
         <Tooltip tooltipContent={t("page_navigation_pane.close_button")}>
           <button
             type="button"
-            className="grid size-3.5 place-items-center text-secondary transition-colors hover:text-primary"
+            className="grid size-11 place-items-center text-secondary transition-colors hover:text-primary md:size-3.5"
             onClick={handleClose}
             aria-label={t("page_navigation_pane.close_button")}
           >

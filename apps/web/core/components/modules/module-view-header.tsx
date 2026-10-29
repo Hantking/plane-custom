@@ -99,7 +99,7 @@ export const ModuleViewHeader = observer(function ModuleViewHeader() {
   const isFiltersApplied = calculateTotalFilters(filters ?? {}) !== 0 || displayFilters?.favorites;
 
   return (
-    <div className="hidden h-full items-center gap-2 self-end sm:flex">
+    <div className="flex h-full min-w-0 flex-wrap items-center gap-2 self-end">
       <div className="flex items-center">
         {!isSearchOpen && (
           <IconButton

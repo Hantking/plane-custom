@@ -1,0 +1,39 @@
+name: Validate native mobile layout
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'packages/ui/**'
+      - 'packages/i18n/**'
+      - 'hentis/tests/**'
+      - 'hentis/browser/**'
+      - '.github/workflows/native-mobile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Native feature and mobile interaction logic
+        run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/mobile-navigation.test.ts ../../hentis/tests/mobile-workitems.test.ts ../../hentis/tests/mobile-custom-fields.test.ts ../../hentis/tests/native-display.test.ts ../../hentis/tests/native-list.test.ts ../../hentis/tests/plane-ai-markdown.test.mjs
+      - run: pnpm exec turbo run build --filter='web^...'
+      - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/i18n-resources.test.mjs
+      - run: pnpm --filter web check:types
+      - run: pnpm --filter web build
+      - run: npm ci --prefix hentis/browser --ignore-scripts
+      - run: node hentis/browser/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Browser regression against the compiled application
+        run: npm test --prefix hentis/browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: native-mobile-browser-evidence
+          path: hentis/browser/output/

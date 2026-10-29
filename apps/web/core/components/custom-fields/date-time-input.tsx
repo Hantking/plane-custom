@@ -65,7 +65,7 @@ export function DateTimeFieldInput({
       placeholder={inline ? "—" : name}
       buttonVariant="transparent-with-text"
       buttonContainerClassName="w-full"
-      buttonClassName={`${inputClass} min-h-8 w-full`}
+      buttonClassName={`${inputClass} min-h-11 w-full md:min-h-8`}
       optionsClassName="z-[100]"
       showTooltip
     />

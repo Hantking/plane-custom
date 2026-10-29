@@ -22,11 +22,20 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useAppRouter } from "@/hooks/use-app-router";
+import useSize from "@/hooks/use-window-size";
 // local components
 import { IssuePeekOverview } from "../peek-overview";
 import { IssueMainContent } from "./main-content";
-import { IssueDetailsSidebar } from "./sidebar";
-import { IssueQuickAccessContent, IssueQuickAccessRail, useIssueQuickPanel } from "./quick-access";
+import { PeekOverviewProperties } from "../peek-overview/properties";
+import { isIssueMobileViewport } from "./mobile-panels";
+import {
+  IssueMobilePanelContent,
+  IssueMobileTabs,
+  IssueQuickAccessPanels,
+  IssueQuickAccessRail,
+  useIssueMobilePanel,
+  useIssueQuickPanel,
+} from "./quick-access";
 
 export type TIssueOperations = {
   fetch: (workspaceSlug: string, projectId: string, issueId: string, loader?: boolean) => Promise<void>;
@@ -88,6 +97,9 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   const { allowPermissions } = useUserPermissions();
   const { issueDetailSidebarCollapsed, toggleIssueDetailSidebar } = useAppTheme();
   const [quickPanel, setQuickPanel] = useIssueQuickPanel(currentIssueId);
+  const [mobilePanel, setMobilePanel] = useIssueMobilePanel(currentIssueId);
+  const [viewportWidth] = useSize();
+  const isCompact = isIssueMobileViewport(viewportWidth);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({
@@ -245,48 +257,84 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           }}
         />
       ) : (
-        <div className="relative flex h-full w-full overflow-hidden">
-          <div className="h-full w-full space-y-6 overflow-y-auto px-9 py-5">
-            <IssueMainContent
-              workspaceSlug={currentWorkspaceSlug}
-              projectId={currentProjectId}
+        <div
+          className={`relative flex h-full min-h-0 w-full min-w-0 overflow-hidden ${isCompact ? "flex-col" : "flex-row"}`}
+          data-mobile-issue-detail={isCompact || undefined}
+        >
+          {isCompact && (
+            <IssueMobileTabs
               issueId={currentIssueId}
-              issueOperations={issueOperations}
-              isEditable={isEditable}
-              isArchived={is_archived}
-              quickPanel={quickPanel}
+              panel={mobilePanel}
+              onChange={setMobilePanel}
+              idPrefix="issue-detail"
             />
-          </div>
-          <div
-            className="absolute top-0 right-11 z-[5] h-full w-[calc(100%-2.75rem)] min-w-0 border-l border-subtle bg-surface-1 sm:w-1/2 md:relative md:top-auto md:right-auto md:w-1/4 md:min-w-[300px] lg:min-w-80 xl:min-w-96"
-            style={issueDetailSidebarCollapsed ? { right: `-${window?.innerWidth || 0}px` } : {}}
+          )}
+          <IssueMobilePanelContent
+            key="content"
+            issueId={currentIssueId}
+            panel="content"
+            activePanel={mobilePanel}
+            idPrefix="issue-detail"
+            isMobile={isCompact}
+            className="h-full w-full"
           >
-            <IssueQuickAccessContent
-              panel={quickPanel}
+            <div className={`min-w-0 space-y-6 py-5 ${isCompact ? "px-4" : "px-9"}`}>
+              <IssueMainContent
+                workspaceSlug={currentWorkspaceSlug}
+                projectId={currentProjectId}
+                issueId={currentIssueId}
+                issueOperations={issueOperations}
+                isEditable={isEditable}
+                isArchived={is_archived}
+                quickPanel={isCompact ? undefined : quickPanel}
+                showInlineProperties={false}
+                showActivity={false}
+                hideAttachments
+              />
+            </div>
+          </IssueMobilePanelContent>
+          <div
+            key="access-panels"
+            hidden={!isCompact && issueDetailSidebarCollapsed}
+            className={
+              isCompact
+                ? "contents"
+                : issueDetailSidebarCollapsed
+                  ? "hidden"
+                  : "relative z-[5] flex h-full w-1/4 min-w-[300px] shrink-0 flex-col overflow-hidden border-l border-subtle bg-surface-1 lg:min-w-80 xl:min-w-96"
+            }
+          >
+            <IssueQuickAccessPanels
+              key={currentIssueId}
+              issueId={currentIssueId}
+              idPrefix="issue-detail"
+              activePanel={isCompact ? mobilePanel : quickPanel}
+              isMobile={isCompact}
               workspaceSlug={currentWorkspaceSlug}
               projectId={currentProjectId}
-              issueId={currentIssueId}
               disabled={!isEditable || is_archived}
               isArchived={is_archived}
               properties={
-                <IssueDetailsSidebar
+                <PeekOverviewProperties
                   workspaceSlug={currentWorkspaceSlug}
                   projectId={currentProjectId}
                   issueId={currentIssueId}
                   issueOperations={issueOperations}
-                  isEditable={!is_archived && isEditable}
+                  disabled={!isEditable || is_archived}
                 />
               }
             />
           </div>
-          <IssueQuickAccessRail
-            issueId={currentIssueId}
-            panel={quickPanel}
-            onChange={(panel) => {
-              setQuickPanel(panel);
-              toggleIssueDetailSidebar(false);
-            }}
-          />
+          {!isCompact && (
+            <IssueQuickAccessRail
+              issueId={currentIssueId}
+              panel={quickPanel}
+              onChange={(panel) => {
+                setQuickPanel(panel);
+                toggleIssueDetailSidebar(false);
+              }}
+            />
+          )}
         </div>
       )}
 

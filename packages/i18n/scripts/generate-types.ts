@@ -6,7 +6,7 @@
 
 // Usage: npx tsx packages/i18n/scripts/generate-types.ts
 // Reads: src/locales/en/*.json
-// Writes: src/types/keys.generated.ts
+// Writes: src/types/keys.generated.ts and src/core/resources.generated.ts
 
 import fs from "node:fs";
 import path from "node:path";
@@ -68,6 +68,51 @@ function detectPathConflicts(keys: string[]): string[] {
   return conflicts;
 }
 
+function generateResourceManifest(rootDir: string): void {
+  const localesDir = path.resolve(rootDir, "..", "src", "locales");
+  const outputFile = path.resolve(rootDir, "..", "src", "core", "resources.generated.ts");
+  const loaders: string[] = [];
+  const languages = fs
+    .readdirSync(localesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .toSorted();
+
+  for (const language of languages) {
+    const files = fs
+      .readdirSync(path.join(localesDir, language))
+      .filter((file) => file.endsWith(".json"))
+      .toSorted();
+    for (const file of files) {
+      const key = JSON.stringify(`${language}/${file.slice(0, -5)}`);
+      const resource = JSON.stringify(`../locales/${language}/${file}`);
+      loaders.push(`  [${key}, () => import(${resource})],`);
+    }
+  }
+
+  const output = `${COPYRIGHT_HEADER}
+
+// AUTO-GENERATED — DO NOT EDIT
+// Literal imports allow both the package build and Vite to discover lazy resources.
+// Generated from ${languages.length} languages and ${loaders.length} namespace resources.
+// Run: pnpm run generate:types
+
+type ResourceModule = { default: Record<string, unknown> };
+const resourceLoaders = new Map<string, () => Promise<ResourceModule>>([
+${loaders.join("\n")}
+]);
+
+export async function loadLocaleResource(language: string, namespace: string): Promise<Record<string, unknown>> {
+  const loader = resourceLoaders.get(\`\${language}/\${namespace}\`);
+  if (!loader) throw new Error(\`Unknown translation resource: \${language}/\${namespace}\`);
+  return (await loader()).default;
+}
+`;
+
+  fs.writeFileSync(outputFile, output, "utf-8");
+  console.log(`Generated ${loaders.length} lazy translation loaders for ${languages.length} languages`);
+}
+
 function main(): void {
   const rootDir = import.meta.dirname;
   const localesDir = path.resolve(rootDir, "..", "src", "locales", "en");
@@ -83,7 +128,7 @@ function main(): void {
   const jsonFiles = fs
     .readdirSync(localesDir)
     .filter((file) => file.endsWith(".json"))
-    .sort();
+    .toSorted();
 
   if (jsonFiles.length === 0) {
     console.error(`Error: No JSON files found in ${localesDir}`);
@@ -133,7 +178,7 @@ function main(): void {
   }
 
   // Detect path conflicts
-  const sortedKeys = [...allKeys].sort();
+  const sortedKeys = [...allKeys].toSorted();
   const pathConflicts = detectPathConflicts(sortedKeys);
 
   if (pathConflicts.length > 0) {
@@ -163,6 +208,7 @@ ${keyLines}
 `;
 
   fs.writeFileSync(outputFile, output, "utf-8");
+  generateResourceManifest(rootDir);
 
   console.log(`Generated ${sortedKeys.length} keys from ${jsonFiles.length} namespace files`);
 }

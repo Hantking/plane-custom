@@ -219,7 +219,7 @@ class FieldsService extends APIService {
 }
 export const fieldsService = new FieldsService();
 export const fieldInputClass =
-  "rounded border border-subtle bg-surface-1 px-2 py-1.5 text-13 text-primary disabled:opacity-50";
+  "min-h-11 min-w-0 max-w-full rounded border border-subtle bg-surface-1 px-2 py-1.5 text-base text-primary disabled:opacity-50 md:min-h-8 md:text-13";
 export function fieldError(error: unknown): string {
   const e = error as { response?: { data?: unknown }; message?: string };
   return JSON.stringify(e?.response?.data ?? e?.message ?? "Não foi possível concluir a operação.");

@@ -47,8 +47,9 @@ export const TopNavigationRoot = observer(function TopNavigationRoot() {
 
   return (
     <div
+      data-mobile-workspace-topbar
       className={cn(
-        "z-[27] flex min-h-10 w-full flex-wrap items-center gap-x-2 gap-y-1 bg-canvas px-3.5 py-1 transition-all duration-300 sm:flex-nowrap",
+        "z-[27] flex min-h-10 w-full shrink-0 flex-wrap items-center gap-x-2 gap-y-1 bg-canvas px-3.5 py-1 transition-all duration-300 sm:flex-nowrap",
         {
           "px-2": !showLabel,
         }
@@ -64,7 +65,7 @@ export const TopNavigationRoot = observer(function TopNavigationRoot() {
         <PlaneAIButton variant="top-navigation" />
       </div>
       {/* Additional Actions */}
-      <div className="flex flex-1 shrink-0 items-center justify-end gap-1">
+      <div className="flex shrink-0 items-center justify-end gap-1 sm:flex-1">
         <Tooltip tooltipContent="Inbox" position="bottom">
           <AppSidebarItem
             variant="link"
@@ -83,7 +84,9 @@ export const TopNavigationRoot = observer(function TopNavigationRoot() {
           />
         </Tooltip>
         <HelpMenuRoot />
-        <StarUsOnGitHubLink />
+        <div className="hidden items-center md:flex">
+          <StarUsOnGitHubLink />
+        </div>
         <div className="flex size-8 items-center justify-center rounded-md hover:bg-layer-1-hover">
           <UserMenuRoot />
         </div>
