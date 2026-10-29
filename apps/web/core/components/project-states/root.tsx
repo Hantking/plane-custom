@@ -15,6 +15,7 @@ import { ProjectStateLoader, GroupList } from "@/components/project-states";
 // hooks
 import { useProjectState } from "@/hooks/store/use-project-state";
 import { useUserPermissions } from "@/hooks/store/user";
+import { ModuleStateSettingsPanel } from "@/components/module-states/settings";
 
 type TProjectState = {
   workspaceSlug: string;
@@ -67,11 +68,14 @@ export const ProjectStateRoot = observer(function ProjectStateRoot(props: TProje
   if (!groupedProjectStates) return <ProjectStateLoader />;
 
   return (
-    <GroupList
-      groupedStates={groupedProjectStates}
-      stateOperationsCallbacks={stateOperationsCallbacks}
-      isEditable={isEditable}
-      shouldTrackEvents
-    />
+    <>
+      <GroupList
+        groupedStates={groupedProjectStates}
+        stateOperationsCallbacks={stateOperationsCallbacks}
+        isEditable={isEditable}
+        shouldTrackEvents
+      />
+      <ModuleStateSettingsPanel workspace={workspaceSlug} project={projectId} editable={isEditable} />
+    </>
   );
 });

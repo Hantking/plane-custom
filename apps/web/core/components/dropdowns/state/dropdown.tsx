@@ -12,6 +12,8 @@ import { useProjectState } from "@/hooks/store/use-project-state";
 // local imports
 import type { TWorkItemStateDropdownBaseProps } from "./base";
 import { WorkItemStateDropdownBase } from "./base";
+import { useModuleStates } from "@/components/module-states/use-module-states";
+import { visibleStateIds } from "@/components/module-states/helpers";
 
 type TWorkItemStateDropdownProps = Omit<
   TWorkItemStateDropdownBaseProps,
@@ -30,6 +32,13 @@ export const StateDropdown = observer(function StateDropdown(props: TWorkItemSta
   const { fetchProjectStates, getProjectStateIds, getStateById } = useProjectState();
   // derived values
   const stateIds = propsStateIds ?? getProjectStateIds(projectId);
+  const config = useModuleStates(projectId);
+  const availableStateIds = visibleStateIds(
+    stateIds ?? [],
+    config?.state_ids,
+    [],
+    props.isForWorkItemCreation ? null : props.value
+  );
 
   // fetch states if not provided
   const onDropdownOpen = async () => {
@@ -45,7 +54,7 @@ export const StateDropdown = observer(function StateDropdown(props: TWorkItemSta
       {...props}
       getStateById={getStateById}
       isInitializing={stateLoader}
-      stateIds={stateIds ?? []}
+      stateIds={availableStateIds}
       onDropdownOpen={onDropdownOpen}
     />
   );

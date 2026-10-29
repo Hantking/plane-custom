@@ -10,9 +10,17 @@ from .views import (
     ViewsEndpoint,
 )
 from .native import NativeDisplayEndpoint, NativeValuesEndpoint
+from .module_states import ModuleStatesEndpoint
+from .personal_pages import PersonalPagesEndpoint
 
 prefix = "workspaces/<str:slug>/projects/<uuid:project_id>/custom-fields/"
 urlpatterns = [
+    path("workspaces/<str:slug>/personal-pages/", PersonalPagesEndpoint.as_view()),
+    path("workspaces/<str:slug>/projects/<uuid:project_id>/module-states/", ModuleStatesEndpoint.as_view()),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/module-states/<uuid:module_id>/",
+        ModuleStatesEndpoint.as_view(),
+    ),
     path("workspaces/<str:slug>/custom-fields/native-list/<str:operation>/", NativeListOperations.as_view()),
     path("workspaces/<str:slug>/custom-fields/native-display/", NativeDisplayEndpoint.as_view()),
     path("workspaces/<str:slug>/custom-fields/native-values/", NativeValuesEndpoint.as_view()),

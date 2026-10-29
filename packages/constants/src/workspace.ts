@@ -264,6 +264,13 @@ export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspac
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER],
     highlight: (pathname: string, url: string) => pathname.includes(url),
   },
+  personal_pages: {
+    key: "personal_pages",
+    labelTranslationKey: "pages",
+    href: `/pages/`,
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
+    highlight: (pathname: string, url: string) => pathname === url || pathname === url.replace(/\/$/, ""),
+  },
   projects: {
     key: "projects",
     labelTranslationKey: "projects",

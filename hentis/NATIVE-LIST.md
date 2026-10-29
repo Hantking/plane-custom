@@ -22,6 +22,8 @@ O título e os controles medem seu próprio espaço disponível. Com o menu late
 
 ### Semântica dos resultados
 
+- **Estados por módulo:** em Configurações do projeto → Estados, administradores escolhem os estados exibidos em cada módulo. Grupos sem tarefas fora da seleção não são exibidos na Lista/Kanban; estados que já têm tarefas continuam visíveis. O seletor contextual usa a seleção e conserva o estado atual. Contratos e a nova lista Pessoal → Páginas: [MODULE-STATES-AND-PERSONAL-PAGES.md](MODULE-STATES-AND-PERSONAL-PAGES.md).
+
 - O controlador da Lista nativa é o único responsável por sua leitura inicial. Cancelamentos de leituras substituídas mantêm sua identidade e não viram o alerta genérico de operação. A abertura não disputa a mesma consulta com uma segunda carga inicial do layout base.
 - Até escolher um modo pessoal de subtarefas, a Lista respeita a visibilidade nativa: módulos/ciclos que já exibem subtarefas continuam mostrando seus membros independentemente do pai estar nesse contexto. Isso evita uma Lista aparentemente vazia quando seus membros são subtarefas.
 - No **Ordenar da barra superior**, carregar tarefas ou atualizar contagens não desabilita **Aplicar ordem**. O botão e os critérios ficam protegidos apenas durante o salvamento da consulta, com o texto **Aplicando ordem…**. Atualizações substituídas por uma nova ordenação não devem sobrescrever o estado de carregamento nem apresentar erros de uma requisição anterior.

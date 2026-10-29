@@ -75,6 +75,8 @@ export const SidebarMenuItems = observer(function SidebarMenuItems() {
       });
     }
 
+    personalItems.push({ ...WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["personal_pages"], sort_order: 3 });
+
     // Sort personal items by sort_order
     personalItems.sort((a, b) => a.sort_order - b.sort_order);
 
