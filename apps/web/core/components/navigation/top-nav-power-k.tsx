@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { Command } from "cmdk";
+import { useTranslation } from "@plane/i18n";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // hooks
@@ -22,6 +23,7 @@ import { useAppRouter } from "@/hooks/use-app-router";
 import { useExpandableSearch } from "@/hooks/use-expandable-search";
 
 export const TopNavPowerK = observer(() => {
+  const { t } = useTranslation();
   // router
   const router = useAppRouter();
   const params = useParams();
@@ -227,7 +229,7 @@ export const TopNavPowerK = observer(() => {
           <button
             type="button"
             data-native-workspace-search-trigger
-            aria-label="Buscar comandos"
+            aria-label={t("search")}
             onClick={() => {
               openPanel();
               inputRef.current?.focus();
@@ -239,7 +241,7 @@ export const TopNavPowerK = observer(() => {
           <input
             ref={inputRef}
             type="text"
-            aria-label="Buscar comandos"
+            aria-label={t("search")}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -248,11 +250,11 @@ export const TopNavPowerK = observer(() => {
             onMouseDown={handleMouseDown}
             onFocus={handleFocus}
             onKeyDown={handleKeyDown}
-            placeholder="Search commands..."
+            placeholder={t("search")}
             className="placeholder-text-placeholder min-w-0 flex-1 bg-transparent text-13 text-primary outline-none"
           />
           {searchTerm && (
-            <button type="button" onClick={handleClear} className="ml-2 shrink-0">
+            <button type="button" aria-label={t("close")} onClick={handleClear} className="ml-2 shrink-0">
               <CloseIcon className="size-3.5 text-placeholder hover:text-primary" />
             </button>
           )}
