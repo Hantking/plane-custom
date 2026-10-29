@@ -43,6 +43,7 @@ import { compatibleGroup } from "@/components/custom-fields/native-list-model";
 import { OptionBadge } from "@/components/custom-fields/inputs";
 import { useIssues } from "@/hooks/store/use-issues";
 import { ListLayoutLoader } from "@/components/ui/loader/layouts/list-layout-loader";
+import { useModuleStateGroups } from "@/components/module-states/use-module-states";
 
 export interface IList {
   viewId?: string;
@@ -100,6 +101,7 @@ const ListContent = observer(function ListContent(props: IList) {
 
   const storeType = useIssueStoreType();
   const native = useNativeList();
+  const filterModuleGroups = useModuleStateGroups();
   const { issues } = useIssues(storeType);
   const group_by = (
     native?.enabled
@@ -118,12 +120,16 @@ const ListContent = observer(function ListContent(props: IList) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const normalGroups = getGroupByColumns({
-    groupBy: group_by as GroupByColumnTypes,
-    includeNone: true,
-    isWorkspaceLevel: isWorkspaceLevel(storeType),
-    isEpic: isEpic,
-  });
+  const normalGroups = filterModuleGroups(
+    getGroupByColumns({
+      groupBy: group_by as GroupByColumnTypes,
+      includeNone: true,
+      isWorkspaceLevel: isWorkspaceLevel(storeType),
+      isEpic: isEpic,
+    }),
+    group_by,
+    groupedIssueIds
+  );
   const field = native?.enabled ? native.customGroup : undefined;
   const groups: IGroupByColumn[] | undefined = field
     ? ([

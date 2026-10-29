@@ -22,6 +22,7 @@ import type {
 import { ContentWrapper } from "@plane/ui";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
+import { useModuleStateGroups } from "@/components/module-states/use-module-states";
 import { KanbanColumnLoader } from "@/components/ui/loader/layouts/kanban-layout-loader";
 // hooks
 import { useKanbanView } from "@/hooks/store/use-kanban-view";
@@ -100,18 +101,23 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
   // i18n
   // store hooks
   const storeType = useIssueStoreType();
+  const filterModuleGroups = useModuleStateGroups();
   const issueKanBanView = useKanbanView();
   // derived values
   const isDragDisabled = !issueKanBanView?.getCanUserDragDrop(group_by, sub_group_by);
 
   const { getIsWorkflowWorkItemCreationDisabled } = useWorkFlowFDragNDrop(group_by, sub_group_by);
 
-  const list = getGroupByColumns({
-    groupBy: group_by as GroupByColumnTypes,
-    includeNone: true,
-    isWorkspaceLevel: isWorkspaceLevel(storeType),
-    isEpic: isEpic,
-  });
+  const list = filterModuleGroups(
+    getGroupByColumns({
+      groupBy: group_by as GroupByColumnTypes,
+      includeNone: true,
+      isWorkspaceLevel: isWorkspaceLevel(storeType),
+      isEpic: isEpic,
+    }),
+    group_by,
+    groupedIssueIds
+  );
 
   if (!list) return null;
 

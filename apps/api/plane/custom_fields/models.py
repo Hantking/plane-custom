@@ -111,3 +111,12 @@ class NativeLayoutPreference(models.Model):
                 fields=["owner", "workspace", "context_type", "target", "layout"], name="hentis_native_pref_unique"
             )
         ]
+
+
+class ModuleStateVisibility(models.Model):
+    module = models.OneToOneField("db.Module", on_delete=models.CASCADE, primary_key=True)
+    state_ids = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hentis_module_state_visibility"

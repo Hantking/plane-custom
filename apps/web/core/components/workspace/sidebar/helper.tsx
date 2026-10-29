@@ -15,6 +15,7 @@ import {
   ProjectIcon,
   ViewsIcon,
   YourWorkIcon,
+  PageIcon,
 } from "@plane/propel/icons";
 import { cn } from "@plane/utils";
 
@@ -36,6 +37,8 @@ export const getSidebarNavigationItemIcon = (key: string, className: string = ""
       return <YourWorkIcon className={cn("size-4 flex-shrink-0", className)} />;
     case "drafts":
       return <DraftIcon className={cn("size-4 flex-shrink-0", className)} />;
+    case "personal_pages":
+      return <PageIcon className={cn("size-4 flex-shrink-0", className)} />;
     case "archives":
       return <ArchiveIcon className={cn("size-4 flex-shrink-0", className)} />;
     case "stickies":

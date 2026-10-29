@@ -22,6 +22,7 @@ import type {
 import { Row } from "@plane/ui";
 // hooks
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
+import { useModuleStateGroups } from "@/components/module-states/use-module-states";
 // plane web imports
 import { useWorkFlowFDragNDrop } from "@/components/workflow";
 // local imports
@@ -290,18 +291,27 @@ export const KanBanSwimLanes = observer(function KanBanSwimLanes(props: IKanBanS
   // store hooks
   const storeType = useIssueStoreType();
   // derived values
-  const groupByList = getGroupByColumns({
-    groupBy: group_by as GroupByColumnTypes,
-    includeNone: true,
-    isWorkspaceLevel: isWorkspaceLevel(storeType),
-    isEpic: isEpic,
-  });
-  const subGroupByList = getGroupByColumns({
-    groupBy: sub_group_by as GroupByColumnTypes,
-    includeNone: true,
-    isWorkspaceLevel: isWorkspaceLevel(storeType),
-    isEpic: isEpic,
-  });
+  const filterModuleGroups = useModuleStateGroups();
+  const groupByList = filterModuleGroups(
+    getGroupByColumns({
+      groupBy: group_by as GroupByColumnTypes,
+      includeNone: true,
+      isWorkspaceLevel: isWorkspaceLevel(storeType),
+      isEpic: isEpic,
+    }),
+    group_by,
+    groupedIssueIds
+  );
+  const subGroupByList = filterModuleGroups(
+    getGroupByColumns({
+      groupBy: sub_group_by as GroupByColumnTypes,
+      includeNone: true,
+      isWorkspaceLevel: isWorkspaceLevel(storeType),
+      isEpic: isEpic,
+    }),
+    sub_group_by,
+    groupedIssueIds
+  );
 
   if (!groupByList || !subGroupByList) return null;
 
