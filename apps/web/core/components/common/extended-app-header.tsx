@@ -26,8 +26,12 @@ export const ExtendedAppHeader = observer(function ExtendedAppHeader(props: { he
 
   return (
     <>
-      {sidebarCollapsed && shouldShowSidebarToggleButton && <AppSidebarToggleButton />}
-      <div className="w-full">{header}</div>
+      {sidebarCollapsed && shouldShowSidebarToggleButton && (
+        <div className="hidden shrink-0 md:flex">
+          <AppSidebarToggleButton />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">{header}</div>
     </>
   );
 });

@@ -124,7 +124,7 @@ export const ViewListItemAction = observer(function ViewListItemAction(props: Pr
         />
       )}
       {projectId && workspaceSlug && (
-        <div className="hidden md:block">
+        <div className="block shrink-0">
           <ViewQuickActions
             parentRef={parentRef}
             projectId={projectId.toString()}

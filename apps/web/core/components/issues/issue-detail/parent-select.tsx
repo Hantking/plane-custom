@@ -125,9 +125,12 @@ export const IssueParentSelect = observer(function IssueParentSelect(props: TIss
         )}
         {!disabled && (
           <span
-            className={cn("flex-shrink-0 p-1 opacity-0 group-hover:opacity-100", {
-              "text-placeholder": !issue.parent_id && !parentIssue,
-            })}
+            className={cn(
+              "flex-shrink-0 p-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100",
+              {
+                "text-placeholder": !issue.parent_id && !parentIssue,
+              }
+            )}
           >
             <EditIcon className="h-2.5 w-2.5 flex-shrink-0" />
           </span>

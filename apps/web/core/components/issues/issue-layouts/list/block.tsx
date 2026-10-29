@@ -243,7 +243,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 <div className="absolute left-1 grid w-3.5 flex-shrink-0 place-items-center">
                   <MultipleSelectEntityAction
                     className={cn(
-                      "pointer-events-none opacity-0 transition-opacity group-focus-within/list-block:pointer-events-auto group-focus-within/list-block:opacity-100 group-hover/list-block:pointer-events-auto group-hover/list-block:opacity-100",
+                      "pointer-events-none opacity-0 transition-opacity group-focus-within/list-block:pointer-events-auto group-focus-within/list-block:opacity-100 group-hover/list-block:pointer-events-auto group-hover/list-block:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                       {
                         "pointer-events-auto opacity-100": isIssueSelected,
                       }

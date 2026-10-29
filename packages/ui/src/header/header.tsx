@@ -34,6 +34,7 @@ function Header(props: HeaderProps) {
   return (
     <HeaderContext.Provider value={variant}>
       <Row
+        data-plane-header={variant}
         variant={variant === EHeaderVariant.PRIMARY ? ERowVariant.HUGGING : ERowVariant.REGULAR}
         className={cn(style, className)}
         {...rest}
@@ -47,6 +48,7 @@ function Header(props: HeaderProps) {
 function LeftItem(props: HeaderProps) {
   return (
     <div
+      data-plane-header-left
       className={cn(
         "flex max-w-[80%] flex-grow flex-wrap items-center gap-2 overflow-ellipsis whitespace-nowrap",
         props.className
@@ -62,6 +64,7 @@ function RightItem(props: HeaderProps) {
   if (variant === undefined) throw new Error("RightItem must be used within Header");
   return (
     <div
+      data-plane-header-right
       className={cn(
         "flex w-auto items-center justify-end gap-2",
         {

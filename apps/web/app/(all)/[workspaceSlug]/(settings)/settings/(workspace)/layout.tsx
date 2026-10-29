@@ -43,7 +43,7 @@ const WorkspaceSettingLayout = observer(function WorkspaceSettingLayout({ params
         hamburgerContent={WorkspaceSettingsSidebarRoot}
         activePath={getWorkspaceActivePath(pathname) || ""}
       />
-      <div className="inset-y-0 flex h-full w-full flex-row">
+      <div className="inset-y-0 flex min-h-0 w-full flex-1 flex-row">
         {workspaceUserInfo && !isAuthorized ? (
           <NotAuthorizedView section="settings" className="h-auto" />
         ) : (

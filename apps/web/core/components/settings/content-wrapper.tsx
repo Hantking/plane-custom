@@ -28,6 +28,7 @@ export function SettingsContentWrapper(props: Props) {
       )}
       <ScrollArea scrollType="hover" orientation="vertical" size="sm" className="size-full grow overflow-y-scroll">
         <div
+          data-mobile-settings-content
           className={cn("py-9", {
             "w-full px-page-x lg:px-12": hugging,
             "mx-auto w-full max-w-225 px-page-x @min-[58.95rem]:px-0": !hugging, // 58.95rem = max-width(56.25rem) + padding-x(1.35rem * 2)

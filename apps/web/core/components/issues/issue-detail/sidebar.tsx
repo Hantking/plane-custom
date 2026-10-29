@@ -94,7 +94,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 buttonContainerClassName="w-full text-left h-7.5"
                 buttonClassName="text-body-xs-regular"
                 dropdownArrow
-                dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+                dropdownArrowClassName="h-3.5 w-3.5 inline md:hidden md:group-hover:inline md:group-focus-within:inline"
               />
             </SidebarPropertyListItem>
 
@@ -112,7 +112,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 buttonClassName={`text-body-xs-regular justify-between ${issue?.assignee_ids?.length > 0 ? "" : "text-placeholder"}`}
                 hideIcon={issue.assignee_ids?.length === 0}
                 dropdownArrow
-                dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+                dropdownArrowClassName="h-3.5 w-3.5 inline md:hidden md:group-hover:inline md:group-focus-within:inline"
               />
             </SidebarPropertyListItem>
 
@@ -160,7 +160,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 buttonContainerClassName="w-full text-left h-7.5"
                 buttonClassName={`text-body-xs-regular ${issue?.start_date ? "" : "text-placeholder"}`}
                 hideIcon
-                clearIconClassName="h-3 w-3 hidden group-hover:inline"
+                clearIconClassName="h-3 w-3 inline md:hidden md:group-hover:inline md:group-focus-within:inline"
               />
             </SidebarPropertyListItem>
 
@@ -191,7 +191,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                     "text-danger-primary": shouldHighlightIssueDueDate(issue.target_date, stateDetails?.group),
                   })}
                   hideIcon
-                  clearIconClassName="h-3 w-3 hidden group-hover:inline text-primary"
+                  clearIconClassName="h-3 w-3 inline md:hidden md:group-hover:inline md:group-focus-within:inline text-primary"
                 />
               </div>
             </SidebarPropertyListItem>
@@ -212,7 +212,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                   placeholder={t("common.none")}
                   hideIcon
                   dropdownArrow
-                  dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+                  dropdownArrowClassName="h-3.5 w-3.5 inline md:hidden md:group-hover:inline md:group-focus-within:inline"
                 />
               </SidebarPropertyListItem>
             )}

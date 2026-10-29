@@ -10,18 +10,23 @@ import ICU from "i18next-icu";
 import resourcesToBackend from "i18next-resources-to-backend";
 import { SUPPORTED_LANGUAGES, FALLBACK_LANGUAGE, LANGUAGE_STORAGE_KEY } from "../constants/language";
 import { NAMESPACES, DEFAULT_NAMESPACE } from "../constants/namespaces";
+import { loadLocaleResource } from "./resources.generated";
 
 import type { i18n as I18nInstance } from "i18next";
 
 export const i18nInstance: I18nInstance = i18n.createInstance();
 
-i18nInstance
-  .use(ICU)
-  .use(initReactI18next)
-  .use(resourcesToBackend((language: string, namespace: string) => import(`../locales/${language}/${namespace}.json`)));
+i18nInstance.use(ICU).use(initReactI18next).use(resourcesToBackend(loadLocaleResource));
 
-const initialLng =
-  typeof window !== "undefined" ? localStorage.getItem(LANGUAGE_STORAGE_KEY) || FALLBACK_LANGUAGE : FALLBACK_LANGUAGE;
+const initialLng = (() => {
+  try {
+    return typeof window !== "undefined"
+      ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) || FALLBACK_LANGUAGE
+      : FALLBACK_LANGUAGE;
+  } catch {
+    return FALLBACK_LANGUAGE;
+  }
+})();
 
 export const initPromise = i18nInstance
   .init({

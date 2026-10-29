@@ -33,7 +33,6 @@ export const ModulesListMobileHeader = observer(function ModulesListMobileHeader
         closeOnSelect
       >
         {MODULE_VIEW_LAYOUTS.map((layout) => {
-          if (layout.key == "gantt") return;
           return (
             <CustomMenu.MenuItem
               key={layout.key}

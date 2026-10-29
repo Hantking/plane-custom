@@ -148,7 +148,8 @@ export const CalendarIssueBlock = observer(
                   <div
                     role="presentation"
                     className={cn("size-5 flex-shrink-0", {
-                      "hidden group-hover/calendar-block:block": !isMobile,
+                      "hidden group-focus-within/calendar-block:block group-hover/calendar-block:block [@media(hover:none)]:block":
+                        !isMobile,
                       block: isMenuActive,
                     })}
                     onClick={(e) => {

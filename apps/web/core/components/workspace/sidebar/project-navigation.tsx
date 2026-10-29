@@ -36,10 +36,11 @@ type TProjectItemsProps = {
   workspaceSlug: string;
   projectId: string;
   additionalNavigationItems?: (workspaceSlug: string, projectId: string) => TNavigationItem[];
+  onNavigate?: () => void;
 };
 
 export const ProjectNavigation = observer(function ProjectNavigation(props: TProjectItemsProps) {
-  const { workspaceSlug, projectId, additionalNavigationItems } = props;
+  const { workspaceSlug, projectId, additionalNavigationItems, onNavigate } = props;
   const { workItem: workItemIdentifierFromRoute } = useParams();
   // store hooks
   const { t } = useTranslation();
@@ -59,7 +60,9 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
   const project = getPartialProjectById(projectId);
   // handlers
   const handleProjectClick = () => {
-    if (window.innerWidth < 768) {
+    if (onNavigate) {
+      onNavigate();
+    } else if (window.innerWidth < 768) {
       toggleSidebar();
     }
     // close the extended sidebar if it is open

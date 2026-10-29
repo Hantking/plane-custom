@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 const require = createRequire(new URL("../../apps/web/package.json", import.meta.url));
 const [react, server, markdown, gfm] = await Promise.all(
-  ["react", "react-dom/server", "react-markdown", "remark-gfm"].map((name) => import(require.resolve(name)))
+  ["react", "react-dom/server", "react-markdown", "remark-gfm"].map(
+    (name) => import(pathToFileURL(require.resolve(name)).href)
+  )
 );
 const render = (text) =>
   server.renderToStaticMarkup(react.default.createElement(markdown.default, { remarkPlugins: [gfm.default] }, text));

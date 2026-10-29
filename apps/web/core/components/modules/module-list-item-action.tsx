@@ -181,7 +181,7 @@ export const ModuleListItemAction = observer(function ModuleListItemAction(props
         />
       )}
       {workspaceSlug && projectId && (
-        <div className="hidden md:block">
+        <div className="block shrink-0">
           <ModuleQuickActions
             parentRef={parentRef}
             moduleId={moduleId}

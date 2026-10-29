@@ -14,6 +14,7 @@ import { useLocalStorage } from "@plane/hooks";
 import { ResizableSidebar } from "@/components/sidebar/resizable-sidebar";
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
+import { useMobileNavigation } from "@/components/mobile/navigation-context";
 // local imports
 import { ExtendedAppSidebar } from "./extended-sidebar";
 import { AppSidebar } from "./sidebar";
@@ -34,6 +35,7 @@ export const ProjectAppSidebar = observer(function ProjectAppSidebar() {
   // routes
   const { workspaceSlug } = useParams();
   const pathname = usePathname();
+  const mobileNavigation = useMobileNavigation();
   // derived values
   const isAnyExtendedSidebarOpen = isExtendedSidebarOpened;
 
@@ -42,7 +44,7 @@ export const ProjectAppSidebar = observer(function ProjectAppSidebar() {
   // handlers
   const handleWidthChange = (width: number) => setValue(width);
 
-  if (isNotificationsPath) return null;
+  if (isNotificationsPath || mobileNavigation?.isMobile) return null;
 
   return (
     <>

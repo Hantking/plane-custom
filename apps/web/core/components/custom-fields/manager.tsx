@@ -75,8 +75,10 @@ export function FieldManager({
     }
   };
   return (
-    <details className="rounded border border-subtle p-3">
-      <summary className="cursor-pointer font-medium">Gerenciar campos do projeto</summary>
+    <details data-custom-field-manager className="min-w-0 rounded border border-subtle p-3">
+      <summary className="min-h-11 cursor-pointer py-2 font-medium sm:min-h-0 sm:py-0">
+        Gerenciar campos do projeto
+      </summary>
       <p className="my-2 text-13 text-secondary">
         Arquivar preserva os dados; excluir remove o campo e seus valores. Ao trocar o tipo, valores compatíveis são
         convertidos. Se algum valor não puder ser convertido, a alteração é cancelada sem apagar os dados. Visualizações
@@ -84,49 +86,60 @@ export function FieldManager({
       </p>
       <div className="space-y-2">
         {fields.map((field) => (
-          <div key={field.id} className="flex flex-wrap items-center gap-3 text-13">
-            <span>
+          <div
+            key={field.id}
+            className="flex min-w-0 flex-wrap items-center gap-2 border-b border-subtle py-2 text-13 sm:gap-3"
+          >
+            <span className="w-full min-w-0 break-words sm:w-auto sm:flex-1">
               {field.name} · {labels[field.kind]} {field.active ? "" : "(arquivado)"}
             </span>
             <button
-              className="text-accent-primary"
+              className="min-h-11 rounded px-2 text-accent-primary sm:min-h-8"
               disabled={busy}
               onClick={() => setForm({ ...field, options: field.options.map((o) => ({ ...o })) })}
             >
               Editar
             </button>
-            <button disabled={busy} onClick={() => void save({ id: field.id, active: !field.active })}>
+            <button
+              className="min-h-11 rounded px-2 sm:min-h-8"
+              disabled={busy}
+              onClick={() => void save({ id: field.id, active: !field.active })}
+            >
               {field.active ? "Arquivar" : "Reativar"}
             </button>
-            <button disabled={busy} className="text-red-600" onClick={() => void remove(field)}>
+            <button
+              disabled={busy}
+              className="text-red-600 min-h-11 rounded px-2 sm:min-h-8"
+              onClick={() => void remove(field)}
+            >
               Excluir
             </button>
           </div>
         ))}
       </div>
       <form
-        className="mt-4 flex max-w-2xl flex-col gap-2"
+        className="mt-4 flex w-full max-w-2xl min-w-0 flex-col gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           void save(form);
         }}
       >
         <h3 className="font-semibold">{form.id ? "Editar campo" : "Novo campo"}</h3>
-        <label className="text-13">
+        <label className="flex min-w-0 flex-col gap-1 text-13">
           Nome
           <input
-            className={`${fieldInputClass} ml-2`}
+            className={`${fieldInputClass} min-h-11 w-full min-w-0 sm:min-h-8`}
             required
             maxLength={100}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         </label>
-        <label className="text-13">
+        <label className="flex min-w-0 flex-col gap-1 text-13">
           Tipo
           <select
             disabled={busy}
-            className={`${fieldInputClass} ml-2`}
+            className={`${fieldInputClass} min-h-11 w-full min-w-0 sm:min-h-8`}
             value={form.kind}
             onChange={(e) => {
               const kind = e.target.value as CustomField["kind"];
@@ -140,16 +153,16 @@ export function FieldManager({
             ))}
           </select>
         </label>
-        <label className="text-13">
+        <label className="flex min-w-0 flex-col gap-1 text-13">
           Descrição
           <input
-            className={`${fieldInputClass} ml-2`}
+            className={`${fieldInputClass} min-h-11 w-full min-w-0 sm:min-h-8`}
             maxLength={500}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           />
         </label>
-        <label className="text-13">
+        <label className="flex min-h-11 items-center gap-2 text-13 sm:min-h-8">
           <input
             type="checkbox"
             checked={form.required}
@@ -165,10 +178,13 @@ export function FieldManager({
               leitura.
             </p>
             {form.options?.map((option) => (
-              <div className="flex flex-wrap items-center gap-2" key={option.id}>
+              <div
+                className="flex min-w-0 flex-wrap items-center gap-2 rounded border border-subtle p-2"
+                key={option.id}
+              >
                 <input
                   aria-label="Nome da opção"
-                  className={fieldInputClass}
+                  className={`${fieldInputClass} min-h-11 w-full min-w-0 sm:min-h-8 sm:w-auto sm:flex-1`}
                   value={option.label}
                   required
                   maxLength={100}
@@ -183,7 +199,7 @@ export function FieldManager({
                   Cor de fundo
                   <input
                     type="color"
-                    className="h-8 w-10 cursor-pointer rounded border border-subtle"
+                    className="h-11 w-11 cursor-pointer rounded border border-subtle sm:h-8 sm:w-10"
                     aria-label={`Cor de fundo de ${option.label || "nova opção"}`}
                     value={optionBackground(option)}
                     onChange={(e) =>
@@ -199,6 +215,7 @@ export function FieldManager({
                 <OptionBadge option={{ ...option, label: option.label || "Prévia" }} />
                 <button
                   type="button"
+                  className="min-h-11 rounded px-2 sm:min-h-8"
                   onClick={() => setForm({ ...form, options: form.options?.filter((o) => o.id !== option.id) })}
                 >
                   Remover
@@ -207,6 +224,7 @@ export function FieldManager({
             ))}
             <button
               type="button"
+              className="min-h-11 rounded px-2 sm:min-h-8"
               disabled={(form.options?.length ?? 0) >= 50}
               onClick={() =>
                 setForm({
@@ -226,7 +244,7 @@ export function FieldManager({
             </button>
           </div>
         )}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button className={fieldInputClass} disabled={busy} type="submit">
             {busy ? "Salvando…" : "Salvar campo"}
           </button>

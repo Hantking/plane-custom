@@ -313,7 +313,7 @@ export function CustomFieldsProjectView() {
       </p>
     );
   return (
-    <main className="h-full overflow-auto p-4 md:p-6">
+    <main data-custom-fields-page className="h-full min-w-0 overflow-y-auto p-4 md:p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Campos e visualizações</h1>
         <Link className="text-accent-primary" to={`/${workspace}/projects/${project}/issues/`}>
@@ -434,7 +434,7 @@ export function CustomFieldsProjectView() {
         </section>
       ) : (
         <section className="mb-4 rounded border border-subtle p-3">
-          <div className="mb-2 flex items-center gap-3">
+          <div className="mb-2 flex min-w-0 flex-wrap items-center gap-3">
             <h2 className="font-medium">Filtros</h2>
             <select
               aria-label="Combinar condições"
@@ -485,7 +485,7 @@ export function CustomFieldsProjectView() {
                     ))}
                 </select>
                 {field && !["empty", "not_empty"].includes(item.operator) && (
-                  <div className="w-60">
+                  <div className="w-full min-w-0 sm:w-60">
                     <FieldInput
                       field={field}
                       value={item.value}
@@ -581,7 +581,14 @@ export function CustomFieldsProjectView() {
           Escolha um campo de seleção única/múltipla ou sim/não em “Agrupar por” para montar o Kanban.
         </p>
       ) : groupedField && data?.groups ? (
-        <div className={config.layout === "kanban" ? "flex items-start gap-4 overflow-x-auto pb-4" : "space-y-4"}>
+        <div
+          data-custom-fields-results
+          className={
+            config.layout === "kanban"
+              ? "flex max-w-full min-w-0 items-start gap-4 overflow-x-auto overscroll-x-contain pb-4"
+              : "space-y-4"
+          }
+        >
           {data.groups.map((group) => (
             <GroupColumn
               key={`${JSON.stringify(config)}-${group.key}`}
@@ -597,7 +604,7 @@ export function CustomFieldsProjectView() {
           ))}
         </div>
       ) : (
-        <div className="overflow-auto">
+        <div data-custom-fields-results className="max-w-full min-w-0 overflow-x-auto overscroll-x-contain">
           {config.layout === "list" && (
             <div className="space-y-3">
               {data?.results?.map((item) => (
@@ -613,7 +620,7 @@ export function CustomFieldsProjectView() {
                   </p>
                   <div className="flex flex-wrap gap-4">
                     {visible.map((field) => (
-                      <div className="min-w-48 text-13" key={field.id}>
+                      <div className="w-full min-w-0 text-13 sm:min-w-48 sm:flex-1" key={field.id}>
                         <p>{field.name}</p>
                         <EditableValue
                           field={field}

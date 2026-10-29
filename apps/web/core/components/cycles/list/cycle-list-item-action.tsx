@@ -299,7 +299,7 @@ export const CycleListItemAction = observer(function CycleListItemAction(props: 
           selected={!!cycleDetails.is_favorite}
         />
       )}
-      <div className="hidden md:block">
+      <div className="block shrink-0">
         <CycleQuickActions
           parentRef={parentRef}
           cycleId={cycleId}
