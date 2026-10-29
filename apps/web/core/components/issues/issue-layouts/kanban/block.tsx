@@ -34,6 +34,8 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 // local components
 import type { TRenderQuickActions } from "../list/list-view-types";
 import { IssueProperties } from "../properties/all-properties";
+import { useProjectState } from "@/hooks/store/use-project-state";
+import { kanbanColorVariables, kanbanStateColor } from "./colors";
 
 interface IssueBlockProps {
   issueId: string;
@@ -162,6 +164,7 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
   const workspaceSlug = routerWorkspaceSlug?.toString();
   // hooks
   const { getProjectIdentifierById } = useProject();
+  const { getStateById } = useProjectState();
   const { getIsIssuePeeked } = useIssueDetail(isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES);
   const { handleRedirection } = useIssuePeekOverviewRedirection(isEpic);
   const { isMobile } = usePlatformOS();
@@ -236,6 +239,7 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
   }, [cardRef?.current, issue?.id, isDragAllowed, canDropOverIssue, setIsCurrentBlockDragging, setIsDraggingOverBlock]);
 
   if (!issue) return null;
+  const state = getStateById(issue.state_id);
 
   return (
     <>
@@ -258,6 +262,9 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
         }}
       >
         <ControlLink
+          data-kanban-card={issue.id}
+          data-kanban-selected={!!getIsIssuePeeked(issue.id)}
+          style={kanbanColorVariables(kanbanStateColor(state?.color, state?.group))}
           id={getIssueBlockId(issueId, groupId, subGroupId)}
           href={workItemLink}
           ref={cardRef}

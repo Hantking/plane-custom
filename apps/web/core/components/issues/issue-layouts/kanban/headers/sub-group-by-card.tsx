@@ -10,6 +10,8 @@ import { Circle } from "lucide-react";
 import { ChevronDownIcon, ChevronUpIcon } from "@plane/propel/icons";
 // Plane
 import type { TIssueGroupByOptions, TIssueKanbanFilters } from "@plane/types";
+import { useProjectState } from "@/hooks/store/use-project-state";
+import { kanbanColorVariables, kanbanGroupColor } from "../colors";
 
 interface IHeaderSubGroupByCard {
   icon?: React.ReactNode;
@@ -22,10 +24,15 @@ interface IHeaderSubGroupByCard {
 }
 
 export const HeaderSubGroupByCard = observer(function HeaderSubGroupByCard(props: IHeaderSubGroupByCard) {
-  const { icon, title, count, column_id, collapsedGroups, handleCollapsedGroups } = props;
+  const { icon, title, count, column_id, collapsedGroups, handleCollapsedGroups, sub_group_by } = props;
+  const { getStateById } = useProjectState();
+  const color = kanbanGroupColor(sub_group_by, column_id, getStateById);
   return (
     // oxlint-disable-next-line jsx_a11y/click-events-have-key-events oxlint-disable-next-line jsx_a11y/no-static-element-interactions
     <div
+      data-kanban-lane-header
+      data-kanban-colored={!!color}
+      style={kanbanColorVariables(color)}
       className={`relative flex w-full flex-shrink-0 cursor-pointer flex-row items-center gap-1 rounded-xs py-1.5`}
       onClick={() => handleCollapsedGroups("sub_group_by", column_id)}
     >

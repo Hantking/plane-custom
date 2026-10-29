@@ -23,6 +23,8 @@ import { ContentWrapper } from "@plane/ui";
 // components
 import RenderIfVisible from "@/components/core/render-if-visible-HOC";
 import { useModuleStateGroups } from "@/components/module-states/use-module-states";
+import { useProjectState } from "@/hooks/store/use-project-state";
+import { kanbanColorVariables, kanbanGroupColor } from "./colors";
 import { KanbanColumnLoader } from "@/components/ui/loader/layouts/kanban-layout-loader";
 // hooks
 import { useKanbanView } from "@/hooks/store/use-kanban-view";
@@ -102,6 +104,7 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
   // store hooks
   const storeType = useIssueStoreType();
   const filterModuleGroups = useModuleStateGroups();
+  const { getStateById } = useProjectState();
   const issueKanBanView = useKanbanView();
   // derived values
   const isDragDisabled = !issueKanBanView?.getCanUserDragDrop(group_by, sub_group_by);
@@ -163,16 +166,22 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
             : ((groupedIssueIds as TGroupedIssues)?.[subList.id] ?? []);
           const issueLength = issueIds?.length;
           const groupHeight = issueLength * approximateCardHeight;
+          const columnColor =
+            kanbanGroupColor(group_by, subList.id, getStateById) ??
+            kanbanGroupColor(sub_group_by, sub_group_id, getStateById);
 
           return (
             <div
               key={subList.id}
+              data-kanban-column={subList.id}
+              data-kanban-colored={!!columnColor}
+              style={kanbanColorVariables(columnColor)}
               className={`group relative flex flex-shrink-0 flex-col ${
                 groupByVisibilityToggle.showIssues ? `w-[350px]` : ``
               } `}
             >
               {sub_group_by === null && (
-                <div className="sticky top-0 z-[2] w-full flex-shrink-0 bg-surface-2 py-1">
+                <div data-kanban-column-header className="sticky top-0 z-[2] w-full flex-shrink-0 bg-surface-2 py-1">
                   <HeaderGroupByCard
                     sub_group_by={sub_group_by}
                     group_by={group_by}

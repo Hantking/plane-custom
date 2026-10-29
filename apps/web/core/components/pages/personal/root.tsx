@@ -11,11 +11,15 @@ import { PageHead } from "@/components/core/page-title";
 import { RelativeDate } from "@/components/dates/relative-date";
 import { fieldError, fieldInputClass } from "@/components/custom-fields/service";
 import { personalPagesService } from "./service";
+import { PersonalCreatePageModal } from "./create-page-modal";
+import { useAppRouter } from "@/hooks/use-app-router";
 
 export const PersonalPagesRoot = observer(function PersonalPagesRoot() {
   const { workspaceSlug } = useParams();
   const workspace = workspaceSlug?.toString() ?? "";
   const userId = useUser().data?.id;
+  const router = useAppRouter();
+  const [createOpen, setCreateOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState("all");
@@ -28,6 +32,19 @@ export const PersonalPagesRoot = observer(function PersonalPagesRoot() {
   return (
     <>
       <PageHead title="Páginas" />
+      {createOpen && data?.creatable_projects && (
+        <PersonalCreatePageModal
+          key={`${workspace}:${userId}`}
+          workspace={workspace}
+          projects={data.creatable_projects}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id, project) => {
+            setCreateOpen(false);
+            void mutate().catch(() => undefined);
+            router.push(`/${workspace}/projects/${project}/pages/${id}/`);
+          }}
+        />
+      )}
       <AppHeader
         header={
           <Header>
@@ -35,6 +52,16 @@ export const PersonalPagesRoot = observer(function PersonalPagesRoot() {
               <PageIcon className="size-4" />
               <span>Páginas</span>
             </Header.LeftItem>
+            <Header.RightItem>
+              <button
+                type="button"
+                disabled={!!error || !data?.creatable_projects?.length}
+                onClick={() => setCreateOpen(true)}
+                className="rounded bg-accent-primary px-3 py-1.5 text-13 font-medium text-on-color disabled:opacity-50"
+              >
+                + Nova página
+              </button>
+            </Header.RightItem>
           </Header>
         }
       />
@@ -43,6 +70,11 @@ export const PersonalPagesRoot = observer(function PersonalPagesRoot() {
         <p className="mt-1 text-13 text-secondary">
           Suas páginas e as compartilhadas com você em todos os projetos deste workspace.
         </p>
+        {data && !error && !data.creatable_projects?.length && (
+          <p className="mt-2 text-13 text-secondary">
+            Para criar páginas, você precisa ser membro ou administrador de um projeto com Páginas habilitado.
+          </p>
+        )}
         <div className="my-4 flex flex-wrap items-center gap-3">
           <form
             className="flex gap-2"

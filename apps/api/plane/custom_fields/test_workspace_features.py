@@ -1,6 +1,7 @@
 from uuid import uuid4
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -214,3 +215,45 @@ class WorkspaceFeaturesTests(TestCase):
         )
         self.client.force_authenticate(user=None)
         self.assertIn(self.client.get(self.pages).status_code, [401, 403])
+
+    def test_page_creation_destinations_require_active_writable_projects_with_pages(self):
+        response = self.client.get(self.pages)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            {str(row["id"]) for row in response.data["creatable_projects"]}, {str(self.project.id), str(self.second.id)}
+        )
+        Project.objects.filter(pk=self.second.id).update(page_view=False)
+        self.assertEqual(
+            {str(row["id"]) for row in self.client.get(self.pages).data["creatable_projects"]}, {str(self.project.id)}
+        )
+        ProjectMember.objects.filter(project=self.project, member=self.admin).update(is_active=False)
+        self.assertEqual(self.client.get(self.pages).data["creatable_projects"], [])
+        self.client.force_authenticate(self.guest)
+        self.assertEqual(self.client.get(self.pages).data["creatable_projects"], [])
+
+    @override_settings(ROOT_URLCONF="plane.urls")
+    def test_personal_page_creation_uses_native_endpoint_and_selected_project(self):
+        with patch("plane.app.views.page.base.page_transaction.delay"):
+            response = self.client.post(
+                f"/api/workspaces/{self.workspace.slug}/projects/{self.second.id}/pages/",
+                {"name": "Created from personal pages", "access": Page.PRIVATE_ACCESS},
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201, response.data)
+        page = Page.objects.get(pk=response.data["id"])
+        self.assertEqual(page.owned_by_id, self.admin.id)
+        self.assertEqual(page.access, Page.PRIVATE_ACCESS)
+        self.assertEqual(list(page.project_pages.values_list("project_id", flat=True)), [self.second.id])
+        self.assertIn(str(page.id), self.ids(self.client.get(self.pages)))
+
+    @override_settings(ROOT_URLCONF="plane.urls")
+    def test_guest_cannot_create_pages_via_native_endpoint(self):
+        self.client.force_authenticate(self.guest)
+        before = Page.objects.count()
+        response = self.client.post(
+            f"/api/workspaces/{self.workspace.slug}/projects/{self.project.id}/pages/",
+            {"name": "Rejected", "access": Page.PUBLIC_ACCESS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Page.objects.count(), before)

@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 
 export type PersonalPagesResult = {
+  creatable_projects: { id: string; name: string; identifier: string }[];
   count: number;
   page: number;
   page_size: number;

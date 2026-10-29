@@ -20,6 +20,8 @@ import { CreateUpdateIssueModal } from "@/components/issues/issue-modal/modal";
 // constants
 import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { CreateUpdateEpicModal } from "@/components/epic-modal";
+import { useProjectState } from "@/hooks/store/use-project-state";
+import { kanbanColorVariables, kanbanGroupColor } from "../colors";
 
 interface IHeaderGroupByCard {
   sub_group_by: TIssueGroupByOptions | undefined;
@@ -39,6 +41,7 @@ interface IHeaderGroupByCard {
 export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHeaderGroupByCard) {
   const {
     sub_group_by,
+    group_by,
     column_id,
     icon,
     title,
@@ -56,6 +59,8 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
   const [openExistingIssueListModal, setOpenExistingIssueListModal] = React.useState(false);
   // hooks
   const storeType = useIssueStoreType();
+  const { getStateById } = useProjectState();
+  const color = kanbanGroupColor(group_by, column_id, getStateById);
   // router
   const { workspaceSlug, projectId, moduleId, cycleId } = useParams();
 
@@ -108,6 +113,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
         />
       )}
       <div
+        style={kanbanColorVariables(color)}
         className={`relative flex flex-shrink-0 gap-1 py-1.5 ${
           verticalAlignPosition ? `w-[44px] flex-col items-center` : `w-full flex-row items-center`
         }`}
@@ -117,11 +123,13 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
         </div>
 
         <div
+          data-kanban-state-label={color ? "" : undefined}
           className={`relative flex gap-1 ${
             verticalAlignPosition ? `flex-col items-center` : `w-full flex-row items-baseline overflow-hidden`
           }`}
         >
           <div
+            data-kanban-title
             className={`line-clamp-1 inline-block truncate overflow-hidden font-medium text-primary ${
               verticalAlignPosition ? `max-h-[400px] vertical-lr` : ``
             }`}
@@ -129,6 +137,7 @@ export const HeaderGroupByCard = observer(function HeaderGroupByCard(props: IHea
             {title}
           </div>
           <div
+            data-kanban-count
             className={`flex-shrink-0 text-13 font-medium text-tertiary ${verticalAlignPosition ? `pr-0.5` : `pl-2`}`}
           >
             {count || 0}

@@ -28,6 +28,8 @@ O item **Páginas** no menu lateral pessoal abre `/:workspace/pages/`. A lista r
 
 Há busca por título, filtros **Todas / Minhas páginas / Compartilhadas comigo**, opção **Incluir arquivadas** e paginação de 30 itens. Páginas associadas a mais de um projeto aparecem uma vez, com link por um projeto autorizado. Trocar o workspace altera o escopo da lista.
 
+O botão **Nova página** permite escolher um projeto autorizado, título e visibilidade, criando pelo endpoint nativo e abrindo o editor. Instruções e evidências, junto do novo visual do Quadro: [PAGE-CREATION-AND-KANBAN-COLORS.md](PAGE-CREATION-AND-KANBAN-COLORS.md).
+
 O compartilhamento segue as regras nativas desta edição CE: páginas públicas de projetos acessíveis são compartilhadas; páginas privadas são visíveis somente ao proprietário. A criação anterior de uma página não permite acessar uma página privada transferida para outro proprietário. Associação ativa ao projeto e ao workspace é obrigatória, inclusive para páginas próprias; projetos arquivados/excluídos e vínculos de página removidos não são considerados. Convidados seguem `guest_view_all_features`.
 
 A lista reúne as páginas raiz diretamente navegáveis pelo endpoint nativo de páginas de projeto. Não cria uma nova modalidade de compartilhamento ou um editor paralelo. A API retorna apenas metadados da listagem, sem o corpo do documento.

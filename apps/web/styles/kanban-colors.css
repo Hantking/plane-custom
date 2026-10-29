@@ -1,0 +1,47 @@
+/* Theme-aware state accents: surfaces stay readable in light and dark themes. */
+[data-kanban-column][data-kanban-colored="true"] {
+  border: 1px solid color-mix(in srgb, var(--kanban-color) 30%, var(--border-subtle));
+  border-top: 3px solid var(--kanban-color);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--kanban-color) 10%, var(--bg-surface-1));
+  padding-inline: 8px;
+  padding-bottom: 8px;
+}
+
+[data-kanban-column][data-kanban-colored="true"] > [data-kanban-column-header],
+[data-kanban-column][data-kanban-colored="true"] [data-kanban-quick-add] {
+  background-color: color-mix(in srgb, var(--kanban-color) 10%, var(--bg-surface-1));
+}
+
+[data-kanban-state-label] {
+  width: auto;
+  max-width: 100%;
+  border-radius: 6px;
+  padding: 3px 8px;
+  background-color: var(--kanban-color);
+  color: var(--kanban-foreground);
+}
+
+[data-kanban-state-label] [data-kanban-title],
+[data-kanban-state-label] [data-kanban-count] {
+  color: inherit;
+}
+
+[data-kanban-state-label] [data-kanban-count] {
+  opacity: 0.85;
+}
+
+[data-kanban-card] {
+  border-inline-start: 3px solid var(--kanban-color);
+  background-image: linear-gradient(120deg, color-mix(in srgb, var(--kanban-color) 6%, transparent), transparent 65%);
+}
+
+[data-kanban-card][data-kanban-selected="true"] {
+  border-inline-start-color: var(--border-accent-strong);
+}
+
+[data-kanban-lane-header][data-kanban-colored="true"] {
+  border-inline-start: 4px solid var(--kanban-color);
+  padding-inline: 8px;
+  background-color: color-mix(in srgb, var(--kanban-color) 12%, var(--bg-layer-1));
+}

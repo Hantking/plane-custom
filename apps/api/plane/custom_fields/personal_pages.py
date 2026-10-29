@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from plane.authentication.session import BaseSessionAuthentication
-from plane.db.models import Page, ProjectPage, ProjectMember, Workspace, WorkspaceMember
+from plane.db.models import Page, Project, ProjectPage, ProjectMember, Workspace, WorkspaceMember
 
 
 class PersonalPagesEndpoint(APIView):
@@ -23,6 +23,16 @@ class PersonalPagesEndpoint(APIView):
             raise PermissionDenied()
         members = ProjectMember.objects.filter(
             workspace=workspace, member=request.user, is_active=True, role__in=[5, 15, 20]
+        )
+        creatable_projects = (
+            Project.objects.filter(
+                workspace=workspace,
+                archived_at__isnull=True,
+                page_view=True,
+                id__in=members.filter(role__in=[15, 20]).values("project_id"),
+            )
+            .order_by("name", "id")
+            .values("id", "name", "identifier")
         )
         # All conditions apply to one active project link. Ownership never bypasses
         # project membership, and restricted guests only see their own pages.
@@ -96,6 +106,7 @@ class PersonalPagesEndpoint(APIView):
                 "count": count,
                 "page": number,
                 "page_size": 30,
+                "creatable_projects": list(creatable_projects),
                 "results": [
                     {
                         "id": row["id"],
