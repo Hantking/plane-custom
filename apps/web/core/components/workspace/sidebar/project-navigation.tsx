@@ -6,6 +6,7 @@
 
 import React, { useCallback, useMemo } from "react";
 import { observer } from "mobx-react";
+import { sortBy } from "lodash-es";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { EUserPermissionsLevel, EUserPermissions } from "@plane/constants";
@@ -143,7 +144,7 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
     if (additionalNavigationItems) navItems.push(...additionalNavigationItems(workspaceSlug, projectId));
 
     // sort navigation items by sortOrder
-    const sortedNavigationItems = navItems.toSorted((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const sortedNavigationItems = sortBy(navItems, (item) => item.sortOrder || 0);
 
     return sortedNavigationItems;
   }, [workspaceSlug, projectId, baseNavigation, additionalNavigationItems]);
