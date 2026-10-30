@@ -29,7 +29,13 @@ export function NativeListToolbarSlot() {
       }
     };
   }, []);
-  return <div ref={ref} className="min-w-0 empty:hidden" data-native-list-toolbar-slot />;
+  return (
+    <div
+      ref={ref}
+      className="order-last w-full min-w-0 empty:hidden sm:order-none sm:w-auto"
+      data-native-list-toolbar-slot
+    />
+  );
 }
 
 export function NativeListToolbarPortal({ children }: { children: ReactNode }) {
@@ -60,7 +66,8 @@ export function NativeListToolbarPopover({
 }) {
   const [reference, setReference] = useState<HTMLButtonElement | null>(null);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
-  const { styles, attributes } = usePopper(reference, panel, {
+  const [maxHeight, setMaxHeight] = useState<number>();
+  const { styles, attributes, update } = usePopper(reference, panel, {
     placement: "bottom-end",
     strategy: "fixed",
     modifiers: [
@@ -68,9 +75,23 @@ export function NativeListToolbarPopover({
       { name: "offset", options: { offset: [0, 8] } },
     ],
   });
+  useEffect(() => {
+    if (!panel) return;
+    const resize = () => {
+      setMaxHeight(Math.min(640, (window.visualViewport?.height ?? window.innerHeight) * 0.75));
+      void update?.();
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
+  }, [panel, update]);
   return (
     <Popover className="shrink-0">
-      {({ open }) => (
+      {({ open, close }) => (
         <>
           <Popover.Button
             ref={setReference}
@@ -78,21 +99,32 @@ export function NativeListToolbarPopover({
             title={title}
             aria-label={title}
             data-native-list-search-trigger={searchTrigger ? "" : undefined}
-            className={`relative flex h-8 items-center gap-1.5 rounded-md px-1.5 text-12 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent-strong ${open || active ? "bg-accent-primary/10 text-accent-primary" : "text-secondary hover:bg-layer-transparent-hover hover:text-primary"}`}
+            className={`relative flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-12 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent-strong sm:h-8 sm:min-w-0 sm:px-1.5 ${open || active ? "bg-accent-primary/10 text-accent-primary" : "text-secondary hover:bg-layer-transparent-hover hover:text-primary"}`}
           >
             {icon}
-            {showLabel && <span className="@8xl:inline hidden max-w-28 truncate">{title}</span>}
+            <span className={`${showLabel ? "@8xl:inline" : ""} max-w-28 truncate sm:hidden`}>{title}</span>
             {showLabel && <ChevronDown className="@8xl:block hidden size-3 text-tertiary" />}
             {active && <span className="absolute top-1 right-1 size-1.5 rounded-full bg-accent-primary" />}
           </Popover.Button>
           <Portal>
             <Popover.Panel
               ref={setPanel}
-              style={styles.popper}
+              data-native-list-popover
+              style={{ ...styles.popper, maxHeight }}
               {...attributes.popper}
-              className={`z-[80] max-h-[min(75vh,640px)] max-w-[calc(100vw-24px)] overflow-auto rounded-xl border border-subtle bg-surface-1 shadow-raised-200 ${wide ? "w-[640px]" : "w-[360px]"}`}
+              className={`z-[80] max-h-[min(75dvh,640px)] max-w-[calc(100vw-24px)] overflow-auto overscroll-contain rounded-xl border border-subtle bg-surface-1 shadow-raised-200 ${wide ? "w-[640px]" : "w-[360px]"}`}
             >
-              <div className="border-b border-subtle px-4 py-3 text-13 font-semibold text-primary">{title}</div>
+              <div className="flex items-center justify-between gap-3 border-b border-subtle px-4 py-2 text-13 font-semibold text-primary">
+                <span>{title}</span>
+                <button
+                  type="button"
+                  aria-label={`Fechar ${title}`}
+                  className="min-h-11 shrink-0 rounded px-2 text-secondary md:min-h-8"
+                  onClick={() => close()}
+                >
+                  Fechar
+                </button>
+              </div>
               <div className="space-y-3 p-4 text-13 text-primary">{children}</div>
             </Popover.Panel>
           </Portal>

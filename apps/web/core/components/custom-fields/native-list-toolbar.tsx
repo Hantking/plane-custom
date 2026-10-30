@@ -100,7 +100,10 @@ export function NativeListToolbar({ props, summary }: { props: IList; summary?: 
   };
   return (
     <NativeListToolbarPortal>
-      <div data-native-list-toolbar className="flex min-w-0 flex-wrap items-center gap-0.5 text-12">
+      <div
+        data-native-list-toolbar
+        className="flex max-w-full min-w-0 flex-nowrap items-center gap-1 overflow-x-auto py-1 text-12 sm:flex-wrap sm:gap-0.5 sm:overflow-visible sm:py-0"
+      >
         <span
           title="Total de tarefas únicas no resultado"
           className="mr-1 hidden shrink-0 rounded-md bg-layer-2 px-2 py-1 text-11 font-medium text-secondary sm:inline"
@@ -497,11 +500,11 @@ export function NativeListToolbar({ props, summary }: { props: IList; summary?: 
             </div>
           </NativeListToolbarPopover>
         )}
-        <div className="ml-1 border-l border-subtle pl-1">
+        <div className="ml-1 shrink-0 border-l border-subtle pl-1">
           {!props.disableIssueCreation && !props.isCompletedCycle && (
             <Button size="sm" title="Nova tarefa" aria-label="Nova tarefa" onClick={() => setCreate(true)}>
               <Plus className="size-3.5" />
-              <span className="@8xl:inline hidden">Nova tarefa</span>
+              <span className="@8xl:inline sm:hidden">Nova tarefa</span>
             </Button>
           )}
         </div>
@@ -543,7 +546,10 @@ export function NativeListBulkTools({ helpers }: { helpers: TSelectionHelper }) 
   const canWrite = !!native.display.data?.fields.some((candidate) => list.canEditProject(candidate.project_id));
   const loaded = [...new Set((native.issueIds ?? []).filter((id) => helpers.getIsEntitySelected(id)))];
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-subtle bg-layer-1 p-2 text-11">
+    <div
+      data-native-list-bulk-tools
+      className="flex max-h-[50dvh] min-w-0 flex-wrap items-center gap-2 overflow-auto overscroll-contain border-t border-subtle bg-layer-1 p-2 text-11 sm:max-h-none"
+    >
       <span>Operações nativas: {loaded.length} selecionados carregados. Campos personalizados:</span>
       <Button
         variant="secondary"

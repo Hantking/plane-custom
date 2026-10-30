@@ -44,10 +44,24 @@ type Props = {
   isEditable: boolean;
   isArchived: boolean;
   quickPanel?: IssueQuickPanel;
+  showInlineProperties?: boolean;
+  showActivity?: boolean;
+  hideAttachments?: boolean;
 };
 
 export const IssueMainContent = observer(function IssueMainContent(props: Props) {
-  const { workspaceSlug, projectId, issueId, issueOperations, isEditable, isArchived, quickPanel } = props;
+  const {
+    workspaceSlug,
+    projectId,
+    issueId,
+    issueOperations,
+    isEditable,
+    isArchived,
+    quickPanel,
+    showInlineProperties = true,
+    showActivity = true,
+    hideAttachments = false,
+  } = props;
   // refs
   const editorRef = useRef<EditorRefApi>(null);
   // states
@@ -171,10 +185,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         disabled={!isEditable || isArchived}
         renderWidgetModals={!isPeekModeActive}
         issueServiceType={EIssueServiceType.ISSUES}
-        hideWidgets={quickPanel === "attachments" ? ["attachments"] : undefined}
+        hideWidgets={hideAttachments || quickPanel === "attachments" ? ["attachments"] : undefined}
       />
 
-      {windowSize[0] < 768 && (
+      {showInlineProperties && windowSize[0] < 768 && (
         <PeekOverviewProperties
           workspaceSlug={workspaceSlug}
           projectId={projectId}
@@ -184,7 +198,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         />
       )}
 
-      {quickPanel !== "comments" && (
+      {showActivity && quickPanel !== "comments" && (
         <IssueActivity workspaceSlug={workspaceSlug} projectId={projectId} issueId={issueId} disabled={isArchived} />
       )}
     </>

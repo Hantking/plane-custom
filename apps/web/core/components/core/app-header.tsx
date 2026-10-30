@@ -25,6 +25,7 @@ export const AppHeader = observer(function AppHeader(props: AppHeaderProps) {
   return (
     <div className={cn("z-[18]", className)}>
       <Row
+        data-mobile-header-row
         className={cn(
           "flex h-11 w-full items-center gap-2 border-b border-subtle bg-surface-1 [&:has([data-native-list-toolbar])]:h-auto [&:has([data-native-list-toolbar])]:min-h-11 [&:has([data-native-list-toolbar])]:py-1",
           rowClassName

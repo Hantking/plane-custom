@@ -36,10 +36,11 @@ type TProjectItemsProps = {
   workspaceSlug: string;
   projectId: string;
   additionalNavigationItems?: (workspaceSlug: string, projectId: string) => TNavigationItem[];
+  onNavigate?: () => void;
 };
 
 export const ProjectNavigation = observer(function ProjectNavigation(props: TProjectItemsProps) {
-  const { workspaceSlug, projectId, additionalNavigationItems } = props;
+  const { workspaceSlug, projectId, additionalNavigationItems, onNavigate } = props;
   const { workItem: workItemIdentifierFromRoute } = useParams();
   // store hooks
   const { t } = useTranslation();
@@ -59,7 +60,9 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
   const project = getPartialProjectById(projectId);
   // handlers
   const handleProjectClick = () => {
-    if (window.innerWidth < 768) {
+    if (onNavigate) {
+      onNavigate();
+    } else if (window.innerWidth < 768) {
       toggleSidebar();
     }
     // close the extended sidebar if it is open
@@ -69,7 +72,7 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
   };
 
   const baseNavigation = useCallback(
-    (workspaceSlug: string, projectId: string): TNavigationItem[] => [
+    (): TNavigationItem[] => [
       {
         i18n_key: "sidebar.work_items",
         key: "work_items",
@@ -131,25 +134,16 @@ export const ProjectNavigation = observer(function ProjectNavigation(props: TPro
         sortOrder: 6,
       },
     ],
-    [project]
+    [project, workspaceSlug, projectId]
   );
 
   // memoized navigation items and adding additional navigation items
   const navigationItemsMemo = useMemo(() => {
-    const navigationItems = (workspaceSlug: string, projectId: string): TNavigationItem[] => {
-      const navItems = baseNavigation(workspaceSlug, projectId);
-
-      if (additionalNavigationItems) {
-        navItems.push(...additionalNavigationItems(workspaceSlug, projectId));
-      }
-
-      return navItems;
-    };
+    const navItems = baseNavigation();
+    if (additionalNavigationItems) navItems.push(...additionalNavigationItems(workspaceSlug, projectId));
 
     // sort navigation items by sortOrder
-    const sortedNavigationItems = navigationItems(workspaceSlug, projectId).sort(
-      (a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)
-    );
+    const sortedNavigationItems = navItems.toSorted((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     return sortedNavigationItems;
   }, [workspaceSlug, projectId, baseNavigation, additionalNavigationItems]);

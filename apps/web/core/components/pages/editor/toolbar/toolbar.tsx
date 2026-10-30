@@ -41,6 +41,8 @@ const ToolbarButton = React.memo(function ToolbarButton(props: ToolbarButtonProp
     >
       <button
         type="button"
+        aria-label={item.name}
+        aria-pressed={isActive}
         onClick={() =>
           // TODO: update this while toolbar homogenization
           // @ts-expect-error type mismatch here

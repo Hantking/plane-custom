@@ -53,54 +53,59 @@ export const IssueAttachmentsListItem = observer(function IssueAttachmentsListIt
 
   return (
     <>
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(fileURL, "_blank");
-        }}
+      <div
+        role="presentation"
+        className="group flex min-h-11 min-w-0 items-center justify-between gap-3 pr-2 pl-2 hover:bg-surface-2 sm:pl-9"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
-        <div className="group flex h-11 items-center justify-between gap-3 pr-2 pl-9 hover:bg-surface-2">
-          <div className="flex items-center gap-3 truncate text-13">
-            <div className="flex items-center gap-3">{fileIcon}</div>
-            <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
-              <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
-            </Tooltip>
-            <span className="flex size-1.5 rounded-full bg-layer-1" />
-            <span className="flex-shrink-0 text-placeholder">{convertBytesToSize(attachment.attributes.size)}</span>
-          </div>
+        <button
+          type="button"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left text-13"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            window.open(fileURL, "_blank", "noopener,noreferrer");
+          }}
+        >
+          <div className="flex items-center gap-3">{fileIcon}</div>
+          <Tooltip tooltipContent={`${fileName}.${fileExtension}`} isMobile={isMobile}>
+            <p className="truncate font-medium text-secondary">{`${fileName}.${fileExtension}`}</p>
+          </Tooltip>
+          <span className="flex size-1.5 rounded-full bg-layer-1" />
+          <span className="flex-shrink-0 text-placeholder">{convertBytesToSize(attachment.attributes.size)}</span>
+        </button>
 
-          <div className="flex items-center gap-3">
-            {attachment?.created_by && (
-              <>
-                <Tooltip
-                  isMobile={isMobile}
-                  tooltipContent={`${
-                    getUserDetails(attachment?.created_by)?.display_name ?? ""
-                  } uploaded on ${renderFormattedDate(attachment.updated_at)}`}
-                >
-                  <div className="flex items-center justify-center">
-                    <ButtonAvatars showTooltip userIds={attachment?.created_by} />
-                  </div>
-                </Tooltip>
-              </>
-            )}
-
-            <CustomMenu ellipsis closeOnSelect placement="bottom-end" disabled={disabled}>
-              <CustomMenu.MenuItem
-                onClick={() => {
-                  toggleDeleteAttachmentModal(attachmentId);
-                }}
+        <div className="flex shrink-0 items-center gap-3">
+          {attachment?.created_by && (
+            <>
+              <Tooltip
+                isMobile={isMobile}
+                tooltipContent={`${
+                  getUserDetails(attachment?.created_by)?.display_name ?? ""
+                } uploaded on ${renderFormattedDate(attachment.updated_at)}`}
               >
-                <div className="flex items-center gap-2">
-                  <TrashIcon className="h-3.5 w-3.5" strokeWidth={2} />
-                  <span>{t("common.actions.delete")}</span>
+                <div className="flex items-center justify-center">
+                  <ButtonAvatars showTooltip userIds={attachment?.created_by} />
                 </div>
-              </CustomMenu.MenuItem>
-            </CustomMenu>
-          </div>
+              </Tooltip>
+            </>
+          )}
+
+          <CustomMenu ellipsis closeOnSelect placement="bottom-end" disabled={disabled}>
+            <CustomMenu.MenuItem
+              onClick={() => {
+                toggleDeleteAttachmentModal(attachmentId);
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <TrashIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                <span>{t("common.actions.delete")}</span>
+              </div>
+            </CustomMenu.MenuItem>
+          </CustomMenu>
         </div>
-      </button>
+      </div>
     </>
   );
 });

@@ -104,14 +104,14 @@ export const CalendarQuickAddIssueActions = observer(function CalendarQuickAddIs
       )}
       <QuickAddIssueRoot
         isQuickAddOpen={isOpen}
-        setIsQuickAddOpen={(isOpen) => setIsOpen(isOpen)}
+        setIsQuickAddOpen={setIsOpen}
         layout={EIssueLayoutTypes.CALENDAR}
         prePopulatedData={prePopulatedData}
         quickAddCallback={quickAddCallback}
         customQuickAddButton={
           <div
             className={cn(
-              "overflow-hidden rounded-sm bg-layer-transparent hover:bg-layer-transparent-hover md:opacity-0 md:group-hover:opacity-100",
+              "overflow-hidden rounded-sm bg-layer-transparent hover:bg-layer-transparent-hover md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 [@media(hover:none)]:opacity-100",
               {
                 block: isMenuOpen,
               }

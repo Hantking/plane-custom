@@ -25,7 +25,7 @@ export const ProfileSettingsContent = observer(function ProfileSettingsContent(p
   return (
     <ScrollArea
       className={cn("shrink-0 overflow-y-scroll bg-surface-1", className)}
-      viewportClassName="px-8 py-9"
+      viewportClassName="px-4 py-5 md:px-8 md:py-9"
       scrollType="hover"
       orientation="vertical"
       size="sm"

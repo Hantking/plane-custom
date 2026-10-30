@@ -125,6 +125,7 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
         title: t("common.link_copied"),
         message: t("common.link_copied_to_clipboard"),
       });
+      return undefined;
     });
   };
 
@@ -134,6 +135,7 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
 
       return deleteIssue(workspaceSlug, projectId, issueId).then(() => {
         setPeekIssue(undefined);
+        return undefined;
       });
     } catch (_error) {
       setToast({
@@ -154,24 +156,34 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
 
   return (
     <div
-      className={`relative flex items-center justify-between p-4 ${
+      className={`relative flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-2 p-3 sm:p-4 ${
         currentMode?.key === "full-screen" ? "border-b border-subtle" : ""
       }`}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-4">
         <Tooltip tooltipContent={t("common.close_peek_view")} isMobile={isMobile}>
-          <button onClick={removeRoutePeekId}>
+          <button
+            type="button"
+            aria-label={t("common.close_peek_view")}
+            className="flex size-11 items-center justify-center md:size-auto"
+            onClick={removeRoutePeekId}
+          >
             <MoveRight className="h-4 w-4 text-tertiary hover:text-secondary" />
           </button>
         </Tooltip>
 
         <Tooltip tooltipContent={t("issue.open_in_full_screen")} isMobile={isMobile}>
-          <Link href={workItemLink} onClick={() => removeRoutePeekId()}>
+          <Link
+            aria-label={t("issue.open_in_full_screen")}
+            className="flex size-11 items-center justify-center md:size-auto"
+            href={workItemLink}
+            onClick={() => removeRoutePeekId()}
+          >
             <MoveDiagonal className="h-4 w-4 text-tertiary hover:text-secondary" />
           </Link>
         </Tooltip>
         {currentMode && embedIssue === false && (
-          <div className="flex flex-shrink-0 items-center gap-2">
+          <div className="hidden flex-shrink-0 items-center gap-2 md:flex">
             <CustomSelect
               value={currentMode}
               onChange={(val: any) => setPeekMode(val)}
@@ -199,7 +211,7 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
           </div>
         )}
       </div>
-      <div className="flex items-center gap-x-4">
+      <div className="flex min-w-0 items-center gap-x-2 sm:gap-x-4">
         <NameDescriptionUpdateStatus isSubmitting={isSubmitting} />
         <div className="flex items-center gap-2">
           {currentUser && !isArchived && (

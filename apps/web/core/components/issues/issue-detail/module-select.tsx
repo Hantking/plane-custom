@@ -75,7 +75,7 @@ export const IssueModuleSelect = observer(function IssueModuleSelect(props: TIss
         buttonVariant="transparent-with-text"
         hideIcon
         dropdownArrow
-        dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+        dropdownArrowClassName="h-3.5 w-3.5 inline md:hidden md:group-hover:inline md:group-focus-within:inline"
         multiple
         itemClassName="px-2"
       />

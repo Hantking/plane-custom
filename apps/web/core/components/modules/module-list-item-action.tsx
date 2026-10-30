@@ -66,6 +66,7 @@ export const ModuleListItemAction = observer(function ModuleListItemAction(props
       () => {
         // open favorites menu if closed
         if (!storedValue) toggleFavoriteMenu(true);
+        return undefined;
       }
     );
 
@@ -116,6 +117,7 @@ export const ModuleListItemAction = observer(function ModuleListItemAction(props
           title: "Success!",
           message: "Module updated successfully.",
         });
+        return undefined;
       })
       .catch((err) => {
         setToast({
@@ -181,7 +183,7 @@ export const ModuleListItemAction = observer(function ModuleListItemAction(props
         />
       )}
       {workspaceSlug && projectId && (
-        <div className="hidden md:block">
+        <div className="block shrink-0">
           <ModuleQuickActions
             parentRef={parentRef}
             moduleId={moduleId}

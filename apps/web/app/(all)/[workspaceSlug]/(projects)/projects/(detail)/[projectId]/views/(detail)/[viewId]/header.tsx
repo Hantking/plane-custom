@@ -211,7 +211,7 @@ export const ProjectViewIssuesHeader = observer(function ProjectViewIssuesHeader
             Add work item
           </Button>
         )}
-        <div className="hidden md:block">
+        <div className="block shrink-0">
           <ViewQuickActions
             parentRef={parentRef}
             customClassName="flex-shrink-0 flex items-center justify-center size-[26px] bg-layer-1/70 rounded-sm"

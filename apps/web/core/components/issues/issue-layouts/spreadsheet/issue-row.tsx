@@ -331,7 +331,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                   <div className="absolute left-1 mr-1 grid w-3.5 flex-shrink-0 place-items-center">
                     <MultipleSelectEntityAction
                       className={cn(
-                        "pointer-events-none opacity-0 transition-opacity group-hover/list-block:pointer-events-auto group-hover/list-block:opacity-100",
+                        "pointer-events-none opacity-0 transition-opacity group-focus-within/list-block:pointer-events-auto group-focus-within/list-block:opacity-100 group-hover/list-block:pointer-events-auto group-hover/list-block:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
                         {
                           "pointer-events-auto opacity-100": isIssueSelected,
                         }
@@ -380,7 +380,7 @@ const IssueRowDetails = observer(function IssueRowDetails(props: IssueRowDetails
                   </div>
                 </div>
                 <div
-                  className={`opacity-0 transition-opacity group-hover:opacity-100 ${isMenuActive ? "!opacity-100" : ""}`}
+                  className={`opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${isMenuActive ? "!opacity-100" : ""}`}
                   role="presentation"
                   onKeyDown={(event) => event.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
