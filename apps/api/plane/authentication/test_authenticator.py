@@ -27,11 +27,14 @@ def code_for(secret, now=None):
 
 
 @override_settings(
+    ROOT_URLCONF="plane.urls",
+    WEB_URL="http://localhost:3000",
+    APP_BASE_URL="http://localhost:3000",
     MIDDLEWARE=[
         "plane.authentication.middleware.session.SessionMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.contrib.auth.middleware.AuthenticationMiddleware",
-    ]
+    ],
 )
 class AuthenticatorTests(TestCase):
     def test_totp_rfc_vector_and_replay(self):
