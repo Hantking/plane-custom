@@ -8,7 +8,8 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { useSearchParams } from "next/navigation";
 // plane imports
-import { OAuthOptions } from "@plane/ui";
+import { API_BASE_URL } from "@plane/constants";
+import { AuthenticatorChallenge, OAuthOptions } from "@plane/ui";
 // helpers
 import type { TAuthErrorInfo } from "@/helpers/authentication.helper";
 import {
@@ -100,6 +101,8 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
     }
   }, [error_code, authMode]);
 
+  if (error_code === "5195") return <AuthenticatorChallenge apiBaseUrl={API_BASE_URL} signInUrl="/sign-in" />;
+
   if (!authMode) return <></>;
 
   if (noAuthMethodsAvailable) {
@@ -137,10 +140,10 @@ export const AuthRoot = observer(function AuthRoot(props: TAuthRoot) {
           authStep={authStep}
           authMode={authMode}
           email={email}
-          setEmail={(email) => setEmail(email)}
-          setAuthMode={(authMode) => setAuthMode(authMode)}
-          setAuthStep={(authStep) => setAuthStep(authStep)}
-          setErrorInfo={(errorInfo) => setErrorInfo(errorInfo)}
+          setEmail={(nextEmail) => setEmail(nextEmail)}
+          setAuthMode={(nextMode) => setAuthMode(nextMode)}
+          setAuthStep={(nextStep) => setAuthStep(nextStep)}
+          setErrorInfo={(nextError) => setErrorInfo(nextError)}
           currentAuthMode={currentAuthMode}
         />
       )}

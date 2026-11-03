@@ -33,6 +33,9 @@ from plane.license.models import Instance, InstanceAdmin
 from plane.db.models import User, Profile
 from plane.utils.cache import cache_response, invalidate_cache
 from plane.authentication.utils.login import user_login
+from plane.authentication.rate_limit import authentication_throttle_allows
+from plane.authentication.models import AuthenticatorDevice
+from plane.authentication.totp import verify_device
 from plane.authentication.utils.host import base_host, user_ip
 from plane.authentication.adapter.error import (
     AUTHENTICATION_ERROR_CODES,
@@ -271,6 +274,13 @@ class InstanceAdminSignInEndpoint(View):
 
     @invalidate_cache(path="/api/instances/", user=False)
     def post(self, request):
+        if not authentication_throttle_allows(request):
+            exc = AuthenticationException(
+                error_code=AUTHENTICATION_ERROR_CODES["RATE_LIMIT_EXCEEDED"],
+                error_message="RATE_LIMIT_EXCEEDED",
+            )
+            url = urljoin(base_host(request=request, is_admin=True), "?" + urlencode(exc.get_error_dict()))
+            return HttpResponseRedirect(url)
         # Check instance first
         instance = Instance.objects.first()
         if instance is None:
@@ -389,6 +399,18 @@ class InstanceAdminSignInEndpoint(View):
                 "?" + urlencode(exc.get_error_dict()),
             )
             return HttpResponseRedirect(url)
+        # Admin sessions are separate from app sessions, so require the factor
+        # here as well rather than relying on the app sign-in challenge.
+        with transaction.atomic():
+            device = AuthenticatorDevice.objects.select_for_update().filter(user=user).first()
+            if device is not None and not verify_device(device, request.POST.get("authenticator_code", "")):
+                exc = AuthenticationException(
+                    error_code=AUTHENTICATION_ERROR_CODES["ADMIN_AUTHENTICATION_FAILED"],
+                    error_message="ADMIN_AUTHENTICATION_FAILED",
+                )
+                url = urljoin(base_host(request=request, is_admin=True), "?" + urlencode(exc.get_error_dict()))
+                return HttpResponseRedirect(url)
+
         # settings last active for the user
         user.is_active = True
         user.last_active = timezone.now()

@@ -42,11 +42,13 @@ type TError = {
 type TFormData = {
   email: string;
   password: string;
+  authenticator_code: string;
 };
 
 const defaultFromData: TFormData = {
   email: "",
   password: "",
+  authenticator_code: "",
 };
 
 export function InstanceSignInForm() {
@@ -95,7 +97,7 @@ export function InstanceSignInForm() {
   }, [errorCode, errorMessage]);
 
   const isButtonDisabled = useMemo(
-    () => (!isSubmitting && formData.email && formData.password ? false : true),
+    () => isSubmitting || !formData.email || !formData.password,
     [formData.email, formData.password, isSubmitting]
   );
 
@@ -145,7 +147,6 @@ export function InstanceSignInForm() {
                 value={formData.email}
                 onChange={(e) => handleFormChange("email", e.target.value)}
                 autoComplete="off"
-                autoFocus
               />
             </div>
 
@@ -185,6 +186,23 @@ export function InstanceSignInForm() {
                   </button>
                 )}
               </div>
+            </div>
+            <div className="w-full space-y-1">
+              <label className="text-13 font-medium text-tertiary" htmlFor="authenticator_code">
+                Authenticator code (if enabled)
+              </label>
+              <Input
+                className="w-full border border-subtle !bg-surface-1 placeholder:text-placeholder"
+                id="authenticator_code"
+                name="authenticator_code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                inputSize="md"
+                placeholder="6-digit or recovery code"
+                value={formData.authenticator_code}
+                onChange={(event) => handleFormChange("authenticator_code", event.target.value)}
+              />
             </div>
             <div className="py-2">
               <Button type="submit" size="xl" className="w-full" disabled={isButtonDisabled}>

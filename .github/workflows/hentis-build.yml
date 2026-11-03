@@ -48,7 +48,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libpq-dev
       - run: pip install -r requirements/base.txt
         working-directory: apps/api
-      - run: python manage.py test plane.custom_fields plane.ai plane.api.test_report_read --settings=plane.ai.test_settings --noinput && python manage.py makemigrations --check --dry-run
+      - run: python manage.py test plane.custom_fields plane.ai plane.api.test_report_read plane.authentication.test_authenticator --settings=plane.ai.test_settings --noinput && python manage.py makemigrations --check --dry-run
         working-directory: apps/api
   web-test:
     needs: [resolve, backend-test]
@@ -63,10 +63,14 @@ jobs:
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/option-colors.test.ts ../../hentis/tests/selection-values.test.ts ../../hentis/tests/native-display.test.ts ../../hentis/tests/table-widths.test.ts ../../hentis/tests/plane-ai-writing.test.ts ../../hentis/tests/relative-dates.test.ts ../../hentis/tests/native-list.test.ts ../../hentis/tests/plane-ai-chat.test.ts ../../hentis/tests/plane-ai-markdown.test.mjs ../../hentis/tests/text-values.test.ts ../../hentis/tests/date-time-values.test.ts ../../hentis/tests/mobile-navigation.test.ts ../../hentis/tests/mobile-workitems.test.ts ../../hentis/tests/mobile-custom-fields.test.ts ../../hentis/tests/module-state-visibility.test.ts ../../hentis/tests/kanban-colors.test.ts
-      - run: pnpm exec turbo run build --filter='web^...'
+      - run: pnpm exec turbo run build --filter='web^...' --filter='space^...' --filter='admin^...'
       - run: pnpm --filter @plane/i18n exec tsx --test ../../hentis/tests/i18n-resources.test.mjs
       - run: pnpm --filter web check:types
+      - run: pnpm --filter space check:types
+      - run: pnpm --filter admin check:types
       - run: pnpm --filter web build
+      - run: pnpm --filter space build
+      - run: pnpm --filter admin build
   images:
     needs: [resolve, backend-test, web-test]
     permissions:
@@ -75,7 +79,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
-        component: [backend, frontend]
+        component: [backend, frontend, space, admin]
     outputs:
       source: ${{ steps.source.outputs.sha }}
     steps:
@@ -97,7 +101,7 @@ jobs:
         id: build
         with:
           context: .
-          file: ${{ matrix.component == 'backend' && 'hentis/Dockerfile.backend' || 'apps/web/Dockerfile.web' }}
+          file: ${{ matrix.component == 'backend' && 'hentis/Dockerfile.backend' || matrix.component == 'frontend' && 'apps/web/Dockerfile.web' || matrix.component == 'space' && 'apps/space/Dockerfile.space' || 'apps/admin/Dockerfile.admin' }}
           platforms: linux/arm64
           push: true
           tags: ghcr.io/hantking/plane-custom-${{ matrix.component }}:sha-${{ steps.source.outputs.sha }}
@@ -134,7 +138,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python -c 'import json,pathlib,subprocess; p=pathlib.Path; upstream=json.loads(p("hentis/upstream.json").read_text()); images={**json.loads(p("backend.json").read_text()),**json.loads(p("frontend.json").read_text())}; sha=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(); p("custom-release.json").write_text(json.dumps({"schema":1,"upstream_tag":upstream["tag"],"upstream_commit":upstream["commit"],"source_commit":sha,"platform":"linux/arm64","images":images},indent=2))'
+          python -c 'import json,pathlib,subprocess; p=pathlib.Path; upstream=json.loads(p("hentis/upstream.json").read_text()); images={key:value for component in ("backend","frontend","space","admin") for key,value in json.loads(p(component+".json").read_text()).items()}; sha=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(); p("custom-release.json").write_text(json.dumps({"schema":2,"upstream_tag":upstream["tag"],"upstream_commit":upstream["commit"],"source_commit":sha,"platform":"linux/arm64","images":images},indent=2))'
           tag="hentis-$(git rev-parse HEAD)"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then exit 0; fi
           gh release create "$tag" custom-release.json --repo "$GITHUB_REPOSITORY" --target "$(git rev-parse HEAD)" --title "Hentis custom fields $(git rev-parse --short HEAD)" --notes 'Backend integration tests, frontend typecheck and build passed. Images: ARM64. Inspect custom-release.json for immutable digests.'

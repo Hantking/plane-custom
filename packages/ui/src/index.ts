@@ -5,6 +5,7 @@
  */
 
 export * from "./avatar";
+export * from "./authenticator-challenge";
 export * from "./badge";
 export * from "./breadcrumbs";
 export * from "./button";

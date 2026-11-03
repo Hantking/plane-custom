@@ -6,6 +6,7 @@
 
 # Python imports
 import ipaddress
+import json
 import logging
 import os
 from urllib.parse import urlparse
@@ -30,6 +31,7 @@ _logger = logging.getLogger("plane")
 # Secret Key — use `or` so an explicitly empty env var is treated the same as unset,
 # falling back to a random key rather than passing "" to Django (GHSA-cmwv-pjmw-8483).
 SECRET_KEY = os.environ.get("SECRET_KEY") or get_random_secret_key()
+SECRET_KEY_FALLBACKS = json.loads(os.environ.get("SECRET_KEY_FALLBACKS", "[]"))
 # Refuse to run silently with a publicly-known or placeholder SECRET_KEY
 # (GHSA-cmwv-pjmw-8483). Emit a critical log so operators notice immediately.
 # The `or get_random_secret_key()` above means the only way to reach this branch

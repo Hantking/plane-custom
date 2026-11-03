@@ -41,6 +41,7 @@ def csrf_failure(request, reason=""):
         request,
         "csrf_failure.html",
         {"reason": reason, "root_url": base_host(request=request)},
+        status=403,
     )
 
 

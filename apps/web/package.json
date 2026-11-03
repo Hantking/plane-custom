@@ -53,6 +53,7 @@
     "mobx-react": "catalog:",
     "mobx-utils": "catalog:",
     "next-themes": "catalog:",
+    "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-color": "catalog:",
     "react-dom": "catalog:",

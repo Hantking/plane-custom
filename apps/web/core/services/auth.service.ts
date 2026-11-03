@@ -24,6 +24,22 @@ export class AuthService extends APIService {
       });
   }
 
+  authenticatorStatus = async (): Promise<{ enabled: boolean }> =>
+    this.get("/auth/authenticator/").then((response) => response.data);
+
+  authenticatorSetup = async (csrfToken: string): Promise<{ secret: string; uri: string }> =>
+    this.post("/auth/authenticator/", {}, { headers: { "X-CSRFTOKEN": csrfToken } }).then((response) => response.data);
+
+  authenticatorConfirm = async (csrfToken: string, code: string): Promise<{ recovery_codes: string[] }> =>
+    this.post("/auth/authenticator/confirm/", { code }, { headers: { "X-CSRFTOKEN": csrfToken } }).then(
+      (response) => response.data
+    );
+
+  authenticatorDisable = async (csrfToken: string, code: string, password: string): Promise<void> =>
+    this.post("/auth/authenticator/disable/", { code, password }, { headers: { "X-CSRFTOKEN": csrfToken } }).then(
+      () => undefined
+    );
+
   emailCheck = async (data: IEmailCheckData): Promise<IEmailCheckResponse> =>
     this.post("/auth/email-check/", data, { headers: {} })
       .then((response) => response?.data)
@@ -60,25 +76,19 @@ export class AuthService extends APIService {
   }
 
   async signOut(baseUrl: string): Promise<any> {
-    await this.requestCSRFToken().then((data) => {
-      const csrfToken = data?.csrf_token;
+    const data = await this.requestCSRFToken();
+    const csrfToken = data?.csrf_token;
+    if (!csrfToken) throw Error("CSRF token not found");
 
-      if (!csrfToken) throw Error("CSRF token not found");
-
-      const form = document.createElement("form");
-      const element1 = document.createElement("input");
-
-      form.method = "POST";
-      form.action = `${baseUrl}/auth/sign-out/`;
-
-      element1.value = csrfToken;
-      element1.name = "csrfmiddlewaretoken";
-      element1.type = "hidden";
-      form.appendChild(element1);
-
-      document.body.appendChild(form);
-
-      form.submit();
-    });
+    const form = document.createElement("form");
+    const element1 = document.createElement("input");
+    form.method = "POST";
+    form.action = `${baseUrl}/auth/sign-out/`;
+    element1.value = csrfToken;
+    element1.name = "csrfmiddlewaretoken";
+    element1.type = "hidden";
+    form.appendChild(element1);
+    document.body.appendChild(form);
+    form.submit();
   }
 }

@@ -8,9 +8,10 @@ import { useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import { useSearchParams } from "next/navigation";
 // plane imports
+import { API_BASE_URL } from "@plane/constants";
 import { SitesAuthService } from "@plane/services";
 import type { IEmailCheckData } from "@plane/types";
-import { OAuthOptions } from "@plane/ui";
+import { AuthenticatorChallenge, OAuthOptions } from "@plane/ui";
 // helpers
 import type { TAuthErrorInfo } from "@/helpers/authentication.helper";
 import { EErrorAlertType, authErrorHandler, EAuthenticationErrorCodes } from "@/helpers/authentication.helper";
@@ -134,8 +135,8 @@ export const AuthRoot = observer(function AuthRoot() {
   };
 
   // generating the unique code
-  const generateEmailUniqueCode = async (email: string): Promise<{ code: string } | undefined> => {
-    const payload = { email: email };
+  const generateEmailUniqueCode = async (emailAddress: string): Promise<{ code: string } | undefined> => {
+    const payload = { email: emailAddress };
     return await authService
       .generateUniqueCode(payload)
       .then(() => ({ code: "" }))
@@ -145,6 +146,8 @@ export const AuthRoot = observer(function AuthRoot() {
         throw error;
       });
   };
+
+  if (error_code === "5195") return <AuthenticatorChallenge apiBaseUrl={API_BASE_URL} signInUrl="/spaces/" />;
 
   return (
     <div className="mt-10 flex w-full flex-grow flex-col items-center justify-center py-6">
@@ -185,7 +188,7 @@ export const AuthRoot = observer(function AuthRoot() {
             }}
           />
         )}
-        <TermsAndConditions isSignUp={authMode === EAuthModes.SIGN_UP ? true : false} />
+        <TermsAndConditions isSignUp={authMode === EAuthModes.SIGN_UP} />
       </div>
     </div>
   );

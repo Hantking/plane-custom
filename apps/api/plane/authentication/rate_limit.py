@@ -39,6 +39,13 @@ class AuthenticationThrottle(AnonRateThrottle):
             return Response(e.get_error_dict(), status=status.HTTP_429_TOO_MANY_REQUESTS)
 
 
+class AuthenticatorActionThrottle(UserRateThrottle):
+    """Limit authenticated enrollment and removal attempts per account."""
+
+    rate = "5/minute"
+    scope = "authenticator_action"
+
+
 def authentication_throttle_allows(request):
     """
     Apply AuthenticationThrottle to a plain django.views.View request.

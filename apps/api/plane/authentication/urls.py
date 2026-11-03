@@ -4,6 +4,14 @@
 
 from django.urls import path
 
+from .views.authenticator import (
+    AuthenticatorSettingsEndpoint,
+    AuthenticatorConfirmEndpoint,
+    AuthenticatorDisableEndpoint,
+    AuthenticatorPendingEndpoint,
+    AuthenticatorVerifyEndpoint,
+)
+
 from .views import (
     CSRFTokenEndpoint,
     ForgotPasswordEndpoint,
@@ -47,6 +55,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path("authenticator/", AuthenticatorSettingsEndpoint.as_view(), name="authenticator-settings"),
+    path("authenticator/confirm/", AuthenticatorConfirmEndpoint.as_view(), name="authenticator-confirm"),
+    path("authenticator/disable/", AuthenticatorDisableEndpoint.as_view(), name="authenticator-disable"),
+    path("authenticator/pending/", AuthenticatorPendingEndpoint.as_view(), name="authenticator-pending"),
+    path("authenticator/verify/", AuthenticatorVerifyEndpoint.as_view(), name="authenticator-verify"),
     # credentials
     path("sign-in/", SignInAuthEndpoint.as_view(), name="sign-in"),
     path("sign-up/", SignUpAuthEndpoint.as_view(), name="sign-up"),
