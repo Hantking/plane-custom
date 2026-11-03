@@ -192,11 +192,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
               <div
                 className={cn(
                   "min-h-0 w-full min-w-0 flex-1",
-                  isCompact
-                    ? "flex flex-col overflow-hidden"
-                    : peekMode === "full-screen"
-                      ? "flex flex-row overflow-hidden"
-                      : "overflow-y-auto"
+                  isCompact ? "flex flex-col overflow-hidden" : "flex flex-row overflow-hidden"
                 )}
                 data-mobile-issue-detail={isCompact || undefined}
               >
@@ -217,7 +213,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                   isMobile={isCompact}
                   className={cn(
                     "vertical-scrollbar relative scrollbar-md",
-                    isCompact || peekMode === "full-screen" ? "h-full" : "!flex-none !overflow-visible"
+                    isCompact ? "h-full" : "h-full min-w-0 flex-1 overflow-y-auto"
                   )}
                 >
                   <div
@@ -256,7 +252,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                       ? "contents"
                       : peekMode === "full-screen"
                         ? "flex h-full w-[400px] shrink-0 flex-col overflow-hidden border-l border-subtle"
-                        : "flex min-h-[300px] flex-col border-t border-subtle"
+                        : "flex h-full w-[260px] shrink-0 flex-col overflow-hidden border-l border-subtle"
                   }
                 >
                   <IssueQuickAccessPanels

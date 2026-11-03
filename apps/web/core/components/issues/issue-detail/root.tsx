@@ -276,7 +276,7 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
             activePanel={mobilePanel}
             idPrefix="issue-detail"
             isMobile={isCompact}
-            className="h-full w-full"
+            className="h-full min-w-0 flex-1"
           >
             <div className={`min-w-0 space-y-6 py-5 ${isCompact ? "px-4" : "px-9"}`}>
               <IssueMainContent

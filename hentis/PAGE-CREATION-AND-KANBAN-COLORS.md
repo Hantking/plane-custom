@@ -21,6 +21,12 @@ O visual usa as cores de estado configuradas no projeto:
 - **Cartões:** faixa lateral do estado e um degradê discreto, preservando o texto e as propriedades existentes.
 - **Raias:** identificação colorida nos cabeçalhos quando o subagrupamento é por estado. As células também recebem a cor do estado quando ele define a raia.
 
+### Ajustes de layout — 03/11/2026
+
+As colunas passaram de 350 para **280 px** e os cartões têm padding de 8 px. Cada coluna colorida acompanha a altura das suas próprias tarefas, sem esticar o sombreado até a base do Quadro ou até a coluna mais longa. A rolagem vertical do Quadro permite alcançar as tarefas de colunas longas.
+
+Ao abrir uma tarefa no desktop, **Propriedades, Comentários e Anexos** ficam à direita tanto no detalhe completo quanto na visualização lateral/modal; a barra de acesso rápido continua na extremidade direita. No mobile, as abas da tarefa continuam acessíveis. O ensaio local cobriu três estados com cores distintas em claro/escuro, colunas de 1 e 9 tarefas, rolagem até o último cartão e a navegação mobile.
+
 Em agrupamentos por pessoa, prioridade ou outras propriedades, as colunas não recebem uma cor de estado arbitrária; os cartões continuam sinalizando seu próprio estado. Agrupamentos por categoria de estado usam uma paleta consistente. Cores hexadecimais de três/seis dígitos são aceitas; valores não reconhecidos usam a cor da categoria correspondente.
 
 Os tons suaves usam as superfícies semânticas dos temas **claro e escuro**. O texto dos cabeçalhos escolhe preto ou branco pelo contraste; a seleção da tarefa mantém a borda de destaque. Trocar o estado atualiza a faixa do cartão. Os dados dos estados não são alterados para aplicar o visual.

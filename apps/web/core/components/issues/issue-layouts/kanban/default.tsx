@@ -176,8 +176,8 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
               data-kanban-column={subList.id}
               data-kanban-colored={!!columnColor}
               style={kanbanColorVariables(columnColor)}
-              className={`group relative flex flex-shrink-0 flex-col ${
-                groupByVisibilityToggle.showIssues ? `w-[350px]` : ``
+              className={`group relative flex flex-shrink-0 flex-col self-start ${
+                groupByVisibilityToggle.showIssues ? `w-[280px]` : ``
               } `}
             >
               {sub_group_by === null && (
@@ -208,7 +208,7 @@ export const KanBan = observer(function KanBan(props: IKanBan) {
                   verticalOffset={100}
                   horizontalOffset={100}
                   root={scrollableContainerRef}
-                  classNames="h-full min-h-[120px]"
+                  classNames="min-h-[120px]"
                   defaultHeight={`${groupHeight}px`}
                   placeholderChildren={
                     <KanbanColumnLoader
