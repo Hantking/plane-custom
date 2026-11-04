@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from "react";
 import useSWR from "swr";
 import { useMatches } from "react-router";
 import { Dialog } from "@headlessui/react";
+import { createPortal } from "react-dom";
 import {
   ArrowUp,
   BrainCircuit,
@@ -35,8 +36,10 @@ type Start = {
   prompt?: string;
   referenceText?: string;
   apply?: (text: string, mode: "insert" | "replace") => void;
+  host?: HTMLElement;
+  onClose?: () => void;
 };
-type PanelContext = { enabled: boolean; open: (start?: Start) => void };
+type PanelContext = { enabled: boolean; open: (start?: Start) => void; close: () => void };
 const AIContext = createContext<PanelContext | null>(null);
 export const usePlaneAI = () => useContext(AIContext);
 
@@ -58,6 +61,8 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
     () => planeAI.read<AIBootstrap>(workspaceSlug)
   );
   const [isOpen, setOpen] = useState(false);
+  const [inlineHost, setInlineHost] = useState<HTMLElement | null>(null);
+  const onInlineClose = useRef<(() => void) | undefined>(undefined);
   const [expanded, setExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [scope, setScope] = useState<AIScope>({ kind: "workspace" });
@@ -241,14 +246,38 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
     },
     [contextualScope]
   );
+  const close = useCallback(() => {
+    setOpen(false);
+    setInlineHost(null);
+    onInlineClose.current?.();
+    onInlineClose.current = undefined;
+  }, []);
+  useEffect(() => {
+    if (!isOpen || !inlineHost) return;
+    inlineHost.querySelector<HTMLElement>("[data-plane-ai-inline]")?.focus();
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    };
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [close, inlineHost, isOpen]);
   const open = useCallback(
     (start?: Start) => {
+      if (inlineHost && inlineHost !== start?.host) onInlineClose.current?.();
       if (start || !conversationId) newChat(start);
+      setInlineHost(start?.host ?? null);
+      onInlineClose.current = start?.onClose;
       setOpen(true);
     },
-    [conversationId, newChat]
+    [conversationId, inlineHost, newChat]
   );
-  const contextValue = useMemo(() => ({ enabled: !!bootstrap?.enabled, open }), [bootstrap?.enabled, open]);
+  const contextValue = useMemo(
+    () => ({ enabled: !!bootstrap?.enabled, open, close }),
+    [bootstrap?.enabled, open, close]
+  );
   const loadConversation = async (id: string) => {
     setError("");
     setRuns([]);
@@ -341,356 +370,378 @@ function AIState({ workspaceSlug, children }: { workspaceSlug: string; children:
         try {
           if (mode !== "discard") apply.current?.(text, mode);
           apply.current = undefined;
-          setOpen(false);
+          close();
         } catch (failure) {
           setError(failure instanceof Error ? failure.message : "Não foi possível aplicar o texto.");
         }
       }
     : undefined;
-  return (
-    <AIContext.Provider value={contextValue}>
-      {children}
-      <Dialog data-plane-ai-panel open={isOpen} onClose={() => setOpen(false)} className="relative z-[100]">
-        <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px]" aria-hidden="true" />
-        <Dialog.Panel
-          data-plane-ai-surface
-          className={`shadow-xl fixed inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-2xl border border-subtle bg-surface-1 text-primary ${expanded ? "max-w-none" : "max-w-5xl"}`}
-        >
-          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-subtle px-4 py-3">
-            <Dialog.Title className="flex items-center gap-2 font-semibold">
-              <span className="rounded-lg bg-layer-1 p-2 text-accent-primary">
-                <BrainCircuit size={20} />
-              </span>
-              Plane AI
-              <span className="font-normal hidden text-11 text-secondary sm:inline">Seu workspace em uma conversa</span>
-            </Dialog.Title>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Histórico de conversas"
-                aria-pressed={showHistory}
-                className="rounded-lg p-2 hover:bg-layer-1"
-                onClick={() => setShowHistory(!showHistory)}
-              >
-                <History size={17} />
-              </button>
-              <button
-                type="button"
-                aria-label={expanded ? "Reduzir chat" : "Expandir chat"}
-                className="rounded-lg p-2 hover:bg-layer-1"
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              </button>
-              <button
-                type="button"
-                aria-label="Fechar Plane AI"
-                className="rounded-lg p-2 hover:bg-layer-1"
-                onClick={() => setOpen(false)}
-              >
-                <X size={19} />
-              </button>
-            </div>
-          </header>
-          <nav
-            className="flex shrink-0 items-center gap-4 border-b border-subtle px-4 py-2 text-13"
-            aria-label="Plane AI"
+  const Surface = inlineHost ? "section" : Dialog.Panel;
+  const surface = (
+    <Surface
+      data-plane-ai-surface
+      data-plane-ai-panel={inlineHost ? true : undefined}
+      data-plane-ai-inline={inlineHost ? true : undefined}
+      tabIndex={inlineHost ? -1 : undefined}
+      className={
+        inlineHost
+          ? "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface-1 text-primary"
+          : `shadow-xl fixed inset-y-3 right-3 flex w-[calc(100%-24px)] flex-col overflow-hidden rounded-2xl border border-subtle bg-surface-1 text-primary ${expanded ? "max-w-none" : "max-w-5xl"}`
+      }
+    >
+      <header className="flex shrink-0 items-center justify-between gap-3 border-b border-subtle px-4 py-3">
+        {inlineHost ? (
+          <h2 className="flex items-center gap-2 font-semibold">
+            <span className="rounded-lg bg-layer-1 p-2 text-accent-primary">
+              <BrainCircuit size={20} />
+            </span>
+            Plane AI
+            <span className="font-normal hidden text-11 text-secondary sm:inline">Seu workspace em uma conversa</span>
+          </h2>
+        ) : (
+          <Dialog.Title className="flex items-center gap-2 font-semibold">
+            <span className="rounded-lg bg-layer-1 p-2 text-accent-primary">
+              <BrainCircuit size={20} />
+            </span>
+            Plane AI
+            <span className="font-normal hidden text-11 text-secondary sm:inline">Seu workspace em uma conversa</span>
+          </Dialog.Title>
+        )}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Histórico de conversas"
+            aria-pressed={showHistory}
+            className="rounded-lg p-2 hover:bg-layer-1"
+            onClick={() => setShowHistory(!showHistory)}
           >
-            {[
-              ["chat", "Chat"],
-              ["memory", "Memória"],
-              ["automations", "Automações"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={`py-1 ${tab === key ? "font-semibold text-accent-primary" : "text-secondary"}`}
-                onClick={() => setTab(key)}
-              >
-                {label}
-              </button>
-            ))}
-            {bootstrap?.admin && (
-              <a href={`/${workspaceSlug}/settings/ai/`} className="ml-auto flex items-center gap-1 text-secondary">
-                <Settings2 size={14} />
-                Configurar
-              </a>
-            )}
-          </nav>
-          {!bootstrap?.enabled ? (
-            <div className="m-auto max-w-md space-y-3 p-8 text-center">
-              <BrainCircuit size={40} className="mx-auto text-accent-primary" />
-              <h2 className="text-xl font-semibold">Conecte a IA ao seu workspace</h2>
-              <p className="text-13 text-secondary">
-                {bootstrapError
-                  ? aiError(bootstrapError)
-                  : "Um administrador pode habilitar a IA e escolher os modelos disponíveis para a equipe."}
-              </p>
-              {bootstrap?.admin && (
-                <a className="text-accent-primary underline" href={`/${workspaceSlug}/settings/ai/`}>
-                  Configurar Plane AI
-                </a>
+            <History size={17} />
+          </button>
+          {!inlineHost && (
+            <button
+              type="button"
+              aria-label={expanded ? "Reduzir chat" : "Expandir chat"}
+              className="rounded-lg p-2 hover:bg-layer-1"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Fechar Plane AI"
+            className="rounded-lg p-2 hover:bg-layer-1"
+            onClick={close}
+          >
+            <X size={19} />
+          </button>
+        </div>
+      </header>
+      <nav className="flex shrink-0 items-center gap-4 border-b border-subtle px-4 py-2 text-13" aria-label="Plane AI">
+        {[
+          ["chat", "Chat"],
+          ["memory", "Memória"],
+          ["automations", "Automações"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            className={`py-1 ${tab === key ? "font-semibold text-accent-primary" : "text-secondary"}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+        {bootstrap?.admin && (
+          <a href={`/${workspaceSlug}/settings/ai/`} className="ml-auto flex items-center gap-1 text-secondary">
+            <Settings2 size={14} />
+            Configurar
+          </a>
+        )}
+      </nav>
+      {!bootstrap?.enabled ? (
+        <div className="m-auto max-w-md space-y-3 p-8 text-center">
+          <BrainCircuit size={40} className="mx-auto text-accent-primary" />
+          <h2 className="text-xl font-semibold">Conecte a IA ao seu workspace</h2>
+          <p className="text-13 text-secondary">
+            {bootstrapError
+              ? aiError(bootstrapError)
+              : "Um administrador pode habilitar a IA e escolher os modelos disponíveis para a equipe."}
+          </p>
+          {bootstrap?.admin && (
+            <a className="text-accent-primary underline" href={`/${workspaceSlug}/settings/ai/`}>
+              Configurar Plane AI
+            </a>
+          )}
+        </div>
+      ) : tab !== "chat" ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <AIWorkspaceTools key={tab} slug={workspaceSlug} bootstrap={bootstrap} tab={tab} />
+        </div>
+      ) : (
+        <div className="relative flex min-h-0 flex-1">
+          {showHistory && (
+            <aside
+              className="absolute inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-r border-subtle bg-layer-1 p-3 md:static md:w-60"
+              aria-label="Suas conversas"
+            >
+              <Button variant="secondary" onClick={() => newChat()}>
+                <Plus size={14} />
+                Nova conversa
+              </Button>
+              {history.error && (
+                <p role="alert" className="text-11">
+                  {aiError(history.error)}
+                </p>
               )}
-            </div>
-          ) : tab !== "chat" ? (
-            <div className="min-h-0 flex-1 overflow-auto">
-              <AIWorkspaceTools key={tab} slug={workspaceSlug} bootstrap={bootstrap} tab={tab} />
-            </div>
-          ) : (
-            <div className="relative flex min-h-0 flex-1">
-              {showHistory && (
-                <aside
-                  className="absolute inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col gap-3 overflow-y-auto border-r border-subtle bg-layer-1 p-3 md:static md:w-60"
-                  aria-label="Suas conversas"
+              {history.data?.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={`group flex items-center gap-1 rounded-lg ${conversationId === conversation.id ? "bg-surface-1" : "hover:bg-surface-1"}`}
                 >
-                  <Button variant="secondary" onClick={() => newChat()}>
-                    <Plus size={14} />
-                    Nova conversa
-                  </Button>
-                  {history.error && (
-                    <p role="alert" className="text-11">
-                      {aiError(history.error)}
-                    </p>
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 truncate p-2 text-left text-13"
+                    onClick={() => void loadConversation(conversation.id)}
+                  >
+                    {conversation.title}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Apagar conversa ${conversation.title}`}
+                    className="shrink-0 p-2 text-secondary"
+                    onClick={async () => {
+                      try {
+                        await planeAI.remove(workspaceSlug, `conversations/${conversation.id}/`);
+                        if (conversationId === conversation.id) newChat();
+                        await mutateHistory();
+                      } catch (failure) {
+                        setError(aiError(failure));
+                      }
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+              {!history.data?.length && <p className="p-2 text-11 text-secondary">Suas conversas aparecerão aqui.</p>}
+            </aside>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
+              <label className="flex min-w-0 items-center gap-2 text-11 text-secondary">
+                <Search size={13} />
+                <span className="shrink-0">Contexto</span>
+                <select
+                  aria-label="Escopo enviado à IA"
+                  disabled={!!conversationId}
+                  className="max-w-72 min-w-0 truncate rounded border-0 bg-transparent py-1 text-11 text-primary"
+                  value={`${scope.kind}:${scope.id ?? ""}`}
+                  onChange={(event) => {
+                    const [kind, id] = event.target.value.split(":");
+                    setScope({ kind: kind as AIScope["kind"], ...(id ? { id } : {}) });
+                  }}
+                >
+                  <option value="workspace:">Todo o workspace</option>
+                  {bootstrap.projects.map((project) => (
+                    <option key={project.id} value={`project:${project.id}`}>
+                      {project.name}
+                    </option>
+                  ))}
+                  {scope.kind === "project" && !bootstrap.projects.some((project) => project.id === scope.id) && (
+                    <option value={`project:${scope.id}`}>Projeto da conversa</option>
                   )}
-                  {history.data?.map((conversation) => (
-                    <div
-                      key={conversation.id}
-                      className={`group flex items-center gap-1 rounded-lg ${conversationId === conversation.id ? "bg-surface-1" : "hover:bg-surface-1"}`}
+                  {currentIssueId && <option value={`issue:${currentIssueId}`}>Tarefa atual</option>}
+                  {scope.kind === "issue" && scope.id !== currentIssueId && (
+                    <option value={`issue:${scope.id}`}>Tarefa da conversa</option>
+                  )}
+                  {params.pageId && <option value={`page:${params.pageId}`}>Página atual</option>}
+                  {scope.kind === "page" && scope.id !== params.pageId && (
+                    <option value={`page:${scope.id}`}>Página da conversa</option>
+                  )}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="flex shrink-0 items-center gap-1 text-11 text-secondary hover:text-primary"
+                onClick={() => newChat()}
+              >
+                <Plus size={13} />
+                Nova conversa
+              </button>
+            </div>
+            <div
+              ref={scroll}
+              className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
+              aria-live="polite"
+              aria-busy={!!activeRun}
+              onScroll={(event) => {
+                const target = event.currentTarget;
+                stickToBottom.current = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+              }}
+            >
+              <div className="mx-auto max-w-3xl space-y-8">
+                {!runs.length && (
+                  <div className="space-y-6 py-6">
+                    <div className="space-y-2">
+                      <Sparkles size={30} className="text-accent-primary" />
+                      <h2 className="text-2xl font-semibold">O que você quer saber ou fazer?</h2>
+                      <p className="max-w-xl text-13 text-secondary">
+                        Pesquise seu trabalho, entenda o progresso e transforme dados em relatórios. Troque o modelo
+                        quando quiser; o contexto do workspace acompanha a conversa.
+                      </p>
+                    </div>
+                    {!connections.length && (
+                      <p role="status" className="rounded-lg bg-layer-1 p-3 text-13">
+                        Nenhum modelo habilitado.{" "}
+                        {bootstrap.admin ? (
+                          <a className="text-accent-primary underline" href={`/${workspaceSlug}/settings/ai/`}>
+                            Conecte um provedor e escolha seus modelos.
+                          </a>
+                        ) : (
+                          "Peça a um administrador para configurar os modelos da equipe."
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {runs.map((run) => (
+                  <AIChatMessage
+                    key={run.id}
+                    run={run}
+                    command={(value, action) => void command(value, action)}
+                    apply={applyPreview}
+                    exportContext={{
+                      workspaceSlug,
+                      writableProjects: bootstrap.writable_projects ?? [],
+                      onPublished: async () => {
+                        const updated = await planeAI.read<AIRun>(workspaceSlug, `runs/${run.id}/`);
+                        replaceRun(updated);
+                      },
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+            <form
+              className="shrink-0 space-y-2 px-4 pt-2 pb-4 sm:px-6"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void send();
+              }}
+            >
+              {connectionNotice && (
+                <p role="status" className="px-2 text-11 text-secondary">
+                  {connectionNotice}
+                </p>
+              )}
+              {error && (
+                <p role="alert" className="rounded-lg bg-layer-1 p-2 text-13 text-danger-primary">
+                  {error}
+                </p>
+              )}
+              <div className="shadow-sm rounded-2xl border border-subtle bg-surface-1 p-3 focus-within:border-accent-strong">
+                {referenceText && (
+                  <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-layer-1 px-2 py-1 text-11 text-secondary">
+                    <span>Texto do editor anexado · {referenceText.length.toLocaleString("pt-BR")} caracteres</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReferenceText("");
+                        requestKey.current = null;
+                      }}
                     >
+                      Remover
+                    </button>
+                  </div>
+                )}
+                <textarea
+                  ref={composer}
+                  aria-label="Mensagem para Plane AI"
+                  className="w-full resize-none bg-transparent p-1 text-13 text-primary outline-none"
+                  rows={3}
+                  maxLength={24000}
+                  value={prompt}
+                  onChange={(event) => {
+                    setPrompt(event.target.value);
+                    requestKey.current = null;
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      void send();
+                    }
+                  }}
+                  placeholder="Pergunte, busque ou peça um relatório…"
+                />
+                <div className="flex items-end justify-between gap-2">
+                  <AIModelPicker
+                    connections={connections}
+                    value={selection}
+                    onChange={selectModel}
+                    disabled={sending || !!activeRun}
+                  />
+                  <div className="flex items-center gap-2">
+                    {activeRun ? (
                       <button
                         type="button"
-                        className="min-w-0 flex-1 truncate p-2 text-left text-13"
-                        onClick={() => void loadConversation(conversation.id)}
-                      >
-                        {conversation.title}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Apagar conversa ${conversation.title}`}
-                        className="shrink-0 p-2 text-secondary"
+                        aria-label="Interromper resposta"
+                        className="rounded-full bg-layer-1 p-2.5"
                         onClick={async () => {
                           try {
-                            await planeAI.remove(workspaceSlug, `conversations/${conversation.id}/`);
-                            if (conversationId === conversation.id) newChat();
-                            await mutateHistory();
+                            await planeAI.create(workspaceSlug, `runs/${activeRun}/cancel/`, {});
                           } catch (failure) {
                             setError(aiError(failure));
                           }
                         }}
                       >
-                        <Trash2 size={12} />
+                        <Square size={16} />
                       </button>
-                    </div>
-                  ))}
-                  {!history.data?.length && (
-                    <p className="p-2 text-11 text-secondary">Suas conversas aparecerão aqui.</p>
-                  )}
-                </aside>
-              )}
-              <div className="flex min-w-0 flex-1 flex-col">
-                <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-2">
-                  <label className="flex min-w-0 items-center gap-2 text-11 text-secondary">
-                    <Search size={13} />
-                    <span className="shrink-0">Contexto</span>
-                    <select
-                      aria-label="Escopo enviado à IA"
-                      disabled={!!conversationId}
-                      className="max-w-72 min-w-0 truncate rounded border-0 bg-transparent py-1 text-11 text-primary"
-                      value={`${scope.kind}:${scope.id ?? ""}`}
-                      onChange={(event) => {
-                        const [kind, id] = event.target.value.split(":");
-                        setScope({ kind: kind as AIScope["kind"], ...(id ? { id } : {}) });
-                      }}
-                    >
-                      <option value="workspace:">Todo o workspace</option>
-                      {bootstrap.projects.map((project) => (
-                        <option key={project.id} value={`project:${project.id}`}>
-                          {project.name}
-                        </option>
-                      ))}
-                      {scope.kind === "project" && !bootstrap.projects.some((project) => project.id === scope.id) && (
-                        <option value={`project:${scope.id}`}>Projeto da conversa</option>
-                      )}
-                      {currentIssueId && <option value={`issue:${currentIssueId}`}>Tarefa atual</option>}
-                      {scope.kind === "issue" && scope.id !== currentIssueId && (
-                        <option value={`issue:${scope.id}`}>Tarefa da conversa</option>
-                      )}
-                      {params.pageId && <option value={`page:${params.pageId}`}>Página atual</option>}
-                      {scope.kind === "page" && scope.id !== params.pageId && (
-                        <option value={`page:${scope.id}`}>Página da conversa</option>
-                      )}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className="flex shrink-0 items-center gap-1 text-11 text-secondary hover:text-primary"
-                    onClick={() => newChat()}
-                  >
-                    <Plus size={13} />
-                    Nova conversa
-                  </button>
-                </div>
-                <div
-                  ref={scroll}
-                  className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
-                  aria-live="polite"
-                  aria-busy={!!activeRun}
-                  onScroll={(event) => {
-                    const target = event.currentTarget;
-                    stickToBottom.current = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
-                  }}
-                >
-                  <div className="mx-auto max-w-3xl space-y-8">
-                    {!runs.length && (
-                      <div className="space-y-6 py-6">
-                        <div className="space-y-2">
-                          <Sparkles size={30} className="text-accent-primary" />
-                          <h2 className="text-2xl font-semibold">O que você quer saber ou fazer?</h2>
-                          <p className="max-w-xl text-13 text-secondary">
-                            Pesquise seu trabalho, entenda o progresso e transforme dados em relatórios. Troque o modelo
-                            quando quiser; o contexto do workspace acompanha a conversa.
-                          </p>
-                        </div>
-                        {!connections.length && (
-                          <p role="status" className="rounded-lg bg-layer-1 p-3 text-13">
-                            Nenhum modelo habilitado.{" "}
-                            {bootstrap.admin ? (
-                              <a className="text-accent-primary underline" href={`/${workspaceSlug}/settings/ai/`}>
-                                Conecte um provedor e escolha seus modelos.
-                              </a>
-                            ) : (
-                              "Peça a um administrador para configurar os modelos da equipe."
-                            )}
-                          </p>
-                        )}
-                      </div>
+                    ) : (
+                      <button
+                        type="submit"
+                        aria-label="Enviar mensagem"
+                        disabled={!model || !prompt.trim() || sending}
+                        className="rounded-full bg-accent-primary p-2.5 text-white disabled:opacity-40"
+                      >
+                        {sending ? <Loader2 size={17} className="animate-spin" /> : <ArrowUp size={17} />}
+                      </button>
                     )}
-                    {runs.map((run) => (
-                      <AIChatMessage
-                        key={run.id}
-                        run={run}
-                        command={(value, action) => void command(value, action)}
-                        apply={applyPreview}
-                        exportContext={{
-                          workspaceSlug,
-                          writableProjects: bootstrap.writable_projects ?? [],
-                          onPublished: async () => {
-                            const updated = await planeAI.read<AIRun>(workspaceSlug, `runs/${run.id}/`);
-                            replaceRun(updated);
-                          },
-                        }}
-                      />
-                    ))}
                   </div>
                 </div>
-                <form
-                  className="shrink-0 space-y-2 px-4 pt-2 pb-4 sm:px-6"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void send();
-                  }}
-                >
-                  {connectionNotice && (
-                    <p role="status" className="px-2 text-11 text-secondary">
-                      {connectionNotice}
-                    </p>
-                  )}
-                  {error && (
-                    <p role="alert" className="rounded-lg bg-layer-1 p-2 text-13 text-danger-primary">
-                      {error}
-                    </p>
-                  )}
-                  <div className="shadow-sm rounded-2xl border border-subtle bg-surface-1 p-3 focus-within:border-accent-strong">
-                    {referenceText && (
-                      <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-layer-1 px-2 py-1 text-11 text-secondary">
-                        <span>Texto do editor anexado · {referenceText.length.toLocaleString("pt-BR")} caracteres</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReferenceText("");
-                            requestKey.current = null;
-                          }}
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    )}
-                    <textarea
-                      ref={composer}
-                      aria-label="Mensagem para Plane AI"
-                      className="w-full resize-none bg-transparent p-1 text-13 text-primary outline-none"
-                      rows={3}
-                      maxLength={24000}
-                      value={prompt}
-                      onChange={(event) => {
-                        setPrompt(event.target.value);
-                        requestKey.current = null;
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                          event.preventDefault();
-                          void send();
-                        }
-                      }}
-                      placeholder="Pergunte, busque ou peça um relatório…"
-                    />
-                    <div className="flex items-end justify-between gap-2">
-                      <AIModelPicker
-                        connections={connections}
-                        value={selection}
-                        onChange={selectModel}
-                        disabled={sending || !!activeRun}
-                      />
-                      <div className="flex items-center gap-2">
-                        {activeRun ? (
-                          <button
-                            type="button"
-                            aria-label="Interromper resposta"
-                            className="rounded-full bg-layer-1 p-2.5"
-                            onClick={async () => {
-                              try {
-                                await planeAI.create(workspaceSlug, `runs/${activeRun}/cancel/`, {});
-                              } catch (failure) {
-                                setError(aiError(failure));
-                              }
-                            }}
-                          >
-                            <Square size={16} />
-                          </button>
-                        ) : (
-                          <button
-                            type="submit"
-                            aria-label="Enviar mensagem"
-                            disabled={!model || !prompt.trim() || sending}
-                            className="rounded-full bg-accent-primary p-2.5 text-white disabled:opacity-40"
-                          >
-                            {sending ? <Loader2 size={17} className="animate-spin" /> : <ArrowUp size={17} />}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-11 text-secondary">
-                    <label
-                      className="flex items-center gap-2"
-                      title="Autoriza ferramentas gerais de edição. Pedidos explícitos de criar ou salvar relatórios já podem criar uma página privada quando o projeto é identificado."
-                    >
-                      <input
-                        type="checkbox"
-                        disabled={!model?.capabilities.tools || !!activeRun}
-                        checked={allowActions}
-                        onChange={(event) => setAllowActions(event.target.checked)}
-                      />
-                      Permitir alterações que eu solicitar
-                    </label>
-                    <span>{connection?.name ?? "Selecione um modelo"} · Enter envia · Shift+Enter quebra linha</span>
-                  </div>
-                </form>
               </div>
-            </div>
-          )}
-        </Dialog.Panel>
-      </Dialog>
+              <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-11 text-secondary">
+                <label
+                  className="flex items-center gap-2"
+                  title="Autoriza ferramentas gerais de edição. Pedidos explícitos de criar ou salvar relatórios já podem criar uma página privada quando o projeto é identificado."
+                >
+                  <input
+                    type="checkbox"
+                    disabled={!model?.capabilities.tools || !!activeRun}
+                    checked={allowActions}
+                    onChange={(event) => setAllowActions(event.target.checked)}
+                  />
+                  Permitir alterações que eu solicitar
+                </label>
+                <span>{connection?.name ?? "Selecione um modelo"} · Enter envia · Shift+Enter quebra linha</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Surface>
+  );
+  return (
+    <AIContext.Provider value={contextValue}>
+      {children}
+      {isOpen && inlineHost ? (
+        createPortal(surface, inlineHost)
+      ) : (
+        <Dialog data-plane-ai-panel open={isOpen} onClose={close} className="relative z-[100]">
+          <div className="fixed inset-0 bg-black/25 backdrop-blur-[2px]" aria-hidden="true" />
+          {surface}
+        </Dialog>
+      )}
     </AIContext.Provider>
   );
 }

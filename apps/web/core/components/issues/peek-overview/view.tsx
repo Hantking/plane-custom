@@ -4,8 +4,9 @@
  * See the LICENSE file for details.
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observer } from "mobx-react";
+import { ArrowLeft } from "lucide-react";
 import { createPortal } from "react-dom";
 // plane imports
 import type { EditorRefApi } from "@plane/editor";
@@ -14,6 +15,7 @@ import { EIssueServiceType } from "@plane/types";
 import { cn } from "@plane/utils";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
+import { usePlaneAI } from "@/components/plane-ai/panel";
 import useKeypress from "@/hooks/use-keypress";
 import usePeekOverviewOutsideClickDetector from "@/hooks/use-peek-overview-outside-click";
 import useSize from "@/hooks/use-window-size";
@@ -66,8 +68,16 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   const [peekMode, setPeekMode] = useState<TPeekModes>("side-peek");
   const [quickPanel, setQuickPanel] = useIssueQuickPanel(issueId);
   const [mobilePanel, setMobilePanel] = useIssueMobilePanel(issueId);
+  const ai = usePlaneAI();
+  const aiHostRef = useRef<HTMLDivElement>(null);
+  const aiRef = useRef(ai);
+  aiRef.current = ai;
   const [viewportWidth] = useSize();
   const isCompact = isIssueMobileViewport(viewportWidth);
+  useEffect(() => () => aiRef.current?.close(), [issueId]);
+  useEffect(() => {
+    if (isCompact && quickPanel === "ai") ai?.close();
+  }, [ai, isCompact, quickPanel]);
   const [isSubmitting, setIsSubmitting] = useState<TNameDescriptionLoader>("saved");
   const [isDeleteIssueModalOpen, setIsDeleteIssueModalOpen] = useState(false);
   const [isArchiveIssueModalOpen, setIsArchiveIssueModalOpen] = useState(false);
@@ -211,6 +221,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                   activePanel={mobilePanel}
                   idPrefix="issue-peek"
                   isMobile={isCompact}
+                  isVisible={isCompact ? mobilePanel === "content" : quickPanel === "content"}
                   className={cn(
                     "vertical-scrollbar relative scrollbar-md",
                     isCompact ? "h-full" : "h-full min-w-0 flex-1 overflow-y-auto"
@@ -250,16 +261,26 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                   className={
                     isCompact
                       ? "contents"
-                      : peekMode === "full-screen"
-                        ? "flex h-full w-[400px] shrink-0 flex-col overflow-hidden border-l border-subtle"
-                        : "flex h-full w-[260px] shrink-0 flex-col overflow-hidden border-l border-subtle"
+                      : quickPanel === "content" || quickPanel === "ai"
+                        ? "hidden"
+                        : "flex h-full min-w-0 flex-1 flex-col overflow-hidden"
                   }
                 >
+                  {!isCompact && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickPanel("content")}
+                      className="flex w-full shrink-0 items-center gap-2 border-b border-subtle px-4 py-3 text-left text-13 font-medium text-secondary hover:bg-layer-1"
+                      aria-label="Voltar à tarefa"
+                    >
+                      <ArrowLeft size={16} /> Tarefa
+                    </button>
+                  )}
                   <IssueQuickAccessPanels
                     key={issueId}
                     issueId={issueId}
                     idPrefix="issue-peek"
-                    activePanel={isCompact ? mobilePanel : quickPanel}
+                    activePanel={isCompact ? mobilePanel : quickPanel === "ai" ? "content" : quickPanel}
                     isMobile={isCompact}
                     workspaceSlug={workspaceSlug}
                     projectId={projectId}
@@ -276,19 +297,18 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                     }
                   />
                 </div>
+                <div
+                  ref={aiHostRef}
+                  hidden={isCompact || quickPanel !== "ai"}
+                  className={isCompact || quickPanel !== "ai" ? "hidden" : "min-h-0 min-w-0 flex-1"}
+                  data-issue-panel="ai"
+                />
                 {!isCompact && (
                   <IssueQuickAccessRail
                     issueId={issueId}
                     panel={quickPanel}
-                    onChange={(panel) => {
-                      setQuickPanel(panel);
-                      if (["side-peek", "modal"].includes(peekMode))
-                        requestAnimationFrame(() =>
-                          issuePeekOverviewRef.current
-                            ?.querySelector(`[data-issue-panel="${panel}"]`)
-                            ?.scrollIntoView({ block: "start", behavior: "smooth" })
-                        );
-                    }}
+                    aiHostRef={aiHostRef}
+                    onChange={setQuickPanel}
                   />
                 )}
               </div>

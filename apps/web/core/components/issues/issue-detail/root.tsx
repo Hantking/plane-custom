@@ -4,8 +4,9 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { observer } from "mobx-react";
+import { ArrowLeft } from "lucide-react";
 // plane imports
 import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { useTranslation } from "@plane/i18n";
@@ -16,6 +17,7 @@ import { EIssuesStoreType } from "@plane/types";
 import emptyIssue from "@/app/assets/empty-state/issue.svg?url";
 // components
 import { EmptyState } from "@/components/common/empty-state";
+import { usePlaneAI } from "@/components/plane-ai/panel";
 // hooks
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
@@ -98,8 +100,17 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   const { issueDetailSidebarCollapsed, toggleIssueDetailSidebar } = useAppTheme();
   const [quickPanel, setQuickPanel] = useIssueQuickPanel(currentIssueId);
   const [mobilePanel, setMobilePanel] = useIssueMobilePanel(currentIssueId);
+  const ai = usePlaneAI();
+  const aiHostRef = useRef<HTMLDivElement>(null);
+  const aiRef = useRef(ai);
+  aiRef.current = ai;
   const [viewportWidth] = useSize();
   const isCompact = isIssueMobileViewport(viewportWidth);
+
+  useEffect(() => () => aiRef.current?.close(), [currentIssueId]);
+  useEffect(() => {
+    if (isCompact && quickPanel === "ai") ai?.close();
+  }, [ai, isCompact, quickPanel]);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({
@@ -276,6 +287,7 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
             activePanel={mobilePanel}
             idPrefix="issue-detail"
             isMobile={isCompact}
+            isVisible={isCompact ? mobilePanel === "content" : quickPanel === "content"}
             className="h-full min-w-0 flex-1"
           >
             <div className={`min-w-0 space-y-6 py-5 ${isCompact ? "px-4" : "px-9"}`}>
@@ -286,7 +298,7 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
                 issueOperations={issueOperations}
                 isEditable={isEditable}
                 isArchived={is_archived}
-                quickPanel={isCompact ? undefined : quickPanel}
+                quickPanel={isCompact || quickPanel === "content" || quickPanel === "ai" ? undefined : quickPanel}
                 showInlineProperties={false}
                 showActivity={false}
                 hideAttachments
@@ -295,20 +307,30 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
           </IssueMobilePanelContent>
           <div
             key="access-panels"
-            hidden={!isCompact && issueDetailSidebarCollapsed}
+            hidden={!isCompact && (issueDetailSidebarCollapsed || quickPanel === "content" || quickPanel === "ai")}
             className={
               isCompact
                 ? "contents"
-                : issueDetailSidebarCollapsed
+                : issueDetailSidebarCollapsed || quickPanel === "content" || quickPanel === "ai"
                   ? "hidden"
-                  : "relative z-[5] flex h-full w-1/4 min-w-[300px] shrink-0 flex-col overflow-hidden border-l border-subtle bg-surface-1 lg:min-w-80 xl:min-w-96"
+                  : "relative z-[5] flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-surface-1"
             }
           >
+            {!isCompact && (
+              <button
+                type="button"
+                onClick={() => setQuickPanel("content")}
+                className="flex w-full shrink-0 items-center gap-2 border-b border-subtle px-4 py-3 text-left text-13 font-medium text-secondary hover:bg-layer-1"
+                aria-label="Voltar à tarefa"
+              >
+                <ArrowLeft size={16} /> Tarefa
+              </button>
+            )}
             <IssueQuickAccessPanels
               key={currentIssueId}
               issueId={currentIssueId}
               idPrefix="issue-detail"
-              activePanel={isCompact ? mobilePanel : quickPanel}
+              activePanel={isCompact ? mobilePanel : quickPanel === "ai" ? "content" : quickPanel}
               isMobile={isCompact}
               workspaceSlug={currentWorkspaceSlug}
               projectId={currentProjectId}
@@ -325,13 +347,20 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
               }
             />
           </div>
+          <div
+            ref={aiHostRef}
+            hidden={isCompact || quickPanel !== "ai"}
+            className={isCompact || quickPanel !== "ai" ? "hidden" : "min-h-0 min-w-0 flex-1"}
+            data-issue-panel="ai"
+          />
           {!isCompact && (
             <IssueQuickAccessRail
               issueId={currentIssueId}
               panel={quickPanel}
+              aiHostRef={aiHostRef}
               onChange={(panel) => {
                 setQuickPanel(panel);
-                toggleIssueDetailSidebar(false);
+                if (panel !== "content") toggleIssueDetailSidebar(false);
               }}
             />
           )}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ReactNode } from "react";
+import { useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { BrainCircuit, MessageSquare, Paperclip, SlidersHorizontal } from "lucide-react";
 import { EIssueServiceType } from "@plane/types";
 import { usePlaneAI } from "@/components/plane-ai/panel";
@@ -10,6 +10,7 @@ import { ISSUE_MOBILE_PANELS, adjacentIssueMobilePanel, resolveIssueMobilePanel 
 import type { IssueMobilePanel, IssueMobilePanelState } from "./mobile-panels";
 
 export type IssueQuickPanel = "properties" | "comments" | "attachments";
+export type IssueViewPanel = "content" | IssueQuickPanel | "ai";
 
 export function useIssueMobilePanel(issueId: string) {
   const [state, setState] = useState<IssueMobilePanelState>({ issueId, panel: "content" });
@@ -163,24 +164,27 @@ export function IssueQuickAccessPanels({
 }
 
 export function useIssueQuickPanel(issueId: string) {
-  const [state, setState] = useState<{ issue: string; panel: IssueQuickPanel }>({
+  const [state, setState] = useState<{ issue: string; panel: IssueViewPanel }>({
     issue: issueId,
-    panel: "properties",
+    panel: "content",
   });
-  const panel = state.issue === issueId ? state.panel : "properties";
-  return [panel, (next: IssueQuickPanel) => setState({ issue: issueId, panel: next })] as const;
+  const panel = state.issue === issueId ? state.panel : "content";
+  return [panel, (next: IssueViewPanel) => setState({ issue: issueId, panel: next })] as const;
 }
 
 export function IssueQuickAccessRail({
   issueId,
   panel,
   onChange,
+  aiHostRef,
 }: {
   issueId: string;
-  panel: IssueQuickPanel;
-  onChange: (panel: IssueQuickPanel) => void;
+  panel: IssueViewPanel;
+  onChange: (panel: IssueViewPanel) => void;
+  aiHostRef: RefObject<HTMLDivElement | null>;
 }) {
   const ai = usePlaneAI();
+  const aiButtonRef = useRef<HTMLButtonElement>(null);
   return (
     <nav
       aria-label="Acesso rápido da tarefa"
@@ -199,7 +203,10 @@ export function IssueQuickAccessRail({
           title={label}
           aria-label={label}
           aria-pressed={panel === key}
-          onClick={() => onChange(key)}
+          onClick={() => {
+            ai?.close();
+            onChange(panel === key ? "content" : key);
+          }}
           className={`flex size-8 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-accent-strong ${panel === key ? "bg-accent-primary/10 text-accent-primary" : "text-secondary hover:bg-layer-1"}`}
         >
           <Icon size={17} />
@@ -210,8 +217,25 @@ export function IssueQuickAccessRail({
           type="button"
           title="Plane AI · esta tarefa"
           aria-label="Abrir Plane AI para esta tarefa"
-          className="flex size-8 items-center justify-center rounded-md text-accent-primary hover:bg-accent-primary/10 focus-visible:outline-2 focus-visible:outline-accent-strong"
-          onClick={() => ai.open({ scope: { kind: "issue", id: issueId } })}
+          ref={aiButtonRef}
+          aria-pressed={panel === "ai"}
+          className={`flex size-8 items-center justify-center rounded-md text-accent-primary hover:bg-accent-primary/10 focus-visible:outline-2 focus-visible:outline-accent-strong ${panel === "ai" ? "bg-accent-primary/10" : ""}`}
+          onClick={() => {
+            if (panel === "ai") {
+              ai.close();
+              return;
+            }
+            if (!aiHostRef.current) return;
+            onChange("ai");
+            ai.open({
+              scope: { kind: "issue", id: issueId },
+              host: aiHostRef.current,
+              onClose: () => {
+                onChange("content");
+                aiButtonRef.current?.focus();
+              },
+            });
+          }}
         >
           <BrainCircuit size={18} />
         </button>

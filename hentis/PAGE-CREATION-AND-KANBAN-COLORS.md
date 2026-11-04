@@ -27,6 +27,12 @@ As colunas passaram de 350 para **280 px** e os cartões têm padding de 8 px. C
 
 Ao abrir uma tarefa no desktop, **Propriedades, Comentários e Anexos** ficam à direita tanto no detalhe completo quanto na visualização lateral/modal; a barra de acesso rápido continua na extremidade direita. No mobile, as abas da tarefa continuam acessíveis. O ensaio local cobriu três estados com cores distintas em claro/escuro, colunas de 1 e 9 tarefas, rolagem até o último cartão e a navegação mobile.
 
+### Painéis exclusivos da tarefa — 04/11/2026
+
+Ao selecionar **Propriedades**, **Comentários**, **Anexos** ou **Plane AI** na barra direita, o conteúdo selecionado ocupa toda a área à esquerda da barra e substitui temporariamente o título e a descrição, sem dividir a tela entre os dois. O botão **Voltar à tarefa**, o ícone selecionado novamente ou o fechamento da IA restauram o conteúdo principal. O chat aberto pelo ícone usa o escopo da tarefa e a própria área do detalhe; a abertura geral da IA continua disponível na navegação global. A alternância não desmonta os editores ocultos.
+
+O ensaio no Chromium cobriu prévia lateral, detalhe completo, troca direta entre painéis, IA embutida, fechamento por botão e Escape, retorno à tarefa, troca da IA da tarefa para o diálogo global e abas no celular. Nenhuma exceção JavaScript foi registrada; o `intake-state` 404 da fixture isolada permanece conhecido. Formatação, OxLint, TypeScript e build web passaram.
+
 Em agrupamentos por pessoa, prioridade ou outras propriedades, as colunas não recebem uma cor de estado arbitrária; os cartões continuam sinalizando seu próprio estado. Agrupamentos por categoria de estado usam uma paleta consistente. Cores hexadecimais de três/seis dígitos são aceitas; valores não reconhecidos usam a cor da categoria correspondente.
 
 Os tons suaves usam as superfícies semânticas dos temas **claro e escuro**. O texto dos cabeçalhos escolhe preto ou branco pelo contraste; a seleção da tarefa mantém a borda de destaque. Trocar o estado atualiza a faixa do cartão. Os dados dos estados não são alterados para aplicar o visual.
