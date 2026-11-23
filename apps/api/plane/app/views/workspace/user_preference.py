@@ -26,49 +26,33 @@ class WorkspaceUserPreferenceViewSet(BaseAPIView):
     def get(self, request, slug):
         workspace = Workspace.objects.get(slug=slug)
 
-        get_preference = WorkspaceUserPreference.objects.filter(user=request.user, workspace_id=workspace.id)
+        preferences = WorkspaceUserPreference.objects.filter(user=request.user, workspace=workspace)
+        keys = WorkspaceUserPreference.UserPreferenceKeys
+        existing_orders = dict(preferences.values_list("key", "sort_order"))
+        missing_keys = [key for key in keys.values if key not in existing_orders]
+        initial_orders = {key: 65535 + i * 10000 for i, key in enumerate(missing_keys)}
+        if keys.TODO in initial_orders:
+            # The sidebar keeps To-do immediately after Stickies when their orders match.
+            initial_orders[keys.TODO] = existing_orders.get(keys.STICKIES, initial_orders.get(keys.STICKIES, 65535))
 
-        create_preference_keys = []
-
-        keys = [key for key, _ in WorkspaceUserPreference.UserPreferenceKeys.choices]
-
-        for preference in keys:
-            if preference not in get_preference.values_list("key", flat=True):
-                create_preference_keys.append(preference)
-
-                preference = WorkspaceUserPreference.objects.bulk_create(
-                    [
-                        WorkspaceUserPreference(
-                            key=key,
-                            user=request.user,
-                            workspace=workspace,
-                            sort_order=(65535 + (i * 10000)),
-                            is_pinned=(
-                                True
-                                if key
-                                in [
-                                    WorkspaceUserPreference.UserPreferenceKeys.DRAFTS,
-                                    WorkspaceUserPreference.UserPreferenceKeys.YOUR_WORK,
-                                    WorkspaceUserPreference.UserPreferenceKeys.STICKIES,
-                                ]
-                                else False
-                            ),
-                        )
-                        for i, key in enumerate(create_preference_keys)
-                    ],
-                    batch_size=10,
-                    ignore_conflicts=True,
+        WorkspaceUserPreference.objects.bulk_create(
+            [
+                WorkspaceUserPreference(
+                    key=key,
+                    user=request.user,
+                    workspace=workspace,
+                    sort_order=order,
+                    is_pinned=key in {keys.DRAFTS, keys.YOUR_WORK, keys.STICKIES, keys.TODO},
                 )
-
-        preferences = (
-            WorkspaceUserPreference.objects.filter(user=request.user, workspace_id=workspace.id)
-            .order_by("sort_order")
-            .values("key", "is_pinned", "sort_order")
+                for key, order in initial_orders.items()
+            ],
+            batch_size=10,
+            ignore_conflicts=True,
         )
 
         user_preferences = {}
 
-        for preference in preferences:
+        for preference in preferences.order_by("sort_order").values("key", "is_pinned", "sort_order"):
             user_preferences[(str(preference["key"]))] = {
                 "is_pinned": preference["is_pinned"],
                 "sort_order": preference["sort_order"],

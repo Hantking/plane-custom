@@ -39,6 +39,7 @@ type TWorkspaceNavigationItem = {
 
 const PERSONAL_ITEMS: Array<{ key: TPersonalNavigationItemKey; labelTranslationKey: string }> = [
   { key: "stickies", labelTranslationKey: "sidebar.stickies" },
+  { key: "todo", labelTranslationKey: "sidebar.todo" },
   { key: "your_work", labelTranslationKey: "sidebar.your_work" },
   { key: "drafts", labelTranslationKey: "drafts" },
 ];

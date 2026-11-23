@@ -62,6 +62,12 @@ export const SidebarMenuItems = observer(function SidebarMenuItems() {
         sort_order: personalPreferences.items.stickies.sort_order,
       });
     }
+    if (personalPreferences.items.todo.enabled) {
+      personalItems.push({
+        ...WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS.todo,
+        sort_order: personalPreferences.items.todo.sort_order,
+      });
+    }
     if (personalPreferences.items.your_work?.enabled && WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["your-work"]) {
       personalItems.push({
         ...WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS["your-work"],

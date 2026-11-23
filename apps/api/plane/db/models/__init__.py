@@ -88,5 +88,6 @@ from .label import Label
 from .device import Device, DeviceSession
 
 from .sticky import Sticky
+from .personal_todo import PersonalTodo
 
 from .description import Description, DescriptionVersion

@@ -257,6 +257,13 @@ export const WORKSPACE_SIDEBAR_STATIC_NAVIGATION_ITEMS: Record<string, IWorkspac
     access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
     highlight: (pathname: string, url: string) => pathname.includes(url),
   },
+  todo: {
+    key: "todo",
+    labelTranslationKey: "sidebar.todo",
+    href: "/to-do/",
+    access: [EUserWorkspaceRoles.ADMIN, EUserWorkspaceRoles.MEMBER, EUserWorkspaceRoles.GUEST],
+    highlight: (pathname: string, url: string) => pathname.replace(/\/+$/, "") === url.replace(/\/+$/, ""),
+  },
   drafts: {
     key: "drafts",
     labelTranslationKey: "drafts",

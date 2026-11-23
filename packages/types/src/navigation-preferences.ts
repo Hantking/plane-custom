@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-export type TPersonalNavigationItemKey = "stickies" | "your_work" | "drafts";
+export type TPersonalNavigationItemKey = "stickies" | "todo" | "your_work" | "drafts";
 
 export interface TPersonalNavigationItem {
   key: TPersonalNavigationItemKey;
@@ -53,6 +53,7 @@ export interface TNavigationPreferences {
 export const DEFAULT_PERSONAL_PREFERENCES: TPersonalNavigationPreferences = {
   items: {
     stickies: { enabled: false, sort_order: 0 },
+    todo: { enabled: true, sort_order: 0 },
     your_work: { enabled: true, sort_order: 1 },
     drafts: { enabled: true, sort_order: 2 },
   },
