@@ -7,6 +7,7 @@
     }
   },
   "sidebar": {
+    "todo": "To-do",
     "stickies": "Stickies",
     "your_work": "Your work",
     "projects": "Projects",
@@ -30,5 +31,39 @@
     "upgrade_plan": "Upgrade plan",
     "plane_pro": "Plane Pro",
     "business": "Business"
+  },
+  "personal_todo": {
+    "assigned": "View items assigned to me",
+    "title": "Task title",
+    "title_placeholder": "What do you need to do?",
+    "due_date": "Due date",
+    "priority": "Priority",
+    "no_priority": "No priority",
+    "add": "Add task",
+    "save": "Save",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "edit": "Edit task {title}",
+    "complete": "Complete task {title}",
+    "reopen": "Reopen task {title}",
+    "show_completed": "Show completed",
+    "load_more": "Load more",
+    "loading": "Loading tasks…",
+    "load_error": "Could not load tasks.",
+    "save_error": "Could not save the task. Try again.",
+    "views": {
+      "label": "Task views",
+      "today": "Today",
+      "overdue": "Overdue",
+      "upcoming": "Upcoming",
+      "unscheduled": "No date",
+      "completed": "Completed"
+    },
+    "empty": {
+      "today": "You have no tasks due today or overdue.",
+      "upcoming": "You have no upcoming tasks.",
+      "unscheduled": "You have no tasks without a date.",
+      "completed": "You haven't completed any tasks yet."
+    }
   }
 }

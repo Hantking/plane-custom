@@ -81,3 +81,21 @@ class TestWorkspaceUserPreferencePatch:
         preference.refresh_from_db()
         assert preference.is_pinned is True
         assert preference.sort_order == 42
+
+    @pytest.mark.django_db
+    def test_todo_defaults_after_stickies_and_keeps_saved_preferences(self, session_client, create_user, workspace):
+        WorkspaceUserPreference.objects.create(
+            workspace=workspace, user=create_user, key="stickies", is_pinned=True, sort_order=1
+        )
+        url = reverse("workspace-user-preference", kwargs={"slug": workspace.slug})
+
+        response = session_client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["todo"] == {"is_pinned": True, "sort_order": 1}
+        assert response.data["stickies"] == {"is_pinned": True, "sort_order": 1}
+
+        response = session_client.patch(url, [{"key": "todo", "is_pinned": False, "sort_order": 6}], format="json")
+        assert response.status_code == status.HTTP_200_OK
+        response = session_client.get(url)
+        assert response.data["todo"] == {"is_pinned": False, "sort_order": 6}
+        assert response.data["stickies"] == {"is_pinned": True, "sort_order": 1}

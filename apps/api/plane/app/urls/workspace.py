@@ -37,6 +37,7 @@ from plane.app.views import (
     WorkspaceStickyViewSet,
     WorkspaceUserPreferenceViewSet,
 )
+from plane.app.views.workspace.personal_todo import WorkspacePersonalTodoViewSet
 
 
 urlpatterns = [
@@ -250,6 +251,16 @@ urlpatterns = [
         "workspaces/<str:slug>/stickies/<uuid:pk>/",
         WorkspaceStickyViewSet.as_view({"get": "retrieve", "patch": "partial_update", "delete": "destroy"}),
         name="workspace-sticky",
+    ),
+    path(
+        "workspaces/<str:slug>/to-do/",
+        WorkspacePersonalTodoViewSet.as_view({"get": "list", "post": "create"}),
+        name="workspace-personal-todos",
+    ),
+    path(
+        "workspaces/<str:slug>/to-do/<uuid:pk>/",
+        WorkspacePersonalTodoViewSet.as_view({"patch": "partial_update"}),
+        name="workspace-personal-todo",
     ),
     # User Preference
     path(

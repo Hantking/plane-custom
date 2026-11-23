@@ -8,6 +8,7 @@
   },
   "sidebar": {
     "stickies": "Notas adesivas",
+    "todo": "To-do",
     "your_work": "Seu trabalho",
     "projects": "Projetos",
     "pages": "Páginas",
@@ -30,5 +31,39 @@
     "upgrade_plan": "Atualizar plano",
     "plane_pro": "Plane Pro",
     "business": "Business"
+  },
+  "personal_todo": {
+    "assigned": "Ver itens atribuídos a mim",
+    "title": "Título da tarefa",
+    "title_placeholder": "O que você precisa fazer?",
+    "due_date": "Data de vencimento",
+    "priority": "Prioridade",
+    "no_priority": "Sem prioridade",
+    "add": "Adicionar tarefa",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "retry": "Tentar novamente",
+    "edit": "Editar tarefa {title}",
+    "complete": "Concluir tarefa {title}",
+    "reopen": "Reabrir tarefa {title}",
+    "show_completed": "Mostrar concluídas",
+    "load_more": "Carregar mais",
+    "loading": "Carregando tarefas…",
+    "load_error": "Não foi possível carregar as tarefas.",
+    "save_error": "Não foi possível salvar a tarefa. Tente novamente.",
+    "views": {
+      "label": "Visualizações de tarefas",
+      "today": "Hoje",
+      "overdue": "Atrasadas",
+      "upcoming": "Próximas",
+      "unscheduled": "Sem data",
+      "completed": "Concluídas"
+    },
+    "empty": {
+      "today": "Você não tem tarefas para hoje nem atrasadas.",
+      "upcoming": "Você não tem tarefas para os próximos dias.",
+      "unscheduled": "Você não tem tarefas sem data.",
+      "completed": "Você ainda não concluiu nenhuma tarefa."
+    }
   }
 }
