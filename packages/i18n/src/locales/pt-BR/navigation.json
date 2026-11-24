@@ -58,7 +58,8 @@
       "search": "Buscar por título ou código do item",
       "searching": "Buscando itens de trabalho…",
       "error": "Não foi possível buscar os itens de trabalho.",
-      "empty": "Nenhum item de trabalho encontrado."
+      "empty": "Nenhum item de trabalho encontrado.",
+      "opens_in_new_tab": "Abre em uma nova aba"
     },
     "views": {
       "label": "Visualizações de tarefas",
@@ -66,12 +67,14 @@
       "overdue": "Atrasadas",
       "upcoming": "Próximas",
       "unscheduled": "Sem data",
+      "all": "Todos",
       "completed": "Concluídas"
     },
     "empty": {
       "today": "Você não tem tarefas para hoje nem atrasadas.",
       "upcoming": "Você não tem tarefas para os próximos dias.",
       "unscheduled": "Você não tem tarefas sem data.",
+      "all": "Você não tem tarefas em aberto.",
       "completed": "Você ainda não concluiu nenhuma tarefa."
     }
   }

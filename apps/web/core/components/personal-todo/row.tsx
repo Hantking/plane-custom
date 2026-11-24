@@ -88,6 +88,8 @@ export function TodoRow({ task, overdue, onUpdate }: TodoRowProps) {
                   projectIdentifier: task.linked_issue.project_identifier,
                   sequenceId: task.linked_issue.sequence_id,
                 })}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md text-12 text-link-primary hover:underline"
               >
                 <Link2 className="size-3.5 shrink-0" />
@@ -95,6 +97,7 @@ export function TodoRow({ task, overdue, onUpdate }: TodoRowProps) {
                   {task.linked_issue.project_identifier}-{task.linked_issue.sequence_id}
                 </span>
                 <span className="truncate">{task.linked_issue.name}</span>
+                <span className="sr-only">{t("personal_todo.work_item.opens_in_new_tab")}</span>
               </Link>
             )}
           </div>

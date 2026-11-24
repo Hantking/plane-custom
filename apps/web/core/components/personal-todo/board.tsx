@@ -16,7 +16,7 @@ import { TodoForm } from "./form";
 import { TodoRow } from "./row";
 
 type OpenTodoView = Exclude<TodoView, "completed">;
-const VIEWS: OpenTodoView[] = ["today", "upcoming", "unscheduled"];
+const VIEWS: OpenTodoView[] = ["today", "upcoming", "unscheduled", "all"];
 
 function useTodoList(workspaceSlug: string, userId: string, view: TodoView | null) {
   return useSWRInfinite<TodoPage>(
@@ -76,7 +76,14 @@ function TodoList({ list, view, onUpdate }: TodoListProps) {
             <h2 className="mb-2 text-13 font-semibold text-primary">{t("personal_todo.views." + label)}</h2>
             <ul className="divide-y divide-subtle rounded-lg border border-subtle">
               {items.map((task) => (
-                <TodoRow key={task.id} task={task} overdue={label === "overdue"} onUpdate={onUpdate} />
+                <TodoRow
+                  key={task.id}
+                  task={task}
+                  overdue={
+                    label === "overdue" || (view === "all" && !!(today && task.due_date && task.due_date < today))
+                  }
+                  onUpdate={onUpdate}
+                />
               ))}
             </ul>
           </section>
@@ -105,6 +112,7 @@ export function PersonalTodoBoard({ workspaceSlug, userId }: { workspaceSlug: st
   const today = openList.data?.[0]?.today;
   const initialDate =
     today && view === "upcoming" ? formatISO(addDays(parseISO(today), 1), { representation: "date" }) : today;
+  const quickAddDate = view === "unscheduled" || view === "all" ? null : (initialDate ?? null);
 
   const refresh = async () => {
     await Promise.allSettled([openList.mutate(), completedList.mutate()]);
@@ -114,7 +122,7 @@ export function PersonalTodoBoard({ workspaceSlug, userId }: { workspaceSlug: st
     const task = await personalTodoService.create(workspaceSlug, fields);
     const destination = !task.due_date ? "unscheduled" : today && task.due_date > today ? "upcoming" : "today";
     await refresh();
-    setView(destination);
+    if (view !== "all") setView(destination);
   };
 
   const update: TodoListProps["onUpdate"] = async (id, changes) => {
@@ -152,11 +160,7 @@ export function PersonalTodoBoard({ workspaceSlug, userId }: { workspaceSlug: st
         </label>
       </div>
       {today && (
-        <TodoForm
-          key={view + today}
-          initial={{ title: "", due_date: view === "unscheduled" ? null : (initialDate ?? null), priority: "none" }}
-          onSave={add}
-        />
+        <TodoForm key={view + today} initial={{ title: "", due_date: quickAddDate, priority: "none" }} onSave={add} />
       )}
       <TodoList list={openList} view={view} onUpdate={update} />
       {showCompleted && (

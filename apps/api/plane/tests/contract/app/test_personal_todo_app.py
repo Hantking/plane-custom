@@ -62,12 +62,15 @@ class TestPersonalTodo:
             ("No date", None),
         ]:
             PersonalTodo.objects.create(workspace=workspace, owner=create_user, title=title, due_date=due_date)
+        PersonalTodo.objects.create(workspace=workspace, owner=create_user, title="Completed", is_completed=True)
 
         url = reverse("workspace-personal-todos", kwargs={"slug": workspace.slug})
         for view, expected in [
             ("today", ["Overdue", "Today"]),
             ("upcoming", ["Upcoming"]),
             ("unscheduled", ["No date"]),
+            ("all", ["Overdue", "Today", "Upcoming", "No date"]),
+            ("completed", ["Completed"]),
         ]:
             response = session_client.get(url, {"view": view})
             assert response.status_code == status.HTTP_200_OK
@@ -88,7 +91,7 @@ class TestPersonalTodo:
         ]
 
         url = reverse("workspace-personal-todos", kwargs={"slug": workspace.slug})
-        response = session_client.get(url, {"view": "unscheduled"})
+        response = session_client.get(url, {"view": "all"})
         assert response.status_code == status.HTTP_200_OK
         assert [item["id"] for item in response.data["results"]] == [str(own.id)]
         for task in hidden:
@@ -105,13 +108,14 @@ class TestPersonalTodo:
             == status.HTTP_403_FORBIDDEN
         )
 
-    def test_pagination_returns_disjoint_pages(self, session_client, create_user, workspace):
+    @pytest.mark.parametrize("view", ["unscheduled", "all"])
+    def test_pagination_returns_disjoint_pages(self, session_client, create_user, workspace, view):
         PersonalTodo.objects.bulk_create(
             [PersonalTodo(workspace=workspace, owner=create_user, title=f"Task {index}") for index in range(51)]
         )
         url = reverse("workspace-personal-todos", kwargs={"slug": workspace.slug})
-        first = session_client.get(url, {"view": "unscheduled", "page": 1}).data
-        last = session_client.get(url, {"view": "unscheduled", "page": 2}).data
+        first = session_client.get(url, {"view": view, "page": 1}).data
+        last = session_client.get(url, {"view": view, "page": 2}).data
 
         assert len(first["results"]) == 50
         assert first["next"]

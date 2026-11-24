@@ -62,9 +62,10 @@ class WorkspacePersonalTodoViewSet(BaseViewSet):
                 "today": {"due_date__lte": today},
                 "upcoming": {"due_date__gt": today},
                 "unscheduled": {"due_date__isnull": True},
+                "all": {},
             }
             if view not in date_filters:
-                raise ValidationError({"view": "Choose today, upcoming, unscheduled, or completed."})
+                raise ValidationError({"view": "Choose today, upcoming, unscheduled, all, or completed."})
             queryset = queryset.filter(is_completed=False, **date_filters[view]).order_by(
                 "due_date", "-created_at", "id"
             )

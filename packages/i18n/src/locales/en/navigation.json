@@ -58,7 +58,8 @@
       "search": "Search by work item title or ID",
       "searching": "Searching work items…",
       "error": "Could not search work items.",
-      "empty": "No work items found."
+      "empty": "No work items found.",
+      "opens_in_new_tab": "Opens in a new tab"
     },
     "views": {
       "label": "Task views",
@@ -66,12 +67,14 @@
       "overdue": "Overdue",
       "upcoming": "Upcoming",
       "unscheduled": "No date",
+      "all": "All",
       "completed": "Completed"
     },
     "empty": {
       "today": "You have no tasks due today or overdue.",
       "upcoming": "You have no upcoming tasks.",
       "unscheduled": "You have no tasks without a date.",
+      "all": "You have no open tasks.",
       "completed": "You haven't completed any tasks yet."
     }
   }
