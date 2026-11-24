@@ -262,6 +262,11 @@ urlpatterns = [
         WorkspacePersonalTodoViewSet.as_view({"patch": "partial_update"}),
         name="workspace-personal-todo",
     ),
+    path(
+        "workspaces/<str:slug>/to-do/work-items/",
+        WorkspacePersonalTodoViewSet.as_view({"get": "search_work_items"}),
+        name="workspace-personal-todo-work-items",
+    ),
     # User Preference
     path(
         "workspaces/<str:slug>/sidebar-preferences/",

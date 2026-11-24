@@ -20,15 +20,27 @@ def main():
     assert collection.func.actions == {"get": "list", "post": "create"}
     assert detail.url_name == "workspace-personal-todo"
     assert detail.func.actions == {"patch": "partial_update"}
+    search = resolve("/api/workspaces/image-check/to-do/work-items/")
+    assert search.url_name == "workspace-personal-todo-work-items"
+    assert search.func.actions == {"get": "search_work_items"}
 
-    assert apps.get_model("db", "PersonalTodo")._meta.db_table == "personal_todos"
+    todo = apps.get_model("db", "PersonalTodo")
+    assert todo._meta.db_table == "personal_todos"
+    assert todo._meta.get_field("linked_issue").related_model == apps.get_model(
+        "db", "Issue"
+    )
     preference = apps.get_model("db", "WorkspaceUserPreference")
     assert preference.UserPreferenceKeys.TODO.value == "todo"
 
-    migration = MigrationLoader(None).get_migration("db", "0124_personal_todo")
+    migrations = MigrationLoader(None)
+    migration = migrations.get_migration("db", "0124_personal_todo")
     assert any(
         getattr(operation, "name", None) == "PersonalTodo"
         for operation in migration.operations
+    )
+    link_migration = migrations.get_migration("db", "0125_personal_todo_linked_issue")
+    assert any(
+        operation.name == "linked_issue" for operation in link_migration.operations
     )
 
     print(

@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 
 from plane.app.permissions import ROLE, allow_permission
-from plane.app.serializers.personal_todo import PersonalTodoSerializer
+from plane.app.serializers.personal_todo import PersonalTodoSerializer, PersonalTodoWorkItemSerializer
 from plane.app.views.base import BaseViewSet
-from plane.db.models import PersonalTodo, Workspace
+from plane.db.models import Issue, PersonalTodo, Workspace
+from plane.utils.issue_search import search_issues
 
 
 class PersonalTodoPagination(PageNumberPagination):
@@ -24,6 +27,27 @@ class WorkspacePersonalTodoViewSet(BaseViewSet):
 
     def get_queryset(self):
         return PersonalTodo.objects.filter(workspace__slug=self.workspace_slug, owner=self.request.user)
+
+    def get_linkable_issues(self):
+        user = self.request.user
+        return (
+            Issue.issue_objects.filter(
+                Q(project__project_projectmember__role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value])
+                | Q(project__guest_view_all_features=True)
+                | Q(created_by=user),
+                workspace__slug=self.workspace_slug,
+                project__deleted_at__isnull=True,
+                project__project_projectmember__member=user,
+                project__project_projectmember__is_active=True,
+                project__project_projectmember__deleted_at__isnull=True,
+                project__project_projectmember__role__in=[ROLE.ADMIN.value, ROLE.MEMBER.value, ROLE.GUEST.value],
+            )
+            .select_related("project")
+            .only("id", "name", "project", "project__identifier", "sequence_id")
+        )
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "linkable_issues": self.get_linkable_issues()}
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def list(self, request, slug):
@@ -46,9 +70,28 @@ class WorkspacePersonalTodoViewSet(BaseViewSet):
             )
 
         page = self.paginate_queryset(queryset)
-        response = self.get_paginated_response(self.get_serializer(page, many=True).data)
+        serializer = self.get_serializer(page, many=True)
+        issue_ids = {task.linked_issue_id for task in page if task.linked_issue_id is not None}
+        serializer.context["page_issues"] = serializer.context["linkable_issues"].in_bulk(issue_ids)
+        response = self.get_paginated_response(serializer.data)
         response.data["today"] = today.isoformat()
         return response
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
+    def search_work_items(self, request, slug):
+        query = request.query_params.get("search", "").strip()[:120]
+        if not query:
+            return Response([])
+
+        linkable = self.get_linkable_issues()
+        project_identifier, _, sequence = query.rpartition("-")
+        if project_identifier and sequence.isascii() and sequence.isdecimal():
+            exact = linkable.filter(project__identifier__iexact=project_identifier, sequence_id=int(sequence)).first()
+            if exact:
+                return Response(PersonalTodoWorkItemSerializer([exact], many=True).data)
+
+        issues = search_issues(query, linkable).order_by("-updated_at", "id")[:20]
+        return Response(PersonalTodoWorkItemSerializer(issues, many=True).data)
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def create(self, request, slug):

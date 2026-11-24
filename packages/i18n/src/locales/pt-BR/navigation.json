@@ -51,6 +51,15 @@
     "loading": "Carregando tarefas…",
     "load_error": "Não foi possível carregar as tarefas.",
     "save_error": "Não foi possível salvar a tarefa. Tente novamente.",
+    "work_item": {
+      "link": "Vincular item de trabalho",
+      "change": "Alterar vínculo",
+      "remove": "Remover vínculo",
+      "search": "Buscar por título ou código do item",
+      "searching": "Buscando itens de trabalho…",
+      "error": "Não foi possível buscar os itens de trabalho.",
+      "empty": "Nenhum item de trabalho encontrado."
+    },
     "views": {
       "label": "Visualizações de tarefas",
       "today": "Hoje",
