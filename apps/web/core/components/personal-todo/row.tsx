@@ -5,9 +5,11 @@
  */
 
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { Link2, Pencil } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useTranslation } from "@plane/i18n";
-import { cn } from "@plane/utils";
+import { cn, generateWorkItemLink } from "@plane/utils";
 import type { PersonalTodo, TodoFields } from "@/services/personal-todo.service";
 import { TodoForm } from "./form";
 
@@ -19,6 +21,7 @@ type TodoRowProps = {
 
 export function TodoRow({ task, overdue, onUpdate }: TodoRowProps) {
   const { t, currentLocale } = useTranslation();
+  const { workspaceSlug } = useParams();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -40,6 +43,7 @@ export function TodoRow({ task, overdue, onUpdate }: TodoRowProps) {
     if (fields.title !== task.title) changes.title = fields.title;
     if (fields.due_date !== task.due_date) changes.due_date = fields.due_date;
     if (fields.priority !== task.priority) changes.priority = fields.priority;
+    if (fields.linked_issue_id !== (task.linked_issue?.id ?? null)) changes.linked_issue_id = fields.linked_issue_id;
     if (Object.keys(changes).length) await onUpdate(task.id, changes);
     setEditing(false);
   };
@@ -74,6 +78,24 @@ export function TodoRow({ task, overdue, onUpdate }: TodoRowProps) {
                 )}
                 {task.priority !== "none" && <span>{t("issue.priority." + task.priority)}</span>}
               </div>
+            )}
+            {task.linked_issue && workspaceSlug && (
+              <Link
+                href={generateWorkItemLink({
+                  workspaceSlug: workspaceSlug.toString(),
+                  projectId: task.linked_issue.project_id,
+                  issueId: task.linked_issue.id,
+                  projectIdentifier: task.linked_issue.project_identifier,
+                  sequenceId: task.linked_issue.sequence_id,
+                })}
+                className="mt-1 inline-flex max-w-full items-center gap-1.5 rounded-md text-12 text-link-primary hover:underline"
+              >
+                <Link2 className="size-3.5 shrink-0" />
+                <span className="shrink-0">
+                  {task.linked_issue.project_identifier}-{task.linked_issue.sequence_id}
+                </span>
+                <span className="truncate">{task.linked_issue.name}</span>
+              </Link>
             )}
           </div>
           <button

@@ -11,15 +11,25 @@ export const TODO_PRIORITIES = ["none", "low", "medium", "high", "urgent"] as co
 export type TodoPriority = (typeof TODO_PRIORITIES)[number];
 export type TodoView = "today" | "upcoming" | "unscheduled" | "completed";
 
+export type TodoWorkItem = {
+  id: string;
+  name: string;
+  project_id: string;
+  project_identifier: string;
+  sequence_id: number;
+};
+
 export type TodoFields = {
   title: string;
   due_date: string | null;
   priority: TodoPriority;
+  linked_issue_id: string | null;
 };
 
-export type PersonalTodo = TodoFields & {
+export type PersonalTodo = Omit<TodoFields, "linked_issue_id"> & {
   id: string;
   is_completed: boolean;
+  linked_issue: TodoWorkItem | null;
 };
 
 export type TodoPage = {
@@ -44,6 +54,11 @@ class PersonalTodoService extends APIService {
 
   async create(workspaceSlug: string, payload: TodoFields): Promise<PersonalTodo> {
     const response = await this.post(this.endpoint(workspaceSlug), payload);
+    return response.data;
+  }
+
+  async searchWorkItems(workspaceSlug: string, search: string): Promise<TodoWorkItem[]> {
+    const response = await this.get(this.endpoint(workspaceSlug) + "work-items/", { params: { search } });
     return response.data;
   }
 

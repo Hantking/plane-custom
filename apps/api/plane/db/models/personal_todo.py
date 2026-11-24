@@ -18,6 +18,7 @@ class PersonalTodo(BaseModel):
 
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="personal_todos")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="personal_todos")
+    linked_issue = models.ForeignKey("db.Issue", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     title = models.CharField(max_length=255)
     due_date = models.DateField(blank=True, null=True)
     priority = models.CharField(max_length=6, choices=Priority.choices, default=Priority.NONE)
