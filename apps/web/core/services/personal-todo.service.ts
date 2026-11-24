@@ -9,7 +9,7 @@ import { APIService } from "@/services/api.service";
 
 export const TODO_PRIORITIES = ["none", "low", "medium", "high", "urgent"] as const;
 export type TodoPriority = (typeof TODO_PRIORITIES)[number];
-export type TodoView = "today" | "upcoming" | "unscheduled" | "completed";
+export type TodoView = "today" | "upcoming" | "unscheduled" | "all" | "completed";
 
 export type TodoWorkItem = {
   id: string;
