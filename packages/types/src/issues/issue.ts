@@ -43,7 +43,7 @@ export enum EIssuesStoreType {
 }
 
 export type TBaseIssue = {
-  custom_fields?: Record<string, string | boolean | string[] | null>;
+  custom_fields?: Record<string, TCustomFieldValue>;
   id: string;
   sequence_id: number;
   name: string;
@@ -90,6 +90,9 @@ type IssueRelation = {
   relation_type: TIssueRelationTypes;
   sequence_id: number;
 };
+
+export type TRichLongTextValue = { html: string; text: string };
+export type TCustomFieldValue = string | boolean | string[] | TRichLongTextValue | null;
 
 export type TIssue = TBaseIssue & {
   description_html?: string;

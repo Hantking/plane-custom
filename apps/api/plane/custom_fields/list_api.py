@@ -68,8 +68,8 @@ def check_expected(issue, prepared, expected):
         raise ValidationError("Informe o valor anterior de cada campo alterado.")
     for field, _ in prepared:
         row = Value.objects.filter(issue=issue, field=field).select_related("field").first()
-        before = normalize(field, value_of(row) if row else None)
-        if before != normalize(field, expected[str(field.id)]):
+        before = normalize(field, value_of(row) if row else None, allow_rich=True)
+        if before != normalize(field, expected[str(field.id)], allow_rich=True):
             raise Conflict("Este campo foi alterado em outra edição. O valor atual foi preservado; atualize a célula.")
 
 
@@ -285,7 +285,7 @@ class NativeListOperations(APIView):
         batch = []
 
         def write(items):
-            values = values_for(items)
+            values = values_for(items, rich=False)
             for issue in items:
                 row = [
                     f"{issue.project.identifier}-{issue.sequence_id}",

@@ -101,6 +101,7 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   // refs
   const editorRef = useRef<EditorRefApi>(null);
+  const pendingFieldEditorRef = useRef<EditorRefApi>(null);
   const submitBtnRef = useRef<HTMLButtonElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
   const modalContainerRef = useRef<HTMLDivElement | null>(null);
@@ -210,7 +211,10 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   const handleFormSubmit = async (formData: Partial<TIssue>, is_draft_issue = false) => {
     // Check if the editor is ready to discard
-    if (!editorRef.current?.isEditorReadyToDiscard()) {
+    if (
+      !editorRef.current?.isEditorReadyToDiscard() ||
+      (pendingFieldEditorRef.current && !pendingFieldEditorRef.current.isEditorReadyToDiscard())
+    ) {
       setToast({
         type: TOAST_TYPE.ERROR,
         title: t("error"),
@@ -436,6 +440,8 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                   targetDate={watch("target_date")}
                   parentId={watch("parent_id")}
                   isDraft={isDraft}
+                  pendingFieldEditorRef={pendingFieldEditorRef}
+                  onAssetUpload={onAssetUpload}
                   handleFormChange={handleFormChange}
                   setSelectedParentIssue={setSelectedParentIssue}
                 />

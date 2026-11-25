@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 from plane.db.models import Issue, Project, ProjectMember, State, User, Workspace, WorkspaceMember
 from plane.app.serializers.issue import IssueCreateSerializer
 from .models import Change, Field, SavedView, Value
-from .services import normalize, save_values, validate_values, values_for
+from .services import filter_items, normalize, save_values, validate_values, values_for
 
 
 class CustomFieldsIntegrationTests(TestCase):
@@ -110,6 +110,55 @@ class CustomFieldsIntegrationTests(TestCase):
                 response = self.client.patch(self.base + f"definitions/{key}/", {"kind": "text"}, format="json")
                 self.assertEqual(response.status_code, 200, response.data)
                 self.assertEqual(values_for([self.issue])[str(self.issue.id)][key], expected)
+
+    def test_formatted_long_text_preserves_editor_markup_and_plain_text_search(self):
+        field = Field.objects.create(project=self.project, name="Pendência principal", kind="long_text")
+        key = str(field.id)
+        url = self.base + f"issues/{self.issue.id}/"
+        legacy = "Primeira linha <literal>\nSegunda linha"
+        self.assertEqual(self.save(self.issue, {key: legacy}).data["values"][key], legacy)
+
+        html = '<h2>Urgente</h2><ul data-type="taskList"><li data-type="taskItem" data-checked="true">'
+        html += '<p><strong>Verificar peças</strong><br>hoje</p></li></ul>'
+        html += '<img src="https://example.com/image.png" onerror="alert(1)"><script>alert(2)</script>'
+        payload = {"values": {key: {"html": html}}, "expected": {key: legacy}}
+        saved = self.client.patch(url, payload, format="json")
+        self.assertEqual(saved.status_code, 200, saved.data)
+        value = saved.data["values"][key]
+        self.assertIn("<h2>Urgente</h2>", value["html"])
+        self.assertIn('data-checked="true"', value["html"])
+        self.assertIn("<strong>Verificar peças</strong>", value["html"])
+        self.assertIn("https://example.com/image.png", value["html"])
+        self.assertNotIn("onerror", value["html"])
+        self.assertNotIn("alert", value["html"])
+        self.assertEqual(value["text"], "Urgente\nVerificar peças\nhoje")
+        self.assertEqual(self.client.get(url).data["values"][key], value)
+        self.assertEqual(values_for([self.issue], rich=False)[str(self.issue.id)][key], value["text"])
+        matches = filter_items(
+            Issue.objects.filter(project=self.project),
+            self.project.id,
+            [{"field": key, "operator": "contains", "value": "Verificar peças"}],
+        )
+        self.assertEqual(list(matches.values_list("id", flat=True)), [self.issue.id])
+
+        self.assertEqual(self.client.patch(url, payload, format="json").status_code, 409)
+        cleared = self.client.patch(
+            url, {"values": {key: {"html": "<p></p>"}}, "expected": {key: value}}, format="json"
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.data)
+        self.assertNotIn(key, cleared.data["values"])
+
+    def test_formatted_long_text_keeps_nontext_blocks_and_rejects_lossy_conversion(self):
+        field = Field.objects.create(project=self.project, name="Pendência principal", kind="long_text", required=True)
+        key = str(field.id)
+        self.assertEqual(self.save(self.issue, {key: {"html": "<p>  </p>"}}).status_code, 400)
+        saved = self.save(self.issue, {key: {"html": "<hr>"}})
+        self.assertEqual(saved.status_code, 200, saved.data)
+        self.assertEqual(saved.data["values"][key], {"html": "<hr>", "text": ""})
+        url = self.base + f"definitions/{key}/"
+        self.assertEqual(self.client.patch(url, {"kind": "text"}, format="json").status_code, 400)
+        row = Value.objects.get(issue=self.issue, field=field)
+        self.assertEqual(row.rich_text_html, "<hr>")
 
     def test_new_text_types_reject_invalid_values_and_keep_atomic_conversion(self):
         phone = Field.objects.create(project=self.project, name="Phone", kind="phone")

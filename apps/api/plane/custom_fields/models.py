@@ -44,6 +44,7 @@ class Value(models.Model):
     issue = models.ForeignKey("db.Issue", on_delete=models.CASCADE, related_name="hentis_field_values")
     field = models.ForeignKey(Field, on_delete=models.CASCADE, related_name="values")
     text_value = models.TextField(null=True)
+    rich_text_html = models.TextField(null=True)
     number_value = models.DecimalField(max_digits=20, decimal_places=6, null=True, db_index=True)
     date_value = models.DateField(null=True, db_index=True)
     boolean_value = models.BooleanField(null=True, db_index=True)

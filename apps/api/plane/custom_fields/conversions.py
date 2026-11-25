@@ -15,6 +15,8 @@ def convert_value(old, new, value):
         return None
     if old.kind == new.kind:
         return normalize(new, value)
+    if old.kind == "long_text" and isinstance(value, dict):
+        raise ValidationError("O campo tem conteúdo formatado que o novo tipo não suporta.")
     if old.kind in SELECTION_KINDS and new.kind in SELECTION_KINDS:
         keys = value if isinstance(value, list) else [value]
         if new.kind == "select":
@@ -179,7 +181,7 @@ def update_definition(instance, validated_data):
                 }
             )
         batch = []
-        columns = [*set(COLUMNS.values()), "updated_at"]
+        columns = [*set(COLUMNS.values()), "rich_text_html", "updated_at"]
         for row in instance.values.select_related("field").order_by("pk").iterator(chunk_size=500):
             value = convert_value(previous, target, value_of(row))
             if value is None:

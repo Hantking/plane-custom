@@ -3,11 +3,14 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
+from bs4 import BeautifulSoup
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q, Subquery
 from rest_framework.exceptions import ValidationError
+
+from plane.utils.content_validator import validate_html_content
 
 from .models import Change, Field, Value
 
@@ -46,16 +49,46 @@ SELECTION_KINDS = {"select", "multiselect"}
 def value_columns(kind, value):
     columns = {column: None for column in set(COLUMNS.values())}
     columns["option_values"] = []
+    columns["rich_text_html"] = None
+    if kind == "long_text" and isinstance(value, dict):
+        columns["rich_text_html"] = value["html"]
+        value = value["text"]
     columns[COLUMNS[kind]] = value
     return columns
 
 
-def normalize(field, raw):
+def normalize_rich_text(raw):
+    html = raw.get("html")
+    if set(raw) - {"html", "text"} or not isinstance(html, str) or len(html) > 200000:
+        raise ValueError()
+    valid, _, html = validate_html_content(html)
+    if not valid:
+        raise ValueError()
+    if not html:
+        return None
+    document = BeautifulSoup(html, "html.parser")
+    for node in document.select("br, p, h1, h2, h3, h4, h5, h6, pre, tr"):
+        node.append("\n")
+    for node in document.select("mention-component[entity_name]"):
+        node.append(node["entity_name"])
+    text = document.get_text().strip("\n")
+    if len(text) > 10000:
+        raise ValueError()
+    if not text.strip() and not document.select_one(
+        "hr, img, image-component, table, li, blockquote, pre, [data-type]"
+    ):
+        return None
+    return {"html": html, "text": text}
+
+
+def normalize(field, raw, *, allow_rich=False):
     if raw is None or raw == "":
         return None
     if field.kind in ("text", "long_text", "phone", "site", "url") and isinstance(raw, str) and not raw.strip():
         return None
     try:
+        if allow_rich and field.kind == "long_text" and isinstance(raw, dict):
+            return normalize_rich_text(raw)
         if field.kind == "multiselect":
             if not isinstance(raw, list) or len(raw) > 50 or any(not isinstance(item, str) for item in raw):
                 raise ValueError()
@@ -122,17 +155,20 @@ def json_value(value):
     return value
 
 
-def value_of(row):
-    return json_value(getattr(row, COLUMNS[row.field.kind]))
+def value_of(row, *, rich=True):
+    value = json_value(getattr(row, COLUMNS[row.field.kind]))
+    if rich and row.field.kind == "long_text" and row.rich_text_html:
+        return {"html": row.rich_text_html, "text": value}
+    return value
 
 
-def values_for(issues):
+def values_for(issues, *, rich=True):
     result = {str(issue.id): {} for issue in issues}
     for row in Value.objects.filter(issue_id__in=result, field__project_id=F("issue__project_id")).select_related(
         "field"
     ):
         if row.field.active:
-            result[str(row.issue_id)][str(row.field_id)] = value_of(row)
+            result[str(row.issue_id)][str(row.field_id)] = value_of(row, rich=rich)
     return result
 
 
@@ -145,13 +181,13 @@ def validate_values(project_id, payload, *, creating=False):
         if key not in fields:
             raise ValidationError({"custom_fields": f"Campo inexistente ou de outro projeto: {key}"})
         field = fields[key]
-        value = normalize(field, raw)
+        value = normalize(field, raw, allow_rich=True)
         if field.required and value is None:
             raise ValidationError({"custom_fields": {key: f"{field.name} é obrigatório."}})
         prepared.append((field, value))
     if creating:
         for key, field in fields.items():
-            if field.required and (key not in payload or normalize(field, payload[key]) is None):
+            if field.required and (key not in payload or normalize(field, payload[key], allow_rich=True) is None):
                 raise ValidationError({"custom_fields": {key: f"{field.name} é obrigatório."}})
     return prepared
 
@@ -166,7 +202,7 @@ def save_values(issue, prepared, actor_id):
             raise ValidationError("O campo foi arquivado ou pertence a outro projeto.")
         if field.kind != expected_kind:
             raise ValidationError("O tipo do campo mudou. Atualize a página antes de salvar novamente.")
-        value = normalize(field, json_value(value))
+        value = normalize(field, json_value(value), allow_rich=True)
         if field.required and value is None:
             raise ValidationError(f"{field.name} é obrigatório.")
         existing = Value.objects.filter(issue=issue, field=field).select_related("field").first()

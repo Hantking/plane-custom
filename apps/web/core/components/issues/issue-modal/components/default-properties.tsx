@@ -5,6 +5,8 @@
  */
 
 import { useState } from "react";
+import type { RefObject } from "react";
+import type { EditorRefApi } from "@plane/editor";
 import { CustomFieldsForm } from "@/components/custom-fields/task-fields";
 import { observer } from "mobx-react";
 import type { Control } from "react-hook-form";
@@ -45,6 +47,8 @@ type TIssueDefaultPropertiesProps = {
   parentId: string | null;
   isDraft: boolean;
   handleFormChange: () => void;
+  pendingFieldEditorRef: RefObject<EditorRefApi>;
+  onAssetUpload: (assetId: string) => void;
   setSelectedParentIssue: (issue: ISearchIssueResponse) => void;
 };
 
@@ -60,6 +64,8 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
     parentId,
     isDraft,
     handleFormChange,
+    pendingFieldEditorRef,
+    onAssetUpload,
     setSelectedParentIssue,
   } = props;
   // states
@@ -87,7 +93,15 @@ export const IssueDefaultProperties = observer(function IssueDefaultProperties(p
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!isDraft && projectId && (
-        <CustomFieldsForm control={control} workspace={workspaceSlug} project={projectId} issue={id} />
+        <CustomFieldsForm
+          control={control}
+          workspace={workspaceSlug}
+          project={projectId}
+          issue={id}
+          editorRef={pendingFieldEditorRef}
+          onAssetUpload={onAssetUpload}
+          onFormChange={handleFormChange}
+        />
       )}
       <Controller
         control={control}

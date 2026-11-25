@@ -1,5 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { EditorRefApi } from "@plane/editor";
+import { RichLongTextEditor } from "./rich-long-text-editor";
+import { isRichLongText, longTextHtml } from "./rich-long-text-value";
+import type { LongTextEditorContext } from "./rich-long-text-value";
 import type { FieldValue } from "./service";
 import { fieldEditorPosition, longTextKeyAction } from "./mobile-field-layout";
 
@@ -10,6 +14,7 @@ export function LongTextInput({
   immediate,
   inline,
   inputClass,
+  editorContext,
   onChange,
 }: {
   name: string;
@@ -18,20 +23,32 @@ export function LongTextInput({
   immediate: boolean;
   inline: boolean;
   inputClass: string;
+  editorContext?: LongTextEditorContext;
   onChange: (value: FieldValue) => void;
 }) {
-  const original = value == null ? "" : String(value);
+  const original = isRichLongText(value) ? value.text : String(value ?? "");
+  const originalHtml = editorContext ? longTextHtml(value) : "";
   const [draft, setDraft] = useState(original);
   const [open, setOpen] = useState(false);
   const [mobile, setMobile] = useState(false);
   const [position, setPosition] = useState({ top: 0, left: 0, width: 360, maxHeight: 320 });
   const anchor = useRef<HTMLButtonElement>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const localRichEditor = useRef<EditorRefApi>(null);
+  const richEditor = editorContext?.editorRef ?? localRichEditor;
+  const richDraft = useRef<string | undefined>(undefined);
+  const [focusRich, setFocusRich] = useState(false);
+  const [uploadPending, setUploadPending] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const skipBlurSave = useRef(false);
   const id = useId();
   useEffect(() => setDraft(original), [original]);
+  useEffect(() => {
+    if (!originalHtml || originalHtml === richDraft.current) return;
+    richDraft.current = undefined;
+    richEditor.current?.setEditorValue(originalHtml, false);
+  }, [originalHtml, richEditor]);
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     const pointer = window.matchMedia("(pointer: coarse)");
@@ -73,15 +90,41 @@ export function LongTextInput({
       observer.disconnect();
     };
   }, [open]);
+  const saveRich = (html: string) => {
+    const document = new DOMParser().parseFromString(html, "text/html");
+    onChange({ html, text: document.body.textContent ?? "" });
+  };
   const save = () => {
-    if (!disabled && !immediate && draft !== original) onChange(draft || null);
+    if (disabled || immediate) return;
+    if (editorContext) {
+      if (
+        richDraft.current !== undefined &&
+        richDraft.current !== originalHtml &&
+        richEditor.current?.isEditorReadyToDiscard()
+      )
+        saveRich(richDraft.current);
+    } else if (draft !== original) {
+      onChange(draft || null);
+    }
   };
   const finish = (commit: boolean) => {
+    if (commit && editorContext && richEditor.current && !richEditor.current.isEditorReadyToDiscard()) {
+      setUploadPending(true);
+      return;
+    }
     skipBlurSave.current = true;
     if (commit) save();
-    else setDraft(original);
+    else if (editorContext) {
+      richDraft.current = undefined;
+      richEditor.current?.setEditorValue(originalHtml, false);
+    } else {
+      setDraft(original);
+    }
     if (inline) anchor.current?.focus();
+    else if (editorContext) richEditor.current?.blur();
     else editor.current?.blur();
+    setFocusRich(false);
+    setUploadPending(false);
     setOpen(false);
   };
   const change = (next: string) => {
@@ -91,6 +134,15 @@ export function LongTextInput({
   const show = () => {
     clearTimeout(timer.current);
     setOpen(true);
+  };
+  const focusEditor = () => {
+    show();
+    if (editorContext) {
+      setFocusRich(true);
+      richEditor.current?.focus("end");
+    } else {
+      requestAnimationFrame(() => editor.current?.focus());
+    }
   };
   const leave = () => {
     if (mobile) return;
@@ -141,8 +193,52 @@ export function LongTextInput({
       }}
     />
   );
+  const richText = editorContext && (
+    <div
+      role="group"
+      className={`${inputClass} w-full min-w-0`}
+      onFocus={() => {
+        skipBlurSave.current = false;
+      }}
+      onBlur={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget) || richEditor.current?.isAnyDropbarOpen()) return;
+        if (!skipBlurSave.current) save();
+      }}
+      onKeyDown={(event) => {
+        if (event.defaultPrevented || event.nativeEvent.isComposing || richEditor.current?.isAnyDropbarOpen()) return;
+        if (event.key === "Escape" && !immediate) {
+          event.preventDefault();
+          event.stopPropagation();
+          finish(false);
+        } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && !immediate) {
+          event.preventDefault();
+          event.stopPropagation();
+          finish(true);
+        }
+      }}
+    >
+      <RichLongTextEditor
+        context={editorContext}
+        name={name}
+        disabled={disabled}
+        editorRef={richEditor}
+        html={richDraft.current ?? originalHtml}
+        autofocus={focusRich}
+        onChange={(html) => {
+          richDraft.current = html;
+          if (immediate) saveRich(html);
+        }}
+      />
+    </div>
+  );
+  const content = editorContext ? richText : textarea;
   const actions = (
-    <div className={`mt-2 flex flex-wrap justify-end gap-2 ${inline ? "" : "md:hidden"}`}>
+    <div className={`mt-2 flex flex-wrap justify-end gap-2 ${inline || editorContext ? "" : "md:hidden"}`}>
+      {uploadPending && (
+        <p role="status" className="mr-auto self-center text-11 text-secondary">
+          Aguarde o envio da imagem para salvar.
+        </p>
+      )}
       {!disabled && !immediate && (
         <>
           <button
@@ -163,7 +259,7 @@ export function LongTextInput({
           </button>
         </>
       )}
-      {(disabled || immediate) && (
+      {(disabled || immediate) && (inline || !editorContext) && (
         <button
           type="button"
           className="min-h-11 rounded border border-subtle px-3 text-13"
@@ -178,7 +274,7 @@ export function LongTextInput({
   if (!inline)
     return (
       <div data-long-text-editor>
-        {textarea}
+        {content}
         {actions}
       </div>
     );
@@ -197,15 +293,11 @@ export function LongTextInput({
         onBlur={(event) => {
           if (!panel.current?.contains(event.relatedTarget)) setOpen(false);
         }}
-        onClick={() => {
-          show();
-          requestAnimationFrame(() => editor.current?.focus());
-        }}
+        onClick={focusEditor}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            show();
-            requestAnimationFrame(() => editor.current?.focus());
+            focusEditor();
           } else if (event.key === "Escape") setOpen(false);
         }}
       >
@@ -219,23 +311,32 @@ export function LongTextInput({
             role="dialog"
             aria-label={name}
             data-long-text-editor
-            className="shadow-lg fixed z-[110] overflow-y-auto overscroll-contain rounded border border-subtle bg-surface-1 p-3"
+            className={`shadow-lg fixed ${editorContext ? "z-[95]" : "z-[110]"} overflow-y-auto overscroll-contain rounded border border-subtle bg-surface-1 p-3`}
             style={position}
             onMouseEnter={show}
             onMouseLeave={leave}
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
             onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget) && event.relatedTarget !== anchor.current)
+              if (
+                !event.currentTarget.contains(event.relatedTarget) &&
+                event.relatedTarget !== anchor.current &&
+                !richEditor.current?.isAnyDropbarOpen() &&
+                (!richEditor.current || richEditor.current.isEditorReadyToDiscard())
+              ) {
+                setFocusRich(false);
                 setOpen(false);
+              }
             }}
           >
             <p className="mb-2 text-13 font-medium">{name}</p>
-            {textarea}
+            {content}
             <p id={id + "-help"} className="mt-1 text-11 text-secondary">
-              {mobile
-                ? "Enter: nova linha · Use Salvar para concluir"
-                : "Ctrl + Enter: nova linha · Enter: salvar · Esc: cancelar"}
+              {editorContext
+                ? "Digite / para ver os comandos."
+                : mobile
+                  ? "Enter: nova linha · Use Salvar para concluir"
+                  : "Ctrl + Enter: nova linha · Enter: salvar · Esc: cancelar"}
             </p>
             {actions}
           </div>,

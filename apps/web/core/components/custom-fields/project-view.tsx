@@ -78,6 +78,7 @@ function EditableValue({
       <FieldInput
         field={field}
         value={item.custom_fields[field.id]}
+        editorContext={{ workspaceSlug: workspace, projectId: project, issueId: item.id, fieldId: field.id }}
         disabled={disabled || busy}
         onChange={(value) => void save(value)}
       />

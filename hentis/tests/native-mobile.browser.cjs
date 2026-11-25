@@ -135,7 +135,17 @@ async function visit(state, route) {
     await page.locator("[data-mobile-navigation] button").last().click();
     await page.locator("[role=dialog] input").first().waitFor({ state: "visible" });
     assert.ok((await page.getByRole("dialog").innerText()).length > 40, "Native creation form is usable on mobile");
-    await page.keyboard.press("Escape");
+    const slashMenu = page.locator("#slash-command");
+    const createPendingField = page.getByRole("dialog").getByRole("textbox", { name: "Pendência principal" });
+    await createPendingField.pressSequentially("/");
+    await slashMenu.waitFor();
+    const creationCommands = await slashMenu.locator("button").allTextContents();
+    await createPendingField.press("Escape");
+    await slashMenu.waitFor({ state: "hidden" });
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /^(Discard|Descartar)$/i })
+      .click();
     await page.locator("[role=dialog] input").first().waitFor({ state: "hidden" });
 
     const routes = [
@@ -181,41 +191,59 @@ async function visit(state, route) {
     await editor.waitFor();
     await editor.fill("Rascunho preservado entre abas");
     const editorHandle = await editor.elementHandle();
+    await editor.press("End");
+    await editor.press("Enter");
+    await editor.pressSequentially("/");
+    await slashMenu.waitFor();
+    const descriptionCommands = await slashMenu.locator("button").allTextContents();
+    assert.ok(descriptionCommands.includes("Heading 2"));
+    assert.deepEqual(creationCommands, descriptionCommands);
+    await editor.press("Escape");
+    await editor.fill("Rascunho preservado entre abas");
     await tabs.nth(1).click();
     const properties = page.locator("[data-mobile-issue-panel=properties]");
     await properties.waitFor({ state: "visible" });
     const longText = properties.getByRole("textbox", { name: "Pendência principal" });
     await longText.waitFor();
+    await longText.press("End");
+    await longText.press("Enter");
+    await longText.pressSequentially("/");
+    await slashMenu.waitFor();
+    assert.deepEqual(await slashMenu.locator("button").allTextContents(), descriptionCommands);
+    await longText.press("Escape");
     await longText.fill("Não salvar esta alteração");
     await properties.locator("[data-long-text-editor]").getByRole("button", { name: "Cancelar", exact: true }).click();
     assert.equal(data.fields[FIELD], "Valor original");
-    assert.equal(await longText.inputValue(), "Valor original");
+    assert.equal(await longText.innerText(), "Valor original");
     await longText.fill("Rascunho preservado ao girar");
     const fieldHandle = await longText.elementHandle();
     for (const width of [768, 1440, 390, 320, 390]) {
       await page.setViewportSize({ width, height: 844 });
       await page.waitForFunction((expectedWidth) => innerWidth === expectedWidth, width);
+      if (width >= 768 && !(await page.locator("[data-issue-panel=properties]").isVisible())) {
+        await page
+          .getByRole("navigation", { name: "Acesso rápido da tarefa" })
+          .getByRole("button", { name: "Propriedades" })
+          .dispatchEvent("click");
+      }
       await page
         .locator(width < 768 ? "[data-mobile-navigation]" : "[data-issue-panel=properties]")
         .waitFor({ state: "visible" });
       assert.ok(await fieldHandle.evaluate((element) => element.isConnected));
-      assert.equal(await fieldHandle.inputValue(), "Rascunho preservado ao girar");
+      assert.equal(await fieldHandle.innerText(), "Rascunho preservado ao girar");
     }
-    await longText.fill("Pendência atualizada no celular");
+    await longText.fill("");
+    await longText.pressSequentially("/");
+    await slashMenu.getByRole("button", { name: "Heading 2", exact: true }).click();
+    await longText.pressSequentially("Pendência atualizada no celular");
+    assert.equal(await longText.locator("h2").innerText(), "Pendência atualizada no celular");
+    const saved = page.waitForResponse(
+      (response) => response.request().method() === "PATCH" && response.url().includes("/custom-fields/issues/")
+    );
     await properties.locator("[data-long-text-editor]").getByRole("button", { name: "Salvar", exact: true }).click();
-    await page.waitForFunction(
-      ({ key, value }) => document.querySelector(`textarea[aria-label="${key}"]`)?.value === value,
-      { key: "Pendência principal", value: "Pendência atualizada no celular" }
-    );
-    assert.equal(data.fields[FIELD], "Pendência atualizada no celular");
-    assert.ok(
-      data.writes.some(
-        (write) =>
-          write.method === "PATCH" &&
-          write.path.includes("/custom-fields/issues/") &&
-          write.body.values[FIELD] === "Pendência atualizada no celular"
-      )
-    );
+    assert.ok((await saved).ok());
+    assert.match(data.fields[FIELD].html, /<h2(?: [^>]+)?>Pendência atualizada no celular<\/h2>/);
+    assert.equal(data.fields[FIELD].text, "Pendência atualizada no celular");
     await tabs.nth(2).click();
     await page.locator("[data-mobile-issue-panel=comments]").waitFor({ state: "visible" });
     await tabs.nth(3).click();
@@ -244,6 +272,16 @@ async function visit(state, route) {
       assert.ok(await editorHandle.evaluate((element) => element.isConnected));
       await page.screenshot({ path: path.join(OUTPUT, `detail-${viewport.width}.png`) });
     }
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("navigation", { name: "Acesso rápido da tarefa" })
+      .getByRole("button", { name: "Propriedades" })
+      .click();
+    const savedField = page
+      .locator("[data-issue-panel=properties]")
+      .getByRole("textbox", { name: "Pendência principal" });
+    assert.equal(await savedField.locator("h2").innerText(), "Pendência atualizada no celular");
+
     report.writes = data.writes;
     report.calls = data.calls;
     report.unknown = [...new Set(data.unknown)];
