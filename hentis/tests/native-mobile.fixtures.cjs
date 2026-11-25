@@ -94,6 +94,7 @@ function fixture() {
     calls: [],
     unknown: [],
     writes: [],
+    todos: [],
     fields: { [FIELD]: "Valor original" },
     issue: {
       id: ISSUE,
@@ -206,6 +207,39 @@ async function installFixtures(page, data, origin) {
       return json([data.project]);
     if (path === `${prefix}/`) return json(data.project);
     if (path.endsWith("/members/")) return json([{ id: "membership", member: data.user, role: 20, is_active: true }]);
+    const todosPath = "/api/workspaces/hentis/to-do/";
+    if (path.startsWith(todosPath)) {
+      const items = [
+        { id: ISSUE, name: data.issue.name, project_id: PROJECT, project_identifier: "HNT", sequence_id: 1 },
+        {
+          id: "77777777-7777-4777-8777-777777777777",
+          name: "Revisar orçamento",
+          project_id: PROJECT,
+          project_identifier: "HNT",
+          sequence_id: 2,
+        },
+      ];
+      if (path === todosPath + "work-items/") {
+        const search = url.searchParams.get("search").toLowerCase();
+        return json(
+          items.filter((item) => ("hnt-" + item.sequence_id + " " + item.name.toLowerCase()).includes(search))
+        );
+      }
+      if (request.method() === "GET") {
+        const view = url.searchParams.get("view");
+        return json({ today: "2026-11-23", next: null, results: view === "all" ? data.todos : [] });
+      }
+      const adding = request.method() === "POST";
+      const task = adding
+        ? { id: "88888888-8888-4888-8888-888888888888", is_completed: false, linked_issues: [] }
+        : data.todos.find((item) => path === todosPath + item.id + "/");
+      const { link_changes: { add = [], remove = [] } = {}, ...fields } = body;
+      const selected = new Set(task.linked_issues.map((item) => item.id).filter((id) => !remove.includes(id)));
+      add.forEach((id) => selected.add(id));
+      Object.assign(task, fields, { linked_issues: items.filter((item) => selected.has(item.id)) });
+      if (adding) data.todos.push(task);
+      return json(task, adding ? 201 : 200);
+    }
     if (path.endsWith("/sidebar-preferences/")) return json({});
     if (path.endsWith("/user-properties/"))
       return json({

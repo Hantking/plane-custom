@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { Combobox, Dialog } from "@headlessui/react";
-import { Link2, Search, X } from "lucide-react";
+import { Check, Link2, Search, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { useTranslation } from "@plane/i18n";
@@ -19,11 +19,12 @@ import { personalTodoService } from "@/services/personal-todo.service";
 import type { TodoWorkItem } from "@/services/personal-todo.service";
 
 type WorkItemPickerProps = {
-  onSelect: (item: TodoWorkItem) => void;
+  value: TodoWorkItem[];
+  onChange: (items: TodoWorkItem[]) => void;
   onClose: () => void;
 };
 
-function WorkItemPicker({ onSelect, onClose }: WorkItemPickerProps) {
+function WorkItemPicker({ value, onChange, onClose }: WorkItemPickerProps) {
   const { t } = useTranslation();
   const { workspaceSlug } = useParams();
   const { data: user } = useUser();
@@ -44,7 +45,7 @@ function WorkItemPicker({ onSelect, onClose }: WorkItemPickerProps) {
         <Dialog.Title className="text-16 font-semibold text-primary">{t("personal_todo.work_item.link")}</Dialog.Title>
         <Button type="button" variant="ghost" appendIcon={<X />} onClick={onClose} aria-label={t("close")} />
       </div>
-      <Combobox onChange={onSelect}>
+      <Combobox value={value} onChange={onChange} by="id" multiple>
         <div className="relative">
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-secondary" aria-hidden="true" />
           <Combobox.Input
@@ -67,10 +68,15 @@ function WorkItemPicker({ onSelect, onClose }: WorkItemPickerProps) {
                   cn("flex cursor-pointer items-baseline gap-2 rounded-md px-2 py-2 text-13", active && "bg-layer-2")
                 }
               >
-                <span className="shrink-0 text-secondary">
-                  {item.project_identifier}-{item.sequence_id}
-                </span>
-                <span className="min-w-0 break-words text-primary">{item.name}</span>
+                {({ selected }) => (
+                  <>
+                    <span className="w-4 shrink-0">{selected && <Check className="size-4" aria-hidden="true" />}</span>
+                    <span className="shrink-0 text-secondary">
+                      {item.project_identifier}-{item.sequence_id}
+                    </span>
+                    <span className="min-w-0 break-words text-primary">{item.name}</span>
+                  </>
+                )}
               </Combobox.Option>
             ))}
         </Combobox.Options>
@@ -93,13 +99,21 @@ function WorkItemPicker({ onSelect, onClose }: WorkItemPickerProps) {
           <p className="py-2 text-13 text-secondary">{t("personal_todo.work_item.empty")}</p>
         )}
       </Combobox>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span aria-live="polite" className="text-13 text-secondary">
+          {t("personal_todo.work_item.selected", { count: value.length })}
+        </span>
+        <Button type="button" onClick={onClose}>
+          {t("personal_todo.work_item.done")}
+        </Button>
+      </div>
     </ModalCore>
   );
 }
 
 type TodoWorkItemFieldProps = {
-  value: TodoWorkItem | null;
-  onChange: (item: TodoWorkItem | null) => void;
+  value: TodoWorkItem[];
+  onChange: (items: TodoWorkItem[]) => void;
   disabled: boolean;
 };
 
@@ -109,28 +123,29 @@ export function TodoWorkItemField({ value, onChange, disabled }: TodoWorkItemFie
 
   return (
     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-      {value && (
-        <span className="max-w-full truncate rounded-md bg-layer-2 px-2 py-1 text-12 text-secondary">
-          {value.project_identifier}-{value.sequence_id} {value.name}
-        </span>
-      )}
+      {value.map((item) => {
+        const identifier = item.project_identifier + "-" + item.sequence_id;
+        return (
+          <div key={item.id} className="flex max-w-full min-w-0 items-center gap-1 rounded-md bg-layer-2 px-2">
+            <span className="min-w-0 truncate py-1 text-12 text-secondary">
+              {identifier} {item.name}
+            </span>
+            <button
+              type="button"
+              className="grid size-8 shrink-0 place-items-center rounded-md text-secondary hover:bg-layer-2-hover"
+              aria-label={t("personal_todo.work_item.remove", { item: identifier })}
+              disabled={disabled}
+              onClick={() => onChange(value.filter((selected) => selected.id !== item.id))}
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        );
+      })}
       <Button type="button" variant="ghost" prependIcon={<Link2 />} disabled={disabled} onClick={() => setOpen(true)}>
-        {t(value ? "personal_todo.work_item.change" : "personal_todo.work_item.link")}
+        {t("personal_todo.work_item.link")}
       </Button>
-      {value && (
-        <Button type="button" variant="ghost" disabled={disabled} onClick={() => onChange(null)}>
-          {t("personal_todo.work_item.remove")}
-        </Button>
-      )}
-      {open && (
-        <WorkItemPicker
-          onClose={() => setOpen(false)}
-          onSelect={(item) => {
-            onChange(item);
-            setOpen(false);
-          }}
-        />
-      )}
+      {open && <WorkItemPicker value={value} onChange={onChange} onClose={() => setOpen(false)} />}
     </div>
   );
 }

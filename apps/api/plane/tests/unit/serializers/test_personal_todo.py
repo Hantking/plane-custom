@@ -30,3 +30,21 @@ def test_personal_todo_serializer_rejects_invalid_fields(payload, field):
 
     assert not serializer.is_valid()
     assert field in serializer.errors
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"add": ["bad-id"]},
+        {
+            "add": ["572535aa-7c1d-4c8a-a590-1b8217a4fb91"],
+            "remove": ["572535aa-7c1d-4c8a-a590-1b8217a4fb91"],
+        },
+    ],
+)
+def test_personal_todo_serializer_rejects_invalid_link_changes(changes):
+    serializer = PersonalTodoSerializer(data={"title": "Follow up", "link_changes": changes})
+
+    assert not serializer.is_valid()
+    assert "link_changes" in serializer.errors

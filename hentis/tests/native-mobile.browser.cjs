@@ -282,6 +282,51 @@ async function visit(state, route) {
       .getByRole("textbox", { name: "Pendência principal" });
     assert.equal(await savedField.locator("h2").innerText(), "Pendência atualizada no celular");
 
+    await page.setViewportSize({ width: 320, height: 844 });
+    await visit(state, "/hentis/to-do/");
+    const allTodos = page.getByRole("button", { name: /^(All|Todos)$/i });
+    await allTodos.click();
+    const title = "Acompanhar duas tarefas";
+    const todoForm = page.locator("form").filter({
+      has: page.getByRole("textbox", { name: /^(Task title|Título da tarefa)$/i }),
+    });
+    await todoForm.getByRole("textbox", { name: /^(Task title|Título da tarefa)$/i }).fill(title);
+    await todoForm.getByRole("button", { name: /^(Link work items|Vincular tarefas)$/i }).click();
+    const linkPicker = page.getByRole("dialog", { name: /^(Link work items|Vincular tarefas)$/i });
+    const search = linkPicker.getByRole("combobox");
+    await search.fill("HNT-1");
+    const firstOption = linkPicker.getByRole("option", { name: /HNT-1/ });
+    await firstOption.click();
+    assert.equal(await firstOption.getAttribute("aria-selected"), "true");
+    await search.fill("orçamento");
+    await linkPicker.getByRole("option", { name: /HNT-2/ }).click();
+    await linkPicker.getByRole("button", { name: /^(Done|Concluir)$/i }).click();
+    await todoForm.getByRole("button", { name: /^(Add task|Adicionar tarefa)$/i }).click();
+
+    const todo = page.getByRole("listitem").filter({ hasText: title });
+    const firstLink = todo.getByRole("link", { name: /HNT-1/ });
+    const secondLink = todo.getByRole("link", { name: /HNT-2/ });
+    await firstLink.waitFor();
+    assert.equal(await firstLink.getAttribute("target"), "_blank");
+    assert.equal(await secondLink.getAttribute("target"), "_blank");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 320);
+    const originalUrl = page.url();
+    const [popup] = await Promise.all([page.waitForEvent("popup"), firstLink.click()]);
+    await popup.waitForURL("**/hentis/browse/HNT-1/", { waitUntil: "commit" });
+    await popup.close();
+    assert.equal(page.url(), originalUrl);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await todo.getByRole("button", { name: new RegExp("^(Edit task|Editar tarefa) " + title + "$", "i") }).click();
+    const save = page.getByRole("button", { name: /^(Save|Salvar)$/i });
+    const editTodo = page.locator("form").filter({ has: save });
+    await editTodo.getByRole("button", { name: /^(Remove link to|Remover vínculo com) HNT-2$/i }).click();
+    await save.click();
+    await firstLink.waitFor();
+    assert.equal(await secondLink.count(), 0);
+    assert.equal(data.todos[0].linked_issues.length, 1);
+    assert.equal(data.todos[0].linked_issues[0].sequence_id, 1);
+
     report.writes = data.writes;
     report.calls = data.calls;
     report.unknown = [...new Set(data.unknown)];
