@@ -131,4 +131,4 @@ class ReportFieldValuesEndpoint(ReportReadEndpoint):
         items = Issue.objects.filter(project=project, workspace=project.workspace, pk__in=ids)
         if member.role == ROLE.GUEST.value and not project.guest_view_all_features:
             items = items.filter(created_by=request.user)
-        return Response(values_for(list(items)))
+        return Response(values_for(list(items), rich=False))

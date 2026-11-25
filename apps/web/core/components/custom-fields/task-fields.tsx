@@ -4,6 +4,8 @@ import type { Control } from "react-hook-form";
 import { Controller } from "react-hook-form";
 import type { TIssue } from "@plane/types";
 import { FieldInput } from "./inputs";
+import { isMainPendingField, isRichLongText } from "./rich-long-text-value";
+import type { LongTextEditorContext } from "./rich-long-text-value";
 import { fieldError, fieldsService } from "./service";
 import type { FieldValue, FieldValues } from "./service";
 
@@ -52,6 +54,7 @@ export function TaskCustomFields({
           <FieldInput
             field={field}
             value={data?.values[field.id]}
+            editorContext={{ workspaceSlug, projectId, issueId, fieldId: field.id }}
             disabled={disabled || !meta?.can_edit || !data || saving}
             onChange={(value) => void save(field.id, value)}
           />
@@ -66,7 +69,8 @@ export function TaskCustomFields({
         <summary>Histórico dos campos</summary>
         {data?.history.map((change) => (
           <p key={change.id} className="py-1">
-            {change.name}: {JSON.stringify(change.old)} → {JSON.stringify(change.new)} ·{" "}
+            {change.name}: {JSON.stringify(isRichLongText(change.old) ? change.old.text : change.old)} →{" "}
+            {JSON.stringify(isRichLongText(change.new) ? change.new.text : change.new)} ·{" "}
             {change.actor ?? "Usuário removido"} · {new Date(change.created_at).toLocaleString()}
           </p>
         ))}
@@ -81,10 +85,14 @@ function FieldsFormContent({
   issue,
   value,
   onChange,
+  editorRef,
+  onAssetUpload,
 }: {
   workspace: string;
   project: string;
   issue?: string;
+  editorRef: LongTextEditorContext["editorRef"];
+  onAssetUpload: LongTextEditorContext["onAssetUpload"];
   value: FieldValues | undefined;
   onChange: (value: FieldValues) => void;
 }) {
@@ -108,6 +116,14 @@ function FieldsFormContent({
             <FieldInput
               field={field}
               value={current[field.id]}
+              editorContext={{
+                workspaceSlug: workspace,
+                projectId: project,
+                issueId: issue,
+                fieldId: field.id,
+                editorRef: isMainPendingField(field.name) ? editorRef : undefined,
+                onAssetUpload,
+              }}
               immediate
               onChange={(next) => onChange({ ...value, [field.id]: next })}
             />
@@ -127,11 +143,17 @@ export function CustomFieldsForm({
   workspace,
   project,
   issue,
+  editorRef,
+  onAssetUpload,
+  onFormChange,
 }: {
   control: Control<TIssue>;
   workspace: string;
   project: string;
   issue?: string;
+  editorRef: LongTextEditorContext["editorRef"];
+  onAssetUpload: LongTextEditorContext["onAssetUpload"];
+  onFormChange: () => void;
 }) {
   return (
     <Controller
@@ -143,7 +165,12 @@ export function CustomFieldsForm({
           project={project}
           issue={issue}
           value={field.value}
-          onChange={field.onChange}
+          editorRef={editorRef}
+          onAssetUpload={onAssetUpload}
+          onChange={(value) => {
+            field.onChange(value);
+            onFormChange();
+          }}
         />
       )}
     />

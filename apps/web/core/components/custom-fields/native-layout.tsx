@@ -274,6 +274,9 @@ export function NativeCustomCell({
           field={field}
           appearance={Container === "div" ? "inline" : "form"}
           value={context.values[issueId]?.[fieldId]}
+          editorContext={
+            project ? { workspaceSlug: context.display.workspace, projectId: project, issueId, fieldId } : undefined
+          }
           disabled={disabled || saving || pending || !context.display.data?.editable_project_ids.includes(project)}
           onChange={(value) => void save(value)}
         />

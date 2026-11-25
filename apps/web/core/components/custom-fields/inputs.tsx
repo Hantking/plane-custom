@@ -8,6 +8,8 @@ import { RelativeDate } from "@/components/dates/relative-date";
 import { DateDropdown } from "@/components/dropdowns/date";
 import { renderFormattedPayloadDate } from "@plane/utils";
 import { LongTextInput } from "./long-text-input";
+import { isMainPendingField, isRichLongText } from "./rich-long-text-value";
+import type { LongTextEditorContext } from "./rich-long-text-value";
 import { phoneDisplay, plainNumber, safeSite } from "./text-values";
 import { DateTimeFieldInput } from "./date-time-input";
 import { dateTimeParts } from "./date-time-value";
@@ -72,6 +74,7 @@ export function FieldInput({
   disabled = false,
   immediate = false,
   appearance = "form",
+  editorContext,
 }: {
   field: CustomField;
   value: FieldValue | undefined;
@@ -79,6 +82,7 @@ export function FieldInput({
   disabled?: boolean;
   immediate?: boolean;
   appearance?: "form" | "inline";
+  editorContext?: LongTextEditorContext;
 }) {
   const inline = appearance === "inline";
   const inputClass = inline
@@ -110,6 +114,7 @@ export function FieldInput({
         immediate={immediate}
         inline={inline}
         inputClass={inputClass}
+        editorContext={isRichLongText(value) || isMainPendingField(field.name) ? editorContext : undefined}
         onChange={onChange}
       />
     );
@@ -347,5 +352,5 @@ export function displayValue(field: CustomField, value: FieldValue | undefined) 
         .join(", ") || "—"
     );
   }
-  return String(value);
+  return isRichLongText(value) ? value.text || "—" : String(value);
 }

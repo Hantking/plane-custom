@@ -1,3 +1,4 @@
+import type { TCustomFieldValue } from "@plane/types";
 import { API_BASE_URL } from "@plane/constants";
 import { APIService } from "@/services/api.service";
 import { mutate as revalidateCache } from "swr";
@@ -43,7 +44,7 @@ function notifySaves() {
   for (const listener of fieldListeners) listener();
 }
 
-export type FieldValue = string | boolean | string[] | null;
+export type FieldValue = TCustomFieldValue;
 export type FieldValues = Record<string, FieldValue>;
 export type SelectOption = { id: string; label: string; color?: string };
 export type CustomField = {
