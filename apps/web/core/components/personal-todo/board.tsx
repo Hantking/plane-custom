@@ -11,7 +11,7 @@ import { useTranslation } from "@plane/i18n";
 import { Button } from "@plane/propel/button";
 import { cn } from "@plane/utils";
 import { personalTodoService } from "@/services/personal-todo.service";
-import type { PersonalTodo, TodoFields, TodoPage, TodoView } from "@/services/personal-todo.service";
+import type { TodoFields, TodoPage, TodoUpdate, TodoView } from "@/services/personal-todo.service";
 import { TodoForm } from "./form";
 import { TodoRow } from "./row";
 
@@ -31,7 +31,7 @@ function useTodoList(workspaceSlug: string, userId: string, view: TodoView | nul
 type TodoListProps = {
   list: ReturnType<typeof useTodoList>;
   view: TodoView;
-  onUpdate: (id: string, changes: Partial<TodoFields & Pick<PersonalTodo, "is_completed">>) => Promise<void>;
+  onUpdate: (id: string, changes: TodoUpdate) => Promise<void>;
 };
 
 function TodoList({ list, view, onUpdate }: TodoListProps) {

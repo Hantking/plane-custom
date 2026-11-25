@@ -25,6 +25,8 @@ COPY apps/api/plane/db/models/workspace.py /code/plane/db/models/workspace.py
 COPY apps/api/plane/db/migrations/0123_issue_schedule_times.py /code/plane/db/migrations/0123_issue_schedule_times.py
 COPY apps/api/plane/db/migrations/0124_personal_todo.py /code/plane/db/migrations/0124_personal_todo.py
 COPY apps/api/plane/db/migrations/0125_personal_todo_linked_issue.py /code/plane/db/migrations/0125_personal_todo_linked_issue.py
+COPY apps/api/plane/db/migrations/0126_personal_todo_linked_issues.py /code/plane/db/migrations/0126_personal_todo_linked_issues.py
+COPY apps/api/plane/db/migrations/0127_remove_personal_todo_linked_issue.py /code/plane/db/migrations/0127_remove_personal_todo_linked_issue.py
 COPY apps/api/plane/utils/filters/filter_backend.py /code/plane/utils/filters/filter_backend.py
 COPY apps/api/plane/utils/order_queryset.py /code/plane/utils/order_queryset.py
 COPY apps/api/plane/utils/paginator.py /code/plane/utils/paginator.py

@@ -23,13 +23,17 @@ export type TodoFields = {
   title: string;
   due_date: string | null;
   priority: TodoPriority;
-  linked_issue_id: string | null;
+  linked_issue_ids: string[];
 };
 
-export type PersonalTodo = Omit<TodoFields, "linked_issue_id"> & {
+export type PersonalTodo = Omit<TodoFields, "linked_issue_ids"> & {
   id: string;
   is_completed: boolean;
-  linked_issue: TodoWorkItem | null;
+  linked_issues: TodoWorkItem[];
+};
+
+export type TodoUpdate = Partial<Omit<TodoFields, "linked_issue_ids"> & Pick<PersonalTodo, "is_completed">> & {
+  link_changes?: { add: string[]; remove: string[] };
 };
 
 export type TodoPage = {
@@ -53,7 +57,11 @@ class PersonalTodoService extends APIService {
   }
 
   async create(workspaceSlug: string, payload: TodoFields): Promise<PersonalTodo> {
-    const response = await this.post(this.endpoint(workspaceSlug), payload);
+    const { linked_issue_ids, ...fields } = payload;
+    const response = await this.post(this.endpoint(workspaceSlug), {
+      ...fields,
+      link_changes: { add: linked_issue_ids },
+    });
     return response.data;
   }
 
@@ -62,11 +70,7 @@ class PersonalTodoService extends APIService {
     return response.data;
   }
 
-  async update(
-    workspaceSlug: string,
-    id: string,
-    payload: Partial<TodoFields & Pick<PersonalTodo, "is_completed">>
-  ): Promise<PersonalTodo> {
+  async update(workspaceSlug: string, id: string, payload: TodoUpdate): Promise<PersonalTodo> {
     const response = await this.patch(this.endpoint(workspaceSlug) + id + "/", payload);
     return response.data;
   }

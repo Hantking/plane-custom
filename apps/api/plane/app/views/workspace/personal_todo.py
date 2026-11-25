@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -44,6 +44,7 @@ class WorkspacePersonalTodoViewSet(BaseViewSet):
             )
             .select_related("project")
             .only("id", "name", "project", "project__identifier", "sequence_id")
+            .order_by("project__identifier", "sequence_id", "id")
         )
 
     def get_serializer_context(self):
@@ -70,10 +71,11 @@ class WorkspacePersonalTodoViewSet(BaseViewSet):
                 "due_date", "-created_at", "id"
             )
 
+        queryset = queryset.prefetch_related(
+            Prefetch("linked_issues", queryset=self.get_linkable_issues(), to_attr="visible_linked_issues")
+        )
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
-        issue_ids = {task.linked_issue_id for task in page if task.linked_issue_id is not None}
-        serializer.context["page_issues"] = serializer.context["linkable_issues"].in_bulk(issue_ids)
         response = self.get_paginated_response(serializer.data)
         response.data["today"] = today.isoformat()
         return response

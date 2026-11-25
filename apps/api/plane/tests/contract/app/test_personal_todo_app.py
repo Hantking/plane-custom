@@ -135,7 +135,7 @@ class TestPersonalTodo:
             "sequence_id": work_item.sequence_id,
         }
         todo = PersonalTodo.objects.get(pk=created.data["id"])
-        assert todo.linked_issue_id == work_item.id
+        assert list(todo.linked_issues.values_list("pk", flat=True)) == [work_item.id]
         assert session_client.get(url, {"view": "unscheduled"}).data["results"][0]["linked_issue"]["id"] == str(
             work_item.id
         )
@@ -156,8 +156,59 @@ class TestPersonalTodo:
         assert unlinked.status_code == status.HTTP_200_OK
         assert unlinked.data["linked_issue"] is None
         todo.refresh_from_db()
-        assert todo.linked_issue_id is None
+        assert not todo.linked_issues.exists()
         assert Issue.objects.filter(pk__in=[work_item.id, replacement.id]).count() == 2
+
+    def test_saves_multiple_links_and_applies_changes_independently(self, session_client, workspace, work_item):
+        second = Issue.objects.create(project=work_item.project, name="Review totals")
+        third = Issue.objects.create(project=work_item.project, name="Send the report")
+        first_id, second_id, third_id = map(str, (work_item.id, second.id, third.id))
+        list_url = reverse("workspace-personal-todos", kwargs={"slug": workspace.slug})
+        created = session_client.post(
+            list_url,
+            {"title": "Follow up", "link_changes": {"add": [first_id, second_id, first_id]}},
+            format="json",
+        )
+        assert created.status_code == status.HTTP_201_CREATED
+        assert [item["id"] for item in created.data["linked_issues"]] == [first_id, second_id]
+        todo = PersonalTodo.objects.get(pk=created.data["id"])
+        detail = reverse("workspace-personal-todo", kwargs={"slug": workspace.slug, "pk": todo.id})
+
+        # Independent edits from a form opened earlier must not overwrite the other links.
+        assert session_client.patch(detail, {"link_changes": {"add": [third_id]}}, format="json").status_code == 200
+        for _ in range(2):
+            edited = session_client.patch(detail, {"link_changes": {"remove": [first_id]}}, format="json")
+            assert edited.status_code == status.HTTP_200_OK
+            assert [item["id"] for item in edited.data["linked_issues"]] == [second_id, third_id]
+        assert Issue.objects.filter(pk=work_item.id).exists()
+
+        listed = session_client.get(list_url, {"view": "all"}).data["results"][0]
+        assert [item["id"] for item in listed["linked_issues"]] == [second_id, third_id]
+        second.delete(soft=False)
+        listed = session_client.get(list_url, {"view": "all"}).data["results"][0]
+        assert [item["id"] for item in listed["linked_issues"]] == [third_id]
+
+    def test_rejects_mixed_access_and_preserves_hidden_links(self, session_client, create_user, workspace, work_item):
+        other_project = Project.objects.create(name="Planning", identifier="PLAN", workspace=workspace)
+        ProjectMember.objects.create(project=other_project, member=create_user, role=15)
+        visible_issue = Issue.objects.create(project=other_project, name="Prepare schedule")
+        todo = PersonalTodo.objects.create(title="Private reminder", workspace=workspace, owner=create_user)
+        todo.linked_issues.add(work_item)
+        ProjectMember.objects.filter(project=work_item.project, member=create_user).update(is_active=False)
+        detail = reverse("workspace-personal-todo", kwargs={"slug": workspace.slug, "pk": todo.id})
+        hidden_id, visible_id = str(work_item.id), str(visible_issue.id)
+        denied = session_client.patch(detail, {"link_changes": {"add": [visible_id, hidden_id]}}, format="json")
+        assert denied.status_code == status.HTTP_400_BAD_REQUEST
+        assert set(todo.linked_issues.values_list("pk", flat=True)) == {work_item.id}
+
+        updated = session_client.patch(
+            detail,
+            {"link_changes": {"add": [visible_id], "remove": [hidden_id]}},
+            format="json",
+        )
+        assert updated.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in updated.data["linked_issues"]] == [visible_id]
+        assert set(todo.linked_issues.values_list("pk", flat=True)) == {work_item.id, visible_issue.id}
 
     def test_search_limits_links_to_accessible_work_items(self, session_client, create_user, workspace, work_item):
         other_workspace = Workspace.objects.create(name="Other", slug="another-workspace", owner=create_user)
@@ -179,20 +230,20 @@ class TestPersonalTodo:
         detail = reverse("workspace-personal-todo", kwargs={"slug": workspace.slug, "pk": todo.id})
         for issue in [outside, hidden]:
             assert (
-                session_client.post(list_url, {"title": "Follow up", "linked_issue_id": str(issue.id)}, format="json")
-                .status_code
+                session_client.post(
+                    list_url, {"title": "Follow up", "linked_issue_id": str(issue.id)}, format="json"
+                ).status_code
                 == status.HTTP_400_BAD_REQUEST
             )
             denied = session_client.patch(detail, {"linked_issue_id": str(issue.id)}, format="json")
             assert denied.status_code == status.HTTP_400_BAD_REQUEST
             assert "linked_issue_id" in denied.data
         todo.refresh_from_db()
-        assert todo.linked_issue_id is None
+        assert not todo.linked_issues.exists()
 
     def test_hides_link_if_project_access_is_lost(self, session_client, create_user, workspace, work_item):
-        todo = PersonalTodo.objects.create(
-            title="Private reminder", workspace=workspace, owner=create_user, linked_issue=work_item
-        )
+        todo = PersonalTodo.objects.create(title="Private reminder", workspace=workspace, owner=create_user)
+        todo.linked_issues.add(work_item)
         ProjectMember.objects.filter(project=work_item.project, member=create_user).update(is_active=False)
         list_url = reverse("workspace-personal-todos", kwargs={"slug": workspace.slug})
         payload = session_client.get(list_url, {"view": "unscheduled"}).data["results"][0]

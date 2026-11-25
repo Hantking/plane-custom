@@ -52,9 +52,10 @@
     "load_error": "Could not load tasks.",
     "save_error": "Could not save the task. Try again.",
     "work_item": {
-      "link": "Link work item",
-      "change": "Change link",
-      "remove": "Remove link",
+      "link": "Link work items",
+      "selected": "Selected: {count}",
+      "done": "Done",
+      "remove": "Remove link to {item}",
       "search": "Search by work item title or ID",
       "searching": "Searching work items…",
       "error": "Could not search work items.",

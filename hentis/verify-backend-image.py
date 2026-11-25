@@ -26,7 +26,7 @@ def main():
 
     todo = apps.get_model("db", "PersonalTodo")
     assert todo._meta.db_table == "personal_todos"
-    assert todo._meta.get_field("linked_issue").related_model == apps.get_model(
+    assert todo._meta.get_field("linked_issues").related_model == apps.get_model(
         "db", "Issue"
     )
     preference = apps.get_model("db", "WorkspaceUserPreference")
@@ -38,10 +38,12 @@ def main():
         getattr(operation, "name", None) == "PersonalTodo"
         for operation in migration.operations
     )
-    link_migration = migrations.get_migration("db", "0125_personal_todo_linked_issue")
+    link_migration = migrations.get_migration("db", "0126_personal_todo_linked_issues")
     assert any(
-        operation.name == "linked_issue" for operation in link_migration.operations
+        getattr(operation, "name", None) == "linked_issues"
+        for operation in link_migration.operations
     )
+    migrations.get_migration("db", "0127_remove_personal_todo_linked_issue")
 
     print(
         "The backend image includes the personal To-do routes, model, preferences and migration."

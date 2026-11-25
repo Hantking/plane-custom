@@ -16,7 +16,7 @@ import { TodoWorkItemField } from "./work-item-field";
 const inputClass = "h-8 rounded-md border border-subtle bg-layer-2 px-2 text-13 text-primary outline-accent-primary";
 
 type TodoFormProps = {
-  initial: Pick<PersonalTodo, "title" | "due_date" | "priority"> & Partial<Pick<PersonalTodo, "linked_issue">>;
+  initial: Pick<PersonalTodo, "title" | "due_date" | "priority"> & Partial<Pick<PersonalTodo, "linked_issues">>;
   onSave: (fields: TodoFields) => Promise<void>;
   onCancel?: () => void;
 };
@@ -26,7 +26,7 @@ export function TodoForm({ initial, onSave, onCancel }: TodoFormProps) {
   const [title, setTitle] = useState(initial.title);
   const [dueDate, setDueDate] = useState(initial.due_date ?? "");
   const [priority, setPriority] = useState(initial.priority);
-  const [workItem, setWorkItem] = useState(initial.linked_issue ?? null);
+  const [workItems, setWorkItems] = useState(initial.linked_issues ?? []);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -38,11 +38,16 @@ export function TodoForm({ initial, onSave, onCancel }: TodoFormProps) {
     setSaving(true);
     setFailed(false);
     try {
-      await onSave({ title: trimmed, due_date: dueDate || null, priority, linked_issue_id: workItem?.id ?? null });
+      await onSave({
+        title: trimmed,
+        due_date: dueDate || null,
+        priority,
+        linked_issue_ids: workItems.map((item) => item.id),
+      });
       setTitle(initial.title);
       setDueDate(initial.due_date ?? "");
       setPriority(initial.priority);
-      setWorkItem(initial.linked_issue ?? null);
+      setWorkItems(initial.linked_issues ?? []);
     } catch {
       setFailed(true);
     } finally {
@@ -104,7 +109,7 @@ export function TodoForm({ initial, onSave, onCancel }: TodoFormProps) {
           )}
         </div>
       </div>
-      <TodoWorkItemField value={workItem} onChange={setWorkItem} disabled={saving} />
+      <TodoWorkItemField value={workItems} onChange={setWorkItems} disabled={saving} />
       {failed && (
         <p role="alert" className="mt-2 text-13 text-danger-primary">
           {t("personal_todo.save_error")}
